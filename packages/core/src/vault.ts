@@ -21,8 +21,14 @@ export class VaultReader {
     this.rpc = rpc;
   }
 
+  /** Reads optimistic state so a view right after a transaction sees its effects. */
   view<T>(method: string, args: Record<string, unknown> = {}): Promise<T> {
-    return this.rpc.callFunction({ contractId: this.vaultId, method, args }) as Promise<T>;
+    return this.rpc.callFunction({
+      contractId: this.vaultId,
+      method,
+      args,
+      blockQuery: { finality: "optimistic" },
+    }) as Promise<T>;
   }
 
   config = () => this.view<VaultConfig>("get_config");

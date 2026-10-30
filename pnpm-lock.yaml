@@ -17,6 +17,18 @@ importers:
         specifier: 7.4.0
         version: 7.4.0
 
+  scripts:
+    dependencies:
+      '@veto/core':
+        specifier: workspace:*
+        version: link:../packages/core
+      ethers:
+        specifier: 6.17.0
+        version: 6.17.0
+      near-api-js:
+        specifier: 7.4.0
+        version: 7.4.0
+
 packages:
 
   '@adraffy/ens-normalize@1.11.1':
