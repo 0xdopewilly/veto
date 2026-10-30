@@ -51,15 +51,12 @@ fn setup() -> Vault {
         owner(),
         guardian(),
         "Pay listed suppliers only, in USDC, up to $500 a week.".into(),
+        vec![(USDC.into(), AssetPolicy { period_limit: U128(500 * DOLLAR), max_single: U128(500 * DOLLAR) })],
         U64(0),
         None,
         None,
         None,
         None,
-    );
-    vault.policies.insert(
-        USDC.into(),
-        AssetPolicy { period_limit: U128(500 * DOLLAR), max_single: U128(500 * DOLLAR) },
     );
     vault.add_agent(agent());
     vault.add_signer(address_of(&model_key()), MODEL.into());
@@ -339,4 +336,15 @@ fn parses_fenced_model_output() {
     assert_eq!(parsed.proposal_hash, "ab");
     assert_eq!(parsed.decision, verdict::Decision::Veto);
     assert_eq!(parsed.reasons, vec!["CHANGED_PAYOUT_DETAILS".to_string()]);
+}
+
+/// Pinned so the TypeScript guardian (packages/core/src/proposal.ts) can't drift from the contract.
+#[test]
+fn proposal_hash_is_stable() {
+    let mut vault = setup();
+    let id = propose(&mut vault, 300, HOUR);
+    assert_eq!(
+        vault.get_proposal_hash(U64(id)),
+        "b834b56725f712fb48348615f1591cd9b136ab43e384138e4592b5435dd5f5d5"
+    );
 }

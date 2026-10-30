@@ -199,11 +199,13 @@ pub struct Vault {
 impl Vault {
     /// `period_anchor_secs` is the unix time a spending period starts from
     /// (e.g. a Monday 00:00 WAT). Delays default to 24h and the period to 7 days.
+    /// Starting policies apply at once; later raises wait for the raise delay.
     #[init]
     pub fn new(
         owner: AccountId,
         guardian: AccountId,
         mandate: String,
+        policies: Vec<(String, AssetPolicy)>,
         period_anchor_secs: U64,
         period_secs: Option<U64>,
         override_delay_secs: Option<U64>,
@@ -213,7 +215,7 @@ impl Vault {
         require!(mandate.len() <= MAX_MANDATE_LEN, "mandate is too long");
         let period_secs = period_secs.map_or(DEFAULT_PERIOD_SECS, |v| v.0);
         require!(period_secs > 0, "period must be positive");
-        Self {
+        let mut vault = Self {
             owner,
             guardian,
             frozen: false,
@@ -232,7 +234,12 @@ impl Vault {
             spent: LookupMap::new(StorageKey::Spent),
             proposals: Vector::new(StorageKey::Proposals),
             open_proposals: IterableSet::new(StorageKey::OpenProposals),
+        };
+        for (asset, policy) in policies {
+            require!(policy.max_single.0 <= policy.period_limit.0, "max_single exceeds period_limit");
+            vault.policies.insert(asset, policy);
         }
+        vault
     }
 
     // ---------------------------------------------------------------- agent

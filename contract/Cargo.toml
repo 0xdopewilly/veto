@@ -10,11 +10,11 @@ repository = "https://github.com/0xdopewilly/veto"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-near-sdk = { version = "5.30", features = ["unstable"] }
+near-sdk = { version = "=5.29.1", features = ["unstable"] }
 hex = "0.4"
 
 [dev-dependencies]
-near-sdk = { version = "5.30", features = ["unstable", "unit-testing"] }
+near-sdk = { version = "=5.29.1", features = ["unstable", "unit-testing"] }
 k256 = { version = "0.13", features = ["ecdsa"] }
 sha3 = "0.10"
 

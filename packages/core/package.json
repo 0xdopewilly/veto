@@ -1,0 +1,16 @@
+{
+  "name": "@veto/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "ethers": "6.17.0",
+    "near-api-js": "7.4.0"
+  },
+  "scripts": {
+    "test": "node --test test/core.test.ts"
+  }
+}
