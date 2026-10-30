@@ -1,0 +1,169 @@
+.table {
+  display: flex;
+  flex-direction: column;
+}
+
+.head {
+  display: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 68px;
+  border-bottom: 1px solid var(--hairline);
+  text-decoration: none;
+  color: var(--sand);
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.decision {
+  flex: none;
+}
+
+.statusWord,
+.chain,
+.agent,
+.when {
+  display: none;
+}
+
+.icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pass {
+  background: var(--green-tint);
+  color: var(--green);
+}
+
+.veto {
+  background: var(--coral-tint);
+  color: var(--coral);
+}
+
+.pending {
+  background: var(--purple-tint);
+  color: var(--purple);
+}
+
+.neutral {
+  background: var(--raised);
+  color: var(--muted);
+}
+
+.payee {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.title {
+  font-size: 15.5px;
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.title:global(.mono) {
+  font-size: 14px;
+}
+
+.sub {
+  font-size: 13px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.amount {
+  font-size: 15.5px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+
+.struck {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--coral);
+}
+
+.empty {
+  margin: 0;
+  padding: 24px 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+@media (min-width: 900px) {
+  .head,
+  .row {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1.6fr) 100px 140px minmax(0, 1.2fr) 120px;
+    gap: 16px;
+    align-items: center;
+  }
+  .head {
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--hairline);
+    font-size: 13.5px;
+    color: var(--muted);
+  }
+  .row {
+    min-height: 72px;
+    padding: 0 8px;
+    margin: 0 -8px;
+    border-radius: 12px;
+    transition: background-color 200ms ease, transform 140ms ease;
+  }
+  .row:hover {
+    background: #0b0b0b;
+  }
+  .vetoedRow {
+    background: rgba(255, 121, 102, 0.06);
+  }
+  .decision {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .statusWord {
+    display: inline;
+    font-size: 14.5px;
+    font-weight: 550;
+  }
+  .chain,
+  .agent,
+  .when {
+    display: block;
+    font-size: 14px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .agent {
+    font-size: 12.5px;
+  }
+  .right,
+  .amount {
+    text-align: right;
+  }
+  .mobileOnly {
+    display: none;
+  }
+}

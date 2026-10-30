@@ -1,0 +1,25 @@
+.wrap {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.full {
+  display: flex;
+  width: 100%;
+}
+
+.note {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--muted);
+  text-align: center;
+}
+
+.note:empty {
+  display: none;
+}
+
+.ink {
+  color: var(--coral-ink);
+}

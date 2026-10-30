@@ -1,0 +1,16 @@
+.mark {
+  flex: none;
+  display: block;
+}
+
+.lockup {
+  display: inline-flex;
+  align-items: center;
+}
+
+.word {
+  font-weight: 750;
+  font-stretch: 125%;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}

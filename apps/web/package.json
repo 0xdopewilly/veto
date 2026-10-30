@@ -1,0 +1,28 @@
+{
+  "name": "@veto/web",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hot-labs/near-connect": "0.12.0",
+    "@veto/core": "workspace:*",
+    "motion": "14.9.0",
+    "near-api-js": "7.4.0",
+    "next": "16.4.3",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "6.0.3"
+  }
+}

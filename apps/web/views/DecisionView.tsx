@@ -1,0 +1,456 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import type { Proposal } from "@veto/core/proposal";
+import { metaOf, useVault, type VaultState } from "@/lib/vault";
+import { useProposal } from "@/lib/useProposal";
+import { useKeptBlocked } from "@/lib/dismissed";
+import { useNow } from "@/lib/useNow";
+import { STATUS_TEXT, imitated, isTestSigner, listedPayee, payeeHistory, payeeLabel, reasonText } from "@/lib/decision";
+import {
+  formatAmount,
+  formatDuration,
+  formatParts,
+  formatShort,
+  formatTime,
+  formatWhen,
+  remaining,
+  shortAddress,
+  shortHash,
+} from "@/lib/format";
+import { Screen, BackLink, delay } from "@/components/Screen";
+import { Circuit } from "@/components/Circuit";
+import { AddressCompare } from "@/components/AddressCompare";
+import { Icon } from "@/components/Icon";
+import { Pill } from "@/components/Pill";
+import { OwnerButton } from "@/components/OwnerButton";
+import { LoadingScreen, VLoader } from "@/components/VLoader";
+import styles from "./DecisionView.module.css";
+
+const periodName = (secs: string) => (secs === "604800" ? "weekly" : secs === "86400" ? "daily" : "period");
+
+export function DecisionView({ id }: { id: string }) {
+  const { state } = useVault();
+  const { proposal, missing } = useProposal(id);
+
+  if (missing) {
+    return (
+      <Screen pushed>
+        <BackLink href="/app" label="Back to overview" />
+        <h1 className={styles.plainTitle}>No payment with that number</h1>
+        <p className={styles.plainText}>This vault has no proposal {id}. It may belong to a different vault.</p>
+      </Screen>
+    );
+  }
+  if (!state || !proposal) return <LoadingScreen caption="Loading the decision" />;
+
+  return (
+    <>
+      <span className="visually-hidden" role="status" aria-live="polite">
+        {STATUS_TEXT[proposal.status]}
+      </span>
+      <DecisionBody state={state} proposal={proposal} />
+    </>
+  );
+}
+
+function DecisionBody({ state, proposal }: { state: VaultState; proposal: Proposal }) {
+  switch (proposal.status) {
+    case "Vetoed":
+      return <Vetoed state={state} p={proposal} />;
+    case "OverridePending":
+      return <OverridePending state={state} p={proposal} />;
+    case "Paid":
+      return <Paid state={state} p={proposal} />;
+    case "Screening":
+    case "Executing":
+      return <InFlight state={state} p={proposal} />;
+    default:
+      return <Closed state={state} p={proposal} />;
+  }
+}
+
+function amountParts(state: VaultState, p: Proposal) {
+  const meta = metaOf(state, p.request.asset);
+  const parts = formatParts(p.request.amount, meta);
+  return { meta, figure: `${parts.prefix}${parts.whole}${parts.cents}`, unit: parts.suffix || meta.symbol };
+}
+
+function capCaption(state: VaultState, p: Proposal): string {
+  const spend = state.spend[p.request.asset];
+  const meta = metaOf(state, p.request.asset);
+  if (spend && BigInt(p.request.amount) <= BigInt(spend.remaining)) {
+    return `${formatShort(p.request.amount, meta)} fits in the ${formatShort(spend.remaining, meta)} left of your ${formatShort(spend.period_limit, meta)} ${periodName(state.config.period_secs)} cap. A plain spending limit would have paid it.`;
+  }
+  return "It was inside your contract caps when your agent proposed it. Only the AI screen stopped it.";
+}
+
+/* ---------------------------------------------------------------- Vetoed */
+
+function Vetoed({ state, p }: { state: VaultState; p: Proposal }) {
+  const router = useRouter();
+  const { keep } = useKeptBlocked();
+  const { figure, unit } = amountParts(state, p);
+  const look = imitated(state.payees, p);
+  const reasons = p.verdict?.reasons.length ? p.verdict.reasons : ["MANDATE_VIOLATION"];
+  const delaySecs = Number(state.config.override_delay_secs);
+  const who = look ? ` from ${look.payee.name}` : "";
+  const what = p.request.memo ? `invoice ${p.request.memo}${who}` : `a payment${who}`;
+
+  const actions = (
+    <div className={styles.actions}>
+      <Pill
+        variant="ink"
+        full
+        onClick={() => {
+          keep(p.id);
+          router.push("/app");
+        }}
+      >
+        Keep it blocked
+      </Pill>
+      <OwnerButton method="override_veto" args={{ id: p.id }} variant="inkOutline" size="md" icon="clock" full success="Override scheduled" confirmTone="ink">
+        {`Override, pays in ${formatDuration(delaySecs)}`}
+      </OwnerButton>
+      <p className={styles.actionNote}>You can cancel an override any time before it pays.</p>
+    </div>
+  );
+
+  return (
+    <Screen pushed tone="coral" wide>
+      <div className={styles.topRow}>
+        <BackLink href="/app" label="Back to overview" onCoral />
+        <span className={styles.time}>{formatWhen(p.verdict?.recorded_at ?? p.created_at)}</span>
+      </div>
+
+      <section className={styles.band} aria-label="Verdict">
+        <div className={styles.bandMain}>
+          <span className={`${styles.eyebrow} rise`} style={delay(60)}>Stopped by the AI screen</span>
+          <h1 className={`${styles.vetoed} stamp`}>VETOED</h1>
+          <div className={`${styles.amountRow} rise`} style={delay(420)}>
+            <span className={`${styles.amount} tabular`}>{figure}</span>
+            <span className={styles.unit}>{unit}</span>
+          </div>
+          <span className={`mono ${styles.to} rise`} style={delay(480)}>
+            to {shortAddress(p.request.payee)} on {p.request.chain.toUpperCase()}
+          </span>
+          <p className={`${styles.request} rise`} style={delay(540)}>
+            <span className="mono">{p.agent}</span> tried to pay {what}.
+          </p>
+        </div>
+        <div className={`${styles.bandActions} rise`} style={delay(600)}>{actions}</div>
+      </section>
+
+      <div className={styles.columns}>
+        <div className={styles.colMain}>
+          <section className={`${styles.circuitCard} rise`} style={delay(560)} aria-label="Checks">
+            <Circuit ai="veto" paid={false} delay={780} />
+            <p className={styles.caption}>{capCaption(state, p)}</p>
+          </section>
+
+          <h2 className={`${styles.h2} rise`} style={delay(700)}>Why it was stopped</h2>
+          <ol className={styles.reasons}>
+            {reasons.map((code, i) => (
+              <li key={code} className={`${styles.reason} rise`} style={delay(760 + i * 80)}>
+                <span className={styles.reasonNumber} aria-hidden="true">{i + 1}</span>
+                <div className={styles.reasonBody}>
+                  {code === "LOOKALIKE_ADDRESS" && look ? (
+                    <LookalikeReason state={state} p={p} look={look} />
+                  ) : (
+                    <span className={styles.reasonTitle}>{reasonText(code)}</span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        <aside className={`${styles.colSide} rise`} style={delay(820)} aria-label="Proof">
+          <ProofSummary p={p} />
+        </aside>
+      </div>
+
+      <div className={styles.mobileActions}>{actions}</div>
+    </Screen>
+  );
+}
+
+function LookalikeReason({ state, p, look }: { state: VaultState; p: Proposal; look: NonNullable<ReturnType<typeof imitated>> }) {
+  const history = payeeHistory(state.proposals, look.payee);
+  const evm = p.request.payee.startsWith("0x");
+  return (
+    <>
+      <span className={styles.reasonTitle}>A lookalike of {look.payee.name}'s address</span>
+      <p className={styles.reasonText}>
+        {evm
+          ? `${history.count ? `Your last ${history.count} payment${history.count === 1 ? "" : "s"} to them went to a different address` : "Their saved address is different"} that shortens to the same ${shortAddress(p.request.payee)}. Only the middle differs, which is how address-poisoning scams work.`
+          : `Their saved account is ${look.payee.address}. This request goes to ${p.request.payee}: ${look.why}.`}
+      </p>
+      <AddressCompare
+        saved={look.payee.address}
+        requested={p.request.payee}
+        savedLabel={history.count ? `Paid before, ${history.count} time${history.count === 1 ? "" : "s"}` : "Saved payee"}
+      />
+    </>
+  );
+}
+
+function ProofSummary({ p }: { p: Proposal }) {
+  const v = p.verdict;
+  if (!v) return null;
+  const test = isTestSigner(v.model_id);
+  return (
+    <div className={styles.proof}>
+      <div className={styles.proofHead}>
+        <span className={styles.proofTitle}>
+          <Icon name="shield" size={18} />
+          Proof
+        </span>
+        <Link href={`/app/decisions/${p.id}/proof`} className={styles.proofLink}>
+          See every step <Icon name="arrowRight" size={14} stroke={2.25} />
+        </Link>
+      </div>
+      <p className={styles.proofText}>
+        {test
+          ? "Signed by a local test key while the vault was being checked end to end, not by a NEAR AI enclave."
+          : "Screened privately inside a hardware enclave on NEAR AI Cloud. Your vault contract checked the model's signature before it acted."}
+      </p>
+      <dl className={styles.proofList}>
+        <dt>Model</dt>
+        <dd className="mono">{v.model_id}</dd>
+        <dt>Signer</dt>
+        <dd className="mono">{shortAddress(v.signer)}</dd>
+        <dt>Signature</dt>
+        <dd>Checked on-chain</dd>
+        <dt>Request</dt>
+        <dd className="mono">{shortHash(v.request_hash)}</dd>
+      </dl>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------- Override pending */
+
+function OverridePending({ state, p }: { state: VaultState; p: Proposal }) {
+  const now = useNow(1000);
+  const { meta } = amountParts(state, p);
+  const at = p.override_executes_at ?? "0";
+  const left = remaining(at, now);
+  const look = imitated(state.payees, p);
+  const requestedAt = (BigInt(at) - BigInt(state.config.override_delay_secs) * 1_000_000_000n).toString();
+
+  return (
+    <Screen pushed>
+      <div className={styles.topRow}>
+        <BackLink href="/app" label="Back to overview" />
+      </div>
+      <div className={styles.pendingLayout}>
+        <section className={styles.pendingHero}>
+          <span className={`${styles.pendingPill} rise`}>
+            <Icon name="clock" size={14} stroke={2.25} /> Override pending
+          </span>
+          {left.done ? (
+            <h1 className={`${styles.countdown} rise`} style={delay(80)}>Ready to pay</h1>
+          ) : (
+            <h1 className={`${styles.countdown} tabular rise`} style={delay(80)}>
+              <span className={styles.countLabel}>Pays in</span>
+              {left.hours > 0 && (
+                <>
+                  {left.hours}
+                  <small> h </small>
+                </>
+              )}
+              {left.minutes}
+              <small> min </small>
+              {left.hours === 0 && (
+                <>
+                  {String(left.seconds).padStart(2, "0")}
+                  <small> s</small>
+                </>
+              )}
+            </h1>
+          )}
+          <p className={`${styles.pendingWhen} rise`} style={delay(140)}>
+            {left.done ? "The delay is over. Anyone can now send it, or you can still cancel." : `${formatWhen(at)} at ${formatTime(at)} unless you cancel.`}
+          </p>
+
+          <dl className={`${styles.details} rise`} style={delay(200)}>
+            <dt>Amount</dt>
+            <dd className="tabular">{formatAmount(p.request.amount, meta)}</dd>
+            <dt>To</dt>
+            <dd className="mono">{shortAddress(p.request.payee)} on {p.request.chain.toUpperCase()}</dd>
+            <dt>Limits</dt>
+            <dd>Still limited by your contract caps</dd>
+          </dl>
+
+          {look && (
+            <div className={`${styles.warning} rise`} style={delay(260)} role="note">
+              <span className={styles.warningTitle}>Check before it pays</span>
+              <p>
+                This address is a lookalike of {look.payee.name}'s saved address. Only let it pay if {look.payee.name} confirmed the new address by phone.
+              </p>
+            </div>
+          )}
+
+          <div className={`${styles.pendingActions} rise`} style={delay(320)}>
+            {left.done && (
+              <OwnerButton method="execute_override" args={{ id: p.id }} anyone variant="primary" full icon="arrowRight" success="Sent">
+                Pay now
+              </OwnerButton>
+            )}
+            <OwnerButton method="cancel_override" args={{ id: p.id }} variant={left.done ? "secondary" : "primary"} size={left.done ? "md" : "lg"} full success="Cancelled">
+              Cancel override
+            </OwnerButton>
+          </div>
+        </section>
+
+        <section className={`${styles.timelineCard} rise`} style={delay(380)} aria-label="Timeline">
+          <h2 className={styles.h2Small}>Timeline</h2>
+          <ol className={styles.timeline}>
+            <li>
+              <span className={`${styles.tlDot} ${styles.tlVeto}`} />
+              <span>Vetoed</span>
+              <span className={styles.tlTime}>{formatWhen(p.verdict?.recorded_at ?? p.created_at)}</span>
+            </li>
+            <li>
+              <span className={`${styles.tlDot} ${styles.tlDone}`} />
+              <span>Override requested</span>
+              <span className={styles.tlTime}>{formatWhen(requestedAt)}</span>
+            </li>
+            <li>
+              <span className={`${styles.tlDot} ${styles.tlPending}`} />
+              <span>Pays</span>
+              <span className={styles.tlTime}>{`${formatWhen(at)}${formatWhen(at).startsWith("Today") ? "" : `, ${formatTime(at)}`}`}</span>
+            </li>
+          </ol>
+        </section>
+      </div>
+    </Screen>
+  );
+}
+
+/* ------------------------------------------------------------------ Paid */
+
+function Paid({ state, p }: { state: VaultState; p: Proposal }) {
+  const { meta, figure, unit } = amountParts(state, p);
+  const listed = listedPayee(state.payees, p);
+  const spend = state.spend[p.request.asset];
+  return (
+    <Screen pushed>
+      <div className={styles.topRow}>
+        <BackLink href="/app" label="Back to overview" />
+        <span className={styles.timeMuted}>{formatWhen(p.settled_at ?? p.created_at)}</span>
+      </div>
+      <div className={styles.paidLayout}>
+        <section className={styles.paidHero}>
+          <span className={`${styles.paidCheck} pop`} style={delay(120)}>
+            <Icon name="check" size={28} stroke={3} />
+          </span>
+          <h1 className={`${styles.paidTitle} rise`} style={delay(200)}>Paid</h1>
+          <div className={`${styles.amountRow} rise`} style={delay(260)}>
+            <span className={`${styles.amount} tabular`}>{figure}</span>
+            <span className={styles.unitMuted}>{unit}</span>
+          </div>
+          <span className={`${styles.paidTo} rise`} style={delay(320)}>
+            to {payeeLabel(state.payees, p)} on {p.request.chain.toUpperCase()}
+          </span>
+          <span className={`${styles.paidMeta} rise`} style={delay(360)}>
+            {formatWhen(p.settled_at ?? p.created_at)}
+            {p.request.memo ? ` · ${p.request.memo}` : ""}
+          </span>
+          <div className={`${styles.paidLine} draw`} style={delay(600)} aria-hidden="true" />
+        </section>
+
+        <section className={`${styles.checks} rise`} style={delay(420)} aria-label="Checks">
+          <h2 className={styles.h2Small}>Checks</h2>
+          <div className={styles.checkRow}>
+            <div>
+              <span className={styles.checkName}>Contract cap</span>
+              <span className={styles.checkDetail}>
+                {spend ? `${formatShort(p.request.amount, meta)} within the ${formatShort(spend.period_limit, meta)} limit` : "Within the limit"}
+              </span>
+            </div>
+            <span className={styles.passBadge}>Pass</span>
+          </div>
+          <div className={styles.checkRow}>
+            <div>
+              <span className={styles.checkName}>AI screen</span>
+              <span className={styles.checkDetail}>{listed ? `Saved payee, ${listed.name}. Nothing in the request looked wrong.` : "Nothing in the request looked wrong."}</span>
+            </div>
+            <span className={styles.passBadge}>Pass</span>
+          </div>
+          <Circuit ai="pass" paid delay={500} />
+        </section>
+
+        <aside className={`${styles.colSideDark} rise`} style={delay(480)}>
+          <ProofSummary p={p} />
+        </aside>
+      </div>
+    </Screen>
+  );
+}
+
+/* --------------------------------------------------- Screening / Sending */
+
+function InFlight({ state, p }: { state: VaultState; p: Proposal }) {
+  const now = useNow(1000);
+  const meta = metaOf(state, p.request.asset);
+  const screening = p.status === "Screening";
+  const left = remaining(p.screen_deadline, now);
+  return (
+    <Screen pushed>
+      <BackLink href="/app" label="Back to overview" />
+      <section className={styles.inflight}>
+        <VLoader size={96} label={screening ? "Screening" : "Sending"} />
+        <h1 className={styles.plainTitle}>{screening ? "Screening privately" : "Sending"}</h1>
+        <p className={styles.plainText}>
+          {formatAmount(p.request.amount, meta)} to <span className="mono">{shortAddress(p.request.payee)}</span>
+          {screening ? ", inside an enclave on NEAR AI Cloud." : ". Both checks passed; the transfer is on its way."}
+        </p>
+        {screening && (
+          <p className={styles.plainMuted}>
+            {left.done ? "No verdict arrived in time. It will expire, so nothing is paid." : `If no verdict arrives in ${left.minutes} min ${left.seconds} s, it fails closed and nothing is paid.`}
+          </p>
+        )}
+        <div className={styles.inflightCircuit}>
+          <Circuit ai={screening ? "pending" : "pass"} paid={false} />
+        </div>
+      </section>
+    </Screen>
+  );
+}
+
+/* ----------------------------------------- Expired / Cancelled / Failed */
+
+const CLOSED: Record<string, { title: string; text: string }> = {
+  Expired: { title: "Expired", text: "No verdict arrived before the deadline, so the payment failed closed. Nothing was paid." },
+  Cancelled: { title: "Cancelled", text: "The override was cancelled before it paid. Nothing left the vault." },
+  Failed: { title: "Transfer failed", text: "Both checks passed but the transfer didn't go through. The amount was released back to this period's limit." },
+};
+
+function Closed({ state, p }: { state: VaultState; p: Proposal }) {
+  const meta = metaOf(state, p.request.asset);
+  const copy = CLOSED[p.status] ?? CLOSED.Expired;
+  return (
+    <Screen pushed>
+      <BackLink href="/app" label="Back to overview" />
+      <section className={styles.inflight}>
+        <span className={styles.closedIcon}>
+          <Icon name={p.status === "Failed" ? "x" : "clock"} size={26} />
+        </span>
+        <h1 className={`${styles.plainTitle} rise`}>{copy.title}</h1>
+        <p className={`${styles.plainText} rise`} style={delay(80)}>{copy.text}</p>
+        <p className={`${styles.plainMuted} rise`} style={delay(140)}>
+          {formatAmount(p.request.amount, meta)} to <span className="mono">{shortAddress(p.request.payee)}</span>, proposed by{" "}
+          <span className="mono">{p.agent}</span>, {formatWhen(p.created_at)}.
+        </p>
+        {p.verdict && (
+          <div className={styles.closedProof}>
+            <ProofSummary p={p} />
+          </div>
+        )}
+      </section>
+    </Screen>
+  );
+}

@@ -1,0 +1,153 @@
+:root {
+  --black: #000000;
+  --raised: #141414;
+  --sheet: #141414;
+  --input: #0e0e0e;
+  --hairline: #1c1c1c;
+  --track: #222222;
+  --outline: #3a3a3a;
+  --sand: #f2f1e9;
+  --muted: #acaba6;
+  --dim: #757575;
+  --nav-idle: #8f8e8a;
+  --green: #00ec97;
+  --green-tint: #0b2a1e;
+  --coral: #ff7966;
+  --coral-tint: #2e1612;
+  --coral-ink: #3a1a14;
+  --purple: #9797ff;
+  --purple-tint: #1b1b33;
+
+  --ease-push: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-rise: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-stamp: cubic-bezier(0.2, 1.3, 0.35, 1);
+  --ease-pop: cubic-bezier(0.2, 1.5, 0.4, 1);
+  --ease-draw: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --sidebar: 248px;
+  --tabbar: 64px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--black);
+  color: var(--sand);
+  font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+.mono {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Press feedback for every tappable surface. */
+.press {
+  transition: transform 140ms ease, background-color 200ms ease, border-color 200ms ease, opacity 200ms ease;
+}
+.press:active {
+  transform: scale(0.97);
+}
+
+/* Entrance moments, used with an inline animation-delay for stagger. */
+.rise {
+  animation: rise 700ms var(--ease-rise) backwards;
+}
+.stamp {
+  transform-origin: left center;
+  animation: stamp 600ms var(--ease-stamp) 220ms backwards;
+}
+.pop {
+  animation: pop 420ms var(--ease-pop) backwards;
+}
+.draw {
+  transform-origin: left center;
+  animation: draw 420ms var(--ease-draw) backwards;
+}
+.ring {
+  animation: ring 1.5s ease-out 1.5s infinite;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes stamp {
+  from { opacity: 0; transform: scale(1.4); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pop {
+  from { opacity: 0; transform: scale(0.55); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes draw {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes ring {
+  0% { box-shadow: 0 0 0 0 rgba(255, 121, 102, 0.6); }
+  100% { box-shadow: 0 0 0 14px rgba(255, 121, 102, 0); }
+}
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .stamp,
+  .pop,
+  .draw {
+    animation: fade 200ms ease both !important;
+    transform: none !important;
+  }
+  .ring {
+    animation: none;
+  }
+  .press:active {
+    transform: none;
+  }
+}

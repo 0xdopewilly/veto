@@ -1,0 +1,76 @@
+.card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 18px 18px 20px;
+  border-radius: 20px;
+  background: var(--coral);
+  color: var(--black);
+  text-decoration: none;
+}
+
+.pending {
+  background: var(--purple);
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.eyebrow {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.headline {
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  text-wrap: pretty;
+}
+
+.detail {
+  font-size: 13.5px;
+  color: var(--coral-ink);
+}
+
+.pending .detail {
+  color: #1d1d4a;
+}
+
+.go {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--black);
+  color: var(--coral);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 200ms ease;
+}
+
+.pending .go {
+  color: var(--purple);
+}
+
+.card:hover .go {
+  transform: translateX(3px);
+}
+
+@media (min-width: 900px) {
+  .card {
+    padding: 24px;
+    border-radius: 24px;
+    align-items: flex-end;
+  }
+  .headline {
+    font-size: 24px;
+  }
+}

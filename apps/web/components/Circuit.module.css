@@ -1,0 +1,130 @@
+.circuit {
+  display: flex;
+  align-items: flex-start;
+  --dot: 38px;
+}
+
+.large {
+  --dot: 56px;
+}
+
+.node {
+  width: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.large .node {
+  width: 92px;
+  gap: 10px;
+}
+
+.dot {
+  width: var(--dot);
+  height: var(--dot);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vault {
+  box-shadow: inset 0 0 0 1.5px rgba(242, 241, 233, 0.35);
+}
+
+.pass {
+  color: var(--green);
+  background: rgba(0, 236, 151, 0.12);
+  box-shadow: inset 0 0 0 1.5px var(--green);
+}
+
+.veto {
+  color: var(--black);
+  background: var(--coral);
+}
+
+.waiting {
+  color: var(--purple);
+  box-shadow: inset 0 0 0 1.5px var(--purple);
+}
+
+.paid {
+  color: var(--black);
+  background: var(--green);
+}
+
+.unpaid {
+  color: var(--muted);
+  box-shadow: inset 0 0 0 1.5px rgba(242, 241, 233, 0.28);
+  border-radius: 50%;
+}
+
+.payee {
+  color: var(--muted);
+}
+
+.label {
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
+  color: var(--sand);
+}
+
+.large .label {
+  font-size: 14px;
+}
+
+.payee .label {
+  color: var(--muted);
+}
+
+.passText,
+.vetoText,
+.waitText,
+.idleText {
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+.large .passText,
+.large .vetoText,
+.large .waitText,
+.large .idleText {
+  font-size: 13px;
+}
+
+.passText {
+  color: var(--green);
+}
+
+.vetoText {
+  color: var(--coral);
+}
+
+.waitText {
+  color: var(--purple);
+}
+
+.idleText {
+  color: var(--muted);
+  font-weight: 550;
+}
+
+.line {
+  flex: 1;
+  margin-top: calc(var(--dot) / 2 - 1px);
+  height: 2px;
+}
+
+.lineOn {
+  background: rgba(0, 236, 151, 0.6);
+}
+
+.lineBroken {
+  height: 0;
+  border-top: 2px dashed rgba(242, 241, 233, 0.18);
+}

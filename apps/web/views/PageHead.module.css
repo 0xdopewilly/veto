@@ -1,0 +1,29 @@
+.title {
+  margin: 8px 0 0;
+  font-size: 31px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+.lead {
+  margin: 10px 0 0;
+  max-width: 640px;
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.body {
+  margin-top: 24px;
+}
+
+@media (min-width: 900px) {
+  .title {
+    margin-top: 0;
+    font-size: 34px;
+  }
+  .body {
+    margin-top: 32px;
+  }
+}

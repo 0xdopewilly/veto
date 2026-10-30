@@ -1,0 +1,87 @@
+.screen {
+  min-height: 100%;
+  padding: calc(16px + var(--safe-top)) 20px calc(var(--tabbar) + var(--safe-bottom) + 40px);
+}
+
+.pushed {
+  padding-bottom: calc(34px + var(--safe-bottom));
+}
+
+.inner {
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+/* Phones get the full-colour screen from the designs. */
+.coral {
+  background: var(--coral);
+  color: var(--black);
+}
+
+.purple,
+.green {
+  background: var(--black);
+}
+
+@media (min-width: 900px) {
+  .screen,
+  .pushed {
+    padding: 40px 48px 64px;
+  }
+  .inner {
+    max-width: 1120px;
+  }
+  .wide {
+    max-width: 1200px;
+  }
+  .coral {
+    background: var(--black);
+    color: var(--sand);
+  }
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  text-decoration: none;
+  color: var(--sand);
+  font-size: 14.5px;
+  font-weight: 550;
+}
+
+.backCircle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--raised);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.backText {
+  display: none;
+}
+
+.backCoral .backCircle {
+  background: var(--black);
+  color: var(--coral);
+}
+
+@media (min-width: 900px) {
+  .backCircle {
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--outline);
+  }
+  .backCoral .backCircle {
+    background: transparent;
+    color: var(--sand);
+  }
+  .backText {
+    display: inline;
+  }
+}

@@ -1,0 +1,25 @@
+.stage {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--black);
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  background: var(--black);
+  will-change: transform;
+  box-shadow: -24px 0 56px rgba(0, 0, 0, 0.5);
+}
+
+@media (min-width: 900px) {
+  .screen {
+    box-shadow: none;
+  }
+}

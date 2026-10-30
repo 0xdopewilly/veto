@@ -7,3 +7,6 @@ target/
 data/
 test-token/target/
 bench/results/veto-dev_*.json
+.next/
+next-env.d.ts
+*.tsbuildinfo
