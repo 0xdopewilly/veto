@@ -3,6 +3,16 @@
   "private": true,
   "description": "A vault where every outgoing payment needs a second signer that can only say no.",
   "license": "MIT",
-  "engines": { "node": ">=24" },
-  "packageManager": "pnpm@11.23.0"
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@11.23.0",
+  "scripts": {
+    "dev": "pnpm --filter @veto/web dev",
+    "build": "pnpm --filter @veto/web build",
+    "start": "pnpm --filter @veto/web start",
+    "guardian": "node services/guardian/src/main.ts",
+    "bench": "node bench/run.ts",
+    "test": "node --test packages/core/test/core.test.ts && cd contract && cargo test"
+  }
 }
