@@ -1,0 +1,27 @@
+[package]
+name = "veto-vault"
+description = "Veto vault: hard spending caps plus an AI co-signer that can only say no"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/0xdopewilly/veto"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk = { version = "5.30", features = ["unstable"] }
+hex = "0.4"
+
+[dev-dependencies]
+near-sdk = { version = "5.30", features = ["unstable", "unit-testing"] }
+k256 = { version = "0.13", features = ["ecdsa"] }
+sha3 = "0.10"
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true

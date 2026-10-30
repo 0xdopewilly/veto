@@ -1,0 +1,8 @@
+{
+  "name": "veto",
+  "private": true,
+  "description": "A vault where every outgoing payment needs a second signer that can only say no.",
+  "license": "MIT",
+  "engines": { "node": ">=24" },
+  "packageManager": "pnpm@11.23.0"
+}
