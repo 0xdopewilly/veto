@@ -1,0 +1,25 @@
+[package]
+name = "veto-test-usdc"
+description = "Testnet-only USDC stand-in for the Veto demo (NEP-141, 6 decimals)"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/0xdopewilly/veto"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk = "=5.29.1"
+near-contract-standards = "=5.29.1"
+
+[dev-dependencies]
+near-sdk = { version = "=5.29.1", features = ["unit-testing"] }
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
