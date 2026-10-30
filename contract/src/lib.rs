@@ -7,6 +7,7 @@
 //! The AI can only say no: a PASS never lets a payment exceed the caps, and a VETO can
 //! only be overridden by the owner after a delay.
 
+mod quote;
 mod verdict;
 
 use near_sdk::borsh::BorshSerialize;
@@ -28,6 +29,10 @@ const MAX_OPEN_PROPOSALS: u32 = 20;
 const MAX_MANDATE_LEN: usize = 2000;
 const MAX_MEMO_LEN: usize = 128;
 const NATIVE: &str = "near";
+/// 1Click's quote-signing key (from @defuse-protocol/one-click-sdk-typescript).
+const ONE_CLICK_MANAGER_KEY: &str = "ed25519:reYaWhvwu8Jzo3WUM3zhn6VrhuMEF4eADL17qtRVifc";
+/// NEP-141 storage registration for a 1Click deposit address.
+const STORAGE_DEPOSIT: NearToken = NearToken::from_yoctonear(1_250_000_000_000_000_000_000);
 const GAS_FT_TRANSFER: Gas = Gas::from_tgas(15);
 const GAS_CALLBACK: Gas = Gas::from_tgas(10);
 
@@ -42,6 +47,7 @@ enum StorageKey {
     Spent,
     Proposals,
     OpenProposals,
+    Routes,
 }
 
 #[near(serializers = [borsh, json])]
@@ -87,6 +93,38 @@ pub struct VerdictRecord {
     pub recorded_at: U64,
 }
 
+/// How the vault pays a supplier on another chain through NEAR Intents (1Click).
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Debug)]
+pub struct Route {
+    /// The NEP-141 token the vault pays from, e.g. USDC on NEAR.
+    pub token: AccountId,
+    /// The same token as a NEAR Intents asset id, e.g. "nep141:<usdc contract>".
+    pub origin_asset: String,
+    /// What the supplier receives, e.g. USDC on Base as a NEAR Intents asset id.
+    pub destination_asset: String,
+    /// Most the vault will pay over the delivered amount, in basis points.
+    pub max_fee_bps: u16,
+}
+
+#[near(serializers = [json])]
+pub struct SignedQuote {
+    /// The exact JSON 1Click signed (sorted keys).
+    pub json: String,
+    pub signature: String,
+}
+
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Debug)]
+pub struct QuoteRecord {
+    pub deposit_address: AccountId,
+    pub amount_in: U128,
+    pub amount_out: U128,
+    pub destination_asset: String,
+    /// The base58 message 1Click signed.
+    pub quote_hash: String,
+}
+
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Debug)]
 pub struct Proposal {
@@ -101,6 +139,8 @@ pub struct Proposal {
     pub verdict: Option<VerdictRecord>,
     pub override_executes_at: Option<U64>,
     pub settled_at: Option<U64>,
+    /// Set when a cross-chain payment is sent through NEAR Intents.
+    pub quote: Option<QuoteRecord>,
 }
 
 #[near(serializers = [borsh, json])]
@@ -170,6 +210,7 @@ pub struct Config {
     pub raise_delay_secs: U64,
     pub screen_timeout_secs: U64,
     pub proposal_count: U64,
+    pub oneclick_key: String,
 }
 
 #[near(contract_state)]
@@ -193,6 +234,8 @@ pub struct Vault {
     spent: LookupMap<String, SpentWindow>,
     proposals: Vector<Proposal>,
     open_proposals: IterableSet<u64>,
+    oneclick_key: [u8; 32],
+    routes: IterableMap<String, Route>,
 }
 
 #[near]
@@ -211,6 +254,7 @@ impl Vault {
         override_delay_secs: Option<U64>,
         raise_delay_secs: Option<U64>,
         screen_timeout_secs: Option<U64>,
+        oneclick_key: Option<String>,
     ) -> Self {
         require!(mandate.len() <= MAX_MANDATE_LEN, "mandate is too long");
         let period_secs = period_secs.map_or(DEFAULT_PERIOD_SECS, |v| v.0);
@@ -234,6 +278,9 @@ impl Vault {
             spent: LookupMap::new(StorageKey::Spent),
             proposals: Vector::new(StorageKey::Proposals),
             open_proposals: IterableSet::new(StorageKey::OpenProposals),
+            oneclick_key: quote::decode_key(oneclick_key.as_deref().unwrap_or(ONE_CLICK_MANAGER_KEY))
+                .unwrap_or_else(|| env::panic_str("oneclick_key must be a base58 ed25519 key")),
+            routes: IterableMap::new(StorageKey::Routes),
         };
         for (asset, policy) in policies {
             require!(policy.max_single.0 <= policy.period_limit.0, "max_single exceeds period_limit");
@@ -275,6 +322,7 @@ impl Vault {
             verdict: None,
             override_executes_at: None,
             settled_at: None,
+            quote: None,
         };
         let hash = self.proposal_hash_of(&proposal);
         emit(
@@ -299,6 +347,7 @@ impl Vault {
         request_hash: String,
         response: Base64VecU8,
         signature: String,
+        quote: Option<SignedQuote>,
     ) -> Status {
         require!(env::predecessor_account_id() == self.guardian, "only the guardian submits verdicts");
         require!(!self.frozen, "vault is frozen");
@@ -348,7 +397,7 @@ impl Vault {
         );
 
         if pass {
-            self.execute(&mut proposal);
+            self.execute(&mut proposal, quote);
         } else {
             proposal.status = Status::Vetoed;
             proposal.settled_at = Some(U64(now));
@@ -397,8 +446,9 @@ impl Vault {
         self.save(proposal);
     }
 
-    /// Anyone may trigger an override once its delay has passed.
-    pub fn execute_override(&mut self, id: U64) {
+    /// Anyone may trigger an override once its delay has passed. Cross-chain payments need a
+    /// fresh signed 1Click quote, since the one screened earlier has expired.
+    pub fn execute_override(&mut self, id: U64, quote: Option<SignedQuote>) {
         require!(!self.frozen, "vault is frozen");
         let mut proposal = self.proposal(id.0);
         require!(proposal.status == Status::OverridePending, "no override is pending");
@@ -406,7 +456,7 @@ impl Vault {
             env::block_timestamp() >= proposal.override_executes_at.map_or(u64::MAX, |t| t.0),
             "override delay has not passed"
         );
-        self.execute(&mut proposal);
+        self.execute(&mut proposal, quote);
         self.save(proposal);
     }
 
@@ -534,6 +584,28 @@ impl Vault {
         emit("signer_removed", json!({ "address": address }));
     }
 
+    /// Lets the vault pay suppliers on `chain` through NEAR Intents.
+    pub fn set_route(&mut self, chain: String, route: Route) {
+        self.assert_owner();
+        require!(chain != NATIVE && !chain.is_empty(), "routes are for other chains");
+        require!(route.max_fee_bps <= 500, "fee limit above 5% is not allowed");
+        emit("route_set", json!({ "chain": chain, "route": route }));
+        self.routes.insert(chain, route);
+    }
+
+    pub fn remove_route(&mut self, chain: String) {
+        self.assert_owner();
+        require!(self.routes.remove(&chain).is_some(), "route not found");
+        emit("route_removed", json!({ "chain": chain }));
+    }
+
+    /// For when 1Click rotates its quote-signing key.
+    pub fn set_oneclick_key(&mut self, key: String) {
+        self.assert_owner();
+        self.oneclick_key = quote::decode_key(&key).unwrap_or_else(|| env::panic_str("key must be a base58 ed25519 key"));
+        emit("oneclick_key_updated", json!({ "key": key }));
+    }
+
     pub fn set_guardian(&mut self, guardian: AccountId) {
         self.assert_owner();
         self.guardian = guardian.clone();
@@ -566,7 +638,8 @@ impl Vault {
             proposal.status = Status::Paid;
         } else {
             proposal.status = Status::Failed;
-            self.release_spend(&proposal.request.asset, proposal.request.amount.0);
+            let spent = proposal.quote.as_ref().map_or(proposal.request.amount.0, |q| q.amount_in.0);
+            self.release_spend(&proposal.request.asset, spent);
         }
         proposal.settled_at = Some(U64(env::block_timestamp()));
         emit("payment_settled", json!({ "id": id, "paid": ok }));
@@ -589,6 +662,7 @@ impl Vault {
             raise_delay_secs: U64(self.raise_delay_secs),
             screen_timeout_secs: U64(self.screen_timeout_secs),
             proposal_count: U64(self.proposals.len() as u64),
+            oneclick_key: format!("ed25519:{}", bs58::encode(self.oneclick_key).into_string()),
         }
     }
 
@@ -651,6 +725,10 @@ impl Vault {
         self.agents.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
     }
 
+    pub fn get_routes(&self) -> Vec<(String, Route)> {
+        self.routes.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
+    }
+
     pub fn get_signers(&self) -> Vec<(String, SignerInfo)> {
         self.signers.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
     }
@@ -677,13 +755,24 @@ impl Vault {
     }
 
     fn validate_request(&self, request: &PaymentRequest) {
-        require!(request.chain == NATIVE, "only chain \"near\" is supported in this version");
         require!(request.amount.0 > 0, "amount must be positive");
         require!(request.memo.as_ref().map_or(true, |m| m.len() <= MAX_MEMO_LEN), "memo is too long");
-        require!(request.payee.parse::<AccountId>().is_ok(), "payee is not a valid NEAR account");
-        require!(request.payee != env::current_account_id().as_str(), "vault cannot pay itself");
-        if request.asset != NATIVE {
-            require!(request.asset.parse::<AccountId>().is_ok(), "asset is not a token account");
+        if request.chain == NATIVE {
+            require!(request.payee.parse::<AccountId>().is_ok(), "payee is not a valid NEAR account");
+            require!(request.payee != env::current_account_id().as_str(), "vault cannot pay itself");
+            if request.asset != NATIVE {
+                require!(request.asset.parse::<AccountId>().is_ok(), "asset is not a token account");
+            }
+        } else {
+            let route = self
+                .routes
+                .get(&request.chain)
+                .unwrap_or_else(|| env::panic_str("the vault has no route to this chain"));
+            require!(request.asset == route.token.as_str(), "cross-chain payments are paid from the route's token");
+            require!(
+                !request.payee.is_empty() && request.payee.len() <= 128 && request.payee.is_ascii(),
+                "payee is not a valid address"
+            );
         }
         if self.require_listed_payee {
             require!(
@@ -730,10 +819,14 @@ impl Vault {
         }
     }
 
-    /// Re-checks freeze and caps, records the spend and sends the transfer.
-    fn execute(&mut self, proposal: &mut Proposal) {
+    /// Re-checks freeze and caps, records the spend and sends the transfer. Payments to other
+    /// chains go through NEAR Intents: the signed 1Click quote must pay exactly this payee.
+    fn execute(&mut self, proposal: &mut Proposal, quote: Option<SignedQuote>) {
         require!(!self.frozen, "vault is frozen");
         let request = proposal.request.clone();
+        if request.chain != NATIVE {
+            return self.execute_cross_chain(proposal, quote);
+        }
         self.check_caps(&request.asset, request.amount.0);
         self.record_spend(&request.asset, request.amount.0);
         proposal.status = Status::Executing;
@@ -751,6 +844,52 @@ impl Vault {
             Self::ext(env::current_account_id()).with_static_gas(GAS_CALLBACK).on_payment_settled(proposal.id),
         );
         emit("payment_sent", json!({ "id": proposal.id, "request": request }));
+    }
+
+    fn execute_cross_chain(&mut self, proposal: &mut Proposal, quote: Option<SignedQuote>) {
+        let request = proposal.request.clone();
+        let route = self.routes.get(&request.chain).cloned().unwrap_or_else(|| env::panic_str("the vault has no route to this chain"));
+        let signed = quote.unwrap_or_else(|| env::panic_str("a cross-chain payment needs a signed 1Click quote"));
+        let vault = env::current_account_id();
+        let terms = quote::check(
+            &signed.json,
+            &signed.signature,
+            &self.oneclick_key,
+            &quote::Expected {
+                origin_asset: &route.origin_asset,
+                destination_asset: &route.destination_asset,
+                recipient: &request.payee,
+                amount: request.amount.0,
+                refund_to: vault.as_str(),
+                max_fee_bps: u128::from(route.max_fee_bps),
+            },
+        )
+        .unwrap_or_else(|e| env::panic_str(e));
+
+        // Caps apply to what actually leaves the vault, fees included.
+        self.check_caps(&request.asset, terms.amount_in);
+        self.record_spend(&request.asset, terms.amount_in);
+        proposal.status = Status::Executing;
+        self.open_proposals.remove(&proposal.id.0);
+        proposal.quote = Some(QuoteRecord {
+            deposit_address: terms.deposit_address.clone(),
+            amount_in: U128(terms.amount_in),
+            amount_out: U128(terms.amount_out),
+            destination_asset: route.destination_asset.clone(),
+            quote_hash: terms.message,
+        });
+
+        let register = Promise::new(route.token.clone()).function_call(
+            "storage_deposit".to_string(),
+            serde_json::to_vec(&json!({ "account_id": terms.deposit_address, "registration_only": true })).unwrap_or_default(),
+            STORAGE_DEPOSIT,
+            GAS_FT_TRANSFER,
+        );
+        let deposit = ft_transfer(route.token, &terms.deposit_address, U128(terms.amount_in), request.memo.clone());
+        let _ = register
+            .then(deposit)
+            .then(Self::ext(vault).with_static_gas(GAS_CALLBACK).on_payment_settled(proposal.id));
+        emit("payment_sent", json!({ "id": proposal.id, "request": request, "quote": proposal.quote }));
     }
 
     fn cancel(&mut self, proposal: &mut Proposal) {

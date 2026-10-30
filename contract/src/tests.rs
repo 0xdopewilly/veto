@@ -1,4 +1,5 @@
 use super::*;
+use near_sdk::serde_json::Value;
 use k256::ecdsa::SigningKey;
 use near_sdk::test_utils::VMContextBuilder;
 use near_sdk::{testing_env, PromiseResult, RuntimeFeesConfig};
@@ -57,6 +58,7 @@ fn setup() -> Vault {
         None,
         None,
         None,
+        None,
     );
     vault.add_agent(agent());
     vault.add_signer(address_of(&model_key()), MODEL.into());
@@ -103,7 +105,7 @@ fn submit(vault: &mut Vault, id: u64, verdict: &str, now: u64) -> Status {
     let (response, request_hash, signature) =
         signed_completion(&model_key(), &verdict_content(id, &hash, verdict, &["LOOKALIKE_ADDRESS"]));
     context(guardian(), now);
-    vault.submit_verdict(U64(id), MODEL.into(), "chatcmpl-test".into(), request_hash, response.into(), signature)
+    vault.submit_verdict(U64(id), MODEL.into(), "chatcmpl-test".into(), request_hash, response.into(), signature, None)
 }
 
 fn propose(vault: &mut Vault, amount_dollars: u128, now: u64) -> u64 {
@@ -178,7 +180,7 @@ fn rejects_unapproved_signer() {
     let (response, request_hash, signature) =
         signed_completion(&other, &verdict_content(id, &hash, "PASS", &[]));
     context(guardian(), HOUR + 1);
-    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, response.into(), signature);
+    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, response.into(), signature, None);
 }
 
 #[test]
@@ -190,7 +192,7 @@ fn rejects_tampered_response() {
     let (_, request_hash, signature) = signed_completion(&model_key(), &verdict_content(id, &hash, "VETO", &[]));
     let (forged, _, _) = signed_completion(&model_key(), &verdict_content(id, &hash, "PASS", &[]));
     context(guardian(), HOUR + 1);
-    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, forged.into(), signature);
+    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, forged.into(), signature, None);
 }
 
 #[test]
@@ -201,7 +203,7 @@ fn rejects_verdict_for_other_payment() {
     let (response, request_hash, signature) =
         signed_completion(&model_key(), &verdict_content(id, &"ab".repeat(32), "PASS", &[]));
     context(guardian(), HOUR + 1);
-    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, response.into(), signature);
+    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, response.into(), signature, None);
 }
 
 #[test]
@@ -213,7 +215,7 @@ fn only_guardian_submits() {
     let (response, request_hash, signature) =
         signed_completion(&model_key(), &verdict_content(id, &hash, "PASS", &[]));
     context(agent(), HOUR + 1);
-    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, response.into(), signature);
+    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, response.into(), signature, None);
 }
 
 #[test]
@@ -242,7 +244,7 @@ fn override_waits_then_pays() {
     assert_eq!(vault.get_proposal(U64(id)).unwrap().status, Status::OverridePending);
 
     context(stranger(), HOUR + 2 + 24 * HOUR);
-    vault.execute_override(U64(id));
+    vault.execute_override(U64(id), None);
     assert_eq!(vault.get_proposal(U64(id)).unwrap().status, Status::Executing);
 }
 
@@ -255,7 +257,7 @@ fn override_cannot_pay_early() {
     context(owner(), HOUR + 2);
     vault.override_veto(U64(id));
     context(stranger(), HOUR + 3);
-    vault.execute_override(U64(id));
+    vault.execute_override(U64(id), None);
 }
 
 #[test]
@@ -347,4 +349,168 @@ fn proposal_hash_is_stable() {
         vault.get_proposal_hash(U64(id)),
         "b834b56725f712fb48348615f1591cd9b136ab43e384138e4592b5435dd5f5d5"
     );
+}
+
+// ----------------------------------------------------------- cross-chain via NEAR Intents
+
+const BASE_USDC: &str = "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near";
+const KANO_BASE: &str = "0xa11ce57b2f0c88de41a9b3c07e6d1f45a3c0d9f2";
+const DEPOSIT: &str = "5f3c2a9e1b7d4c6a8e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d";
+
+fn oneclick_test_key() -> ed25519_dalek::SigningKey {
+    ed25519_dalek::SigningKey::from_bytes(&[5u8; 32])
+}
+
+/// A vault that pays Base suppliers in USDC through Intents, trusting a test 1Click key.
+fn setup_cross_chain() -> Vault {
+    let mut vault = setup();
+    let key = bs58::encode(oneclick_test_key().verifying_key().to_bytes()).into_string();
+    vault.set_oneclick_key(format!("ed25519:{key}"));
+    vault.set_route(
+        "base".into(),
+        Route {
+            token: USDC.parse().unwrap(),
+            origin_asset: format!("nep141:{USDC}"),
+            destination_asset: BASE_USDC.into(),
+            max_fee_bps: 100,
+        },
+    );
+    vault
+}
+
+fn base_request(amount_dollars: u128) -> PaymentRequest {
+    PaymentRequest {
+        chain: "base".into(),
+        asset: USDC.into(),
+        payee: KANO_BASE.into(),
+        amount: U128(amount_dollars * DOLLAR),
+        memo: Some("INV-2291".into()),
+    }
+}
+
+/// A live (non-dry) 1Click quote, serialized with sorted keys and signed like 1Click does.
+fn quote(edit: impl FnOnce(&mut Value)) -> SignedQuote {
+    let mut v = json!({
+        "amount": (300 * DOLLAR).to_string(),
+        "amountIn": "301567849",
+        "amountInFormatted": "301.567849",
+        "amountOut": (300 * DOLLAR).to_string(),
+        "amountOutFormatted": "300.0",
+        "deadline": "2026-11-05T12:00:00.000Z",
+        "depositAddress": DEPOSIT,
+        "depositType": "ORIGIN_CHAIN",
+        "destinationAsset": BASE_USDC,
+        "dry": false,
+        "minAmountIn": "300060009",
+        "minAmountOut": (300 * DOLLAR).to_string(),
+        "originAsset": format!("nep141:{USDC}"),
+        "recipient": KANO_BASE,
+        "recipientType": "DESTINATION_CHAIN",
+        "refundTo": vault_id().to_string(),
+        "refundType": "ORIGIN_CHAIN",
+        "slippageTolerance": 50,
+        "swapType": "EXACT_OUTPUT",
+        "timestamp": "2026-11-05T11:50:00.000Z"
+    });
+    edit(&mut v);
+    let json = v.to_string();
+    use ed25519_dalek::Signer;
+    let sig = oneclick_test_key().sign(quote::message(&json).as_bytes());
+    SignedQuote { json, signature: format!("ed25519:{}", bs58::encode(sig.to_bytes()).into_string()) }
+}
+
+fn pass_with_quote(vault: &mut Vault, id: u64, q: Option<SignedQuote>) -> Status {
+    let hash = vault.get_proposal_hash(U64(id));
+    let (response, request_hash, signature) =
+        signed_completion(&model_key(), &verdict_content(id, &hash, "PASS", &[]));
+    context(guardian(), HOUR + 1);
+    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, response.into(), signature, q)
+}
+
+fn propose_base(vault: &mut Vault, amount_dollars: u128) -> u64 {
+    context(agent(), HOUR);
+    vault.propose(base_request(amount_dollars), None).0
+}
+
+/// The real 1Click signature on a live dry quote (captured 2026-10-30) verifies on-chain
+/// against 1Click's published key, and any edit breaks it.
+#[test]
+fn verifies_a_real_1click_signature() {
+    context(owner(), HOUR);
+    let fixture: Value = near_sdk::serde_json::from_str(include_str!("fixtures/oneclick_dry_quote_signed.json")).unwrap();
+    let json = fixture["json"].as_str().unwrap();
+    let signature = fixture["signature"].as_str().unwrap();
+    let key = quote::decode_key(ONE_CLICK_MANAGER_KEY).unwrap();
+    assert!(quote::signed_by(json, signature, &key));
+    assert!(!quote::signed_by(&json.replace("0xa11ce57b", "0xdeadbeef"), signature, &key));
+}
+
+#[test]
+fn pays_a_base_supplier_through_intents() {
+    let mut vault = setup_cross_chain();
+    let id = propose_base(&mut vault, 300);
+    assert_eq!(pass_with_quote(&mut vault, id, Some(quote(|_| {}))), Status::Executing);
+    let p = vault.get_proposal(U64(id)).unwrap();
+    let q = p.quote.unwrap();
+    assert_eq!(q.deposit_address.as_str(), DEPOSIT);
+    assert_eq!(q.amount_in.0, 301_567_849);
+    // The cap counts what left the vault, fees included.
+    assert_eq!(vault.get_spend(USDC.into()).spent.0, 301_567_849);
+}
+
+#[test]
+#[should_panic(expected = "quote recipient is not the payee")]
+fn rejects_a_quote_to_someone_else() {
+    let mut vault = setup_cross_chain();
+    let id = propose_base(&mut vault, 300);
+    pass_with_quote(&mut vault, id, Some(quote(|v| v["recipient"] = json!("0x000000000000000000000000000000000000dead"))));
+}
+
+#[test]
+#[should_panic(expected = "quote is not signed by 1Click")]
+fn rejects_an_unsigned_quote() {
+    let mut vault = setup_cross_chain();
+    let id = propose_base(&mut vault, 300);
+    let mut q = quote(|_| {});
+    q.json = q.json.replace("301567849", "301567850");
+    pass_with_quote(&mut vault, id, Some(q));
+}
+
+#[test]
+#[should_panic(expected = "quote refunds somewhere other than the vault")]
+fn rejects_refunds_to_another_account() {
+    let mut vault = setup_cross_chain();
+    let id = propose_base(&mut vault, 300);
+    pass_with_quote(&mut vault, id, Some(quote(|v| v["refundTo"] = json!("attacker.testnet"))));
+}
+
+#[test]
+#[should_panic(expected = "quote costs more than the fee limit")]
+fn rejects_an_expensive_quote() {
+    let mut vault = setup_cross_chain();
+    let id = propose_base(&mut vault, 300);
+    pass_with_quote(&mut vault, id, Some(quote(|v| v["amountIn"] = json!("310000000"))));
+}
+
+#[test]
+#[should_panic(expected = "quote is a preview, not executable")]
+fn rejects_a_dry_quote() {
+    let mut vault = setup_cross_chain();
+    let id = propose_base(&mut vault, 300);
+    pass_with_quote(&mut vault, id, Some(quote(|v| v["dry"] = json!(true))));
+}
+
+#[test]
+#[should_panic(expected = "a cross-chain payment needs a signed 1Click quote")]
+fn cross_chain_needs_a_quote() {
+    let mut vault = setup_cross_chain();
+    let id = propose_base(&mut vault, 300);
+    pass_with_quote(&mut vault, id, None);
+}
+
+#[test]
+#[should_panic(expected = "the vault has no route to this chain")]
+fn unknown_chains_are_refused_at_proposal() {
+    let mut vault = setup();
+    propose_base(&mut vault, 100);
 }

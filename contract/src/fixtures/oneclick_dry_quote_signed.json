@@ -1,0 +1,4 @@
+{
+  "json": "{\"amount\":\"300000000\",\"amountIn\":\"301567849\",\"amountInFormatted\":\"301.567849\",\"amountInUsd\":\"301.497885259032\",\"amountOut\":\"300000000\",\"amountOutFormatted\":\"300.0\",\"amountOutUsd\":\"299.930400000000\",\"deadline\":\"2026-10-30T22:11:50.952Z\",\"depositType\":\"ORIGIN_CHAIN\",\"destinationAsset\":\"nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near\",\"dry\":true,\"minAmountIn\":\"300060009\",\"minAmountOut\":\"300000000\",\"originAsset\":\"nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1\",\"recipient\":\"0xa11ce57b2f0c88de41a9b3c07e6d1f45a3c0d9f2\",\"recipientType\":\"DESTINATION_CHAIN\",\"refundTo\":\"intents.near\",\"refundType\":\"ORIGIN_CHAIN\",\"slippageTolerance\":50,\"swapType\":\"EXACT_OUTPUT\",\"timestamp\":\"2026-10-30T21:56:50.842Z\"}",
+  "signature": "ed25519:4n12fZvUWC2fpGcNahUtPBRAv53oqhTc4vHbUksVVz4z6CnddseHdwEgXmT6DkbddDnfG1NSzTnApTdUWpoECk7N"
+}
