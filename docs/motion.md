@@ -1,6 +1,6 @@
 # Motion
 
-Every screen in Veto moves with purpose. These are the rules the web app and the mobile web app follow. The reference prototypes are on the design canvas (Brand › Loader, Mobile app › Motion prototype, Desktop web › Landing page).
+Every screen in Veto moves with purpose. These are the rules the web app and the mobile web app follow. The reference prototypes are on the design canvas (Brand › Loader, and the "Full flow" board first on the Mobile app and Desktop web pages, which plays the whole app with every transition).
 
 ## Loading
 Anything that waits shows the V signing itself (`docs/brand/veto-loader.svg`). The payer's stroke draws, Veto's joins, they seal where they meet, then clear. It is never a generic spinner. Use it inside buttons as well (on sand: black and coral strokes; on coral: black).
