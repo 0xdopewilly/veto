@@ -10,6 +10,7 @@ export interface DevAccount {
 
 export interface DevState {
   network: Network;
+  profile?: string;
   root?: DevAccount;
   vault?: DevAccount;
   agent?: DevAccount;
@@ -19,18 +20,26 @@ export interface DevState {
   guardianVerdictKey?: KeyPairString;
   initialized?: boolean;
   modelSigner?: string;
+  token?: DevAccount;
+  tokenReady?: boolean;
+  ownerDemoKey?: KeyPairString;
+  testSignerKey?: string;
+  testSignerAddress?: string;
 }
 
 const DIR = new URL("../.veto-dev/", import.meta.url);
 
+/** VETO_PROFILE picks the state file, so several dev vaults can live side by side. */
+const profileName = (network: Network) => process.env.VETO_PROFILE ?? network;
+
 export function loadState(network: Network): DevState {
-  const file = new URL(`${network}.json`, DIR);
-  return existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : { network };
+  const file = new URL(`${profileName(network)}.json`, DIR);
+  return existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : { network, profile: profileName(network) };
 }
 
 export function saveState(state: DevState) {
   mkdirSync(DIR, { recursive: true, mode: 0o700 });
-  const file = new URL(`${state.network}.json`, DIR);
+  const file = new URL(`${state.profile ?? state.network}.json`, DIR);
   writeFileSync(file, JSON.stringify(state, null, 2));
   chmodSync(file, 0o600);
 }

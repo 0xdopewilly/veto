@@ -10,7 +10,8 @@
     "./prompt": "./src/prompt.ts",
     "./vault": "./src/vault.ts",
     "./nearai": "./src/nearai.ts",
-    "./screener": "./src/screener.ts"
+    "./screener": "./src/screener.ts",
+    "./pipeline": "./src/pipeline.ts"
   },
   "dependencies": {
     "@noble/curves": "2.4.0",

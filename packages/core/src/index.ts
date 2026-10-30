@@ -5,3 +5,4 @@ export * from "./nearai.ts";
 export * from "./vault.ts";
 export * from "./screener.ts";
 export * from "./intents.ts";
+export * from "./pipeline.ts";

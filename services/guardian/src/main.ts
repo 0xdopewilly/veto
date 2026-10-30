@@ -11,13 +11,10 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { Account, teraToGas } from "near-api-js";
 import {
   canonicalJson,
-  computeSignals,
   DEFAULT_MODEL,
   provider,
-  proposalHash,
+  screenAndSubmit,
   sha256Hex,
-  SYSTEM_PROMPT,
-  userMessage,
   VaultReader,
   type Network,
   type Proposal,
@@ -48,7 +45,6 @@ mkdirSync(new URL("evidence/", DATA), { recursive: true });
 mkdirSync(new URL("audit/", DATA), { recursive: true });
 
 const inFlight = new Set<string>();
-const decimals = new Map<string, number>([["near", 24]]);
 const log = (msg: string) => console.log(`${new Date().toISOString().slice(11, 19)}  ${msg}`);
 
 log(`guardian ${guardianId} watching ${vaultId} on ${network} with ${screener.model}`);
@@ -75,59 +71,12 @@ async function handle(proposal: Proposal) {
     return;
   }
 
-  const started = Date.now();
-  const [config, payees, history] = await Promise.all([vault.config(), vault.payees(), vault.proposals(0, 30)]);
-  const hash = proposalHash(vaultId, proposal);
-  const onChainHash = await vault.proposalHash(proposal.id);
-  if (hash !== onChainHash) throw new Error("proposal hash differs from the contract; refusing to screen");
-
   const evidence = proposal.context_hash ? readEvidence(proposal.context_hash) : null;
   if (proposal.context_hash && evidence === undefined) {
     log(`proposal ${proposal.id}: waiting for the agent's evidence`);
     return;
   }
-  const signals = computeSignals(proposal.request, payees, history.filter((p) => p.id !== proposal.id));
-  const input = {
-    vaultId,
-    proposal,
-    proposalHash: hash,
-    mandate: config.mandate,
-    payees,
-    history: history.filter((p) => p.id !== proposal.id),
-    signals,
-    decimals: Object.fromEntries(
-      await Promise.all(
-        [...new Set([proposal.request.asset, ...history.map((p) => p.request.asset)])].map(async (a) => [a, await assetDecimals(a)] as const),
-      ),
-    ),
-    evidence,
-  };
-  const user = userMessage(input);
-  const result = await screener.screen(SYSTEM_PROMPT, user, { proposalId: proposal.id, proposalHash: hash, signals, evidence });
-  if (result.verdict.proposal_id !== proposal.id || result.verdict.proposal_hash !== hash) {
-    throw new Error("model did not echo this proposal's id and hash; leaving it to expire");
-  }
-
-  const outcome = await guardian.signAndSendTransaction({
-    receiverId: vaultId,
-    actions: [
-      (await import("near-api-js")).actions.functionCall(
-        "submit_verdict",
-        {
-          id: proposal.id,
-          model_id: result.model,
-          chat_id: result.chatId,
-          request_hash: result.requestHash,
-          response: Buffer.from(result.responseBytes).toString("base64"),
-          signature: result.signature,
-        },
-        teraToGas("150"),
-        0n,
-      ),
-    ],
-    waitUntil: "FINAL",
-  });
-  const tx = outcome.transaction.hash;
+  const { result, signals, proposalHash: hash, tx, ms } = await screenAndSubmit({ vault, guardian, screener, proposal, evidence });
   writeFileSync(
     new URL(`audit/${proposal.id}.json`, DATA),
     JSON.stringify(
@@ -147,21 +96,13 @@ async function handle(proposal: Proposal) {
         request_b64: Buffer.from(result.requestBytes).toString("base64"),
         response_b64: Buffer.from(result.responseBytes).toString("base64"),
         verdict_tx: tx,
-        screened_ms: Date.now() - started,
+        screened_ms: ms,
       },
       null,
       2,
     ),
   );
-  log(`proposal ${proposal.id}: ${result.verdict.verdict}${result.verdict.reasons.length ? ` (${result.verdict.reasons.join(", ")})` : ""} in ${Date.now() - started} ms, tx ${tx}`);
-}
-
-async function assetDecimals(asset: string) {
-  if (!decimals.has(asset)) {
-    const meta = (await rpc.callFunction({ contractId: asset, method: "ft_metadata", args: {} })) as { decimals: number };
-    decimals.set(asset, meta.decimals);
-  }
-  return decimals.get(asset)!;
+  log(`proposal ${proposal.id}: ${result.verdict.verdict}${result.verdict.reasons.length ? ` (${result.verdict.reasons.join(", ")})` : ""} in ${ms} ms, tx ${tx}`);
 }
 
 /** undefined = not received yet; null never happens for a proposal with a context hash. */
