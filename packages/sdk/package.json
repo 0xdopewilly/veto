@@ -1,0 +1,13 @@
+{
+  "name": "@veto/sdk",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "Lets an AI agent propose payments to a Veto vault and wait for the decision.",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@veto/core": "workspace:*",
+    "near-api-js": "7.4.0"
+  }
+}

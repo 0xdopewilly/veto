@@ -1,0 +1,16 @@
+{
+  "name": "@veto/guardian",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "Watches a Veto vault, screens each proposed payment on NEAR AI Cloud and submits the signed verdict on-chain.",
+  "scripts": {
+    "start": "node src/main.ts"
+  },
+  "dependencies": {
+    "@veto/core": "workspace:*",
+    "ethers": "6.17.0",
+    "near-api-js": "7.4.0"
+  }
+}

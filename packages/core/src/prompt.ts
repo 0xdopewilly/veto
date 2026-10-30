@@ -62,7 +62,8 @@ export interface ScreeningInput {
   payees: Payee[];
   history: Proposal[];
   signals: Signal[];
-  decimals: number;
+  /** Decimals for every asset that appears in the proposal or its history. */
+  decimals: Record<string, number>;
   evidence: unknown;
 }
 
@@ -74,8 +75,9 @@ export function formatAmount(raw: string, decimals: number): string {
   return `${whole.toLocaleString("en-US")}.${frac}`;
 }
 
-function describe(r: PaymentRequest, decimals: number) {
-  return { chain: r.chain, asset: r.asset, payee: r.payee, amount: formatAmount(r.amount, decimals), reference: r.memo };
+function describe(r: PaymentRequest, decimals: Record<string, number>) {
+  const places = decimals[r.asset] ?? (r.asset === "near" ? 24 : 6);
+  return { chain: r.chain, asset: r.asset, payee: r.payee, amount: formatAmount(r.amount, places), reference: r.memo };
 }
 
 export function userMessage(input: ScreeningInput): string {
