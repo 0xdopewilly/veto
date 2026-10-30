@@ -22,7 +22,7 @@ import {
   type Network,
   type Proposal,
 } from "@veto/core";
-import { DevScreener, NearAiScreener, type Screener } from "./screener.ts";
+import { DevScreener, NearAiScreener, type Screener } from "@veto/core";
 
 const ROOT = new URL("../../../", import.meta.url);
 loadEnvFile(new URL(".env.local", ROOT));

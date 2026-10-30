@@ -1,0 +1,16 @@
+{
+  "name": "@veto/bench",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "Veto Bench: 100 payment scenarios, half attacks and half ordinary payments, scored per model.",
+  "scripts": {
+    "bench": "node run.ts",
+    "verify": "node verify.ts"
+  },
+  "dependencies": {
+    "@veto/core": "workspace:*",
+    "ethers": "6.17.0"
+  }
+}

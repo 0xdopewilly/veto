@@ -1,5 +1,7 @@
 import { Wallet } from "ethers";
-import { parseVerdict, screen, sha256Hex, type SignedScreening, type Signal } from "@veto/core";
+import { screen, parseVerdict, type SignedScreening } from "./nearai.ts";
+import { sha256Hex } from "./proposal.ts";
+import type { Signal } from "./signals.ts";
 
 /** Produces a verdict for one screening prompt, signed over the exact request and response bytes. */
 export interface Screener {

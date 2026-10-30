@@ -6,3 +6,4 @@ target/
 .veto-dev/
 data/
 test-token/target/
+bench/results/veto-dev_*.json

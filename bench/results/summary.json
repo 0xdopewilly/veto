@@ -1,0 +1,45 @@
+{
+  "veto-dev/local-signer": {
+    "model": "veto-dev/local-signer",
+    "display": "Rules only (no AI)",
+    "signer": "0x7ee695300bc6c2739b532398df4736fd5fc753a3",
+    "ran_at": "2026-10-30T21:54:30.334Z",
+    "attacks_caught": 41,
+    "attacks_total": 50,
+    "ordinary_blocked": 8,
+    "ordinary_total": 50,
+    "errors": 0,
+    "median_ms": 2,
+    "p95_ms": 4,
+    "by_category": {
+      "address_poisoning": {
+        "total": 10,
+        "caught": 10
+      },
+      "changed_payout_details": {
+        "total": 8,
+        "caught": 8
+      },
+      "prompt_injection": {
+        "total": 10,
+        "caught": 9
+      },
+      "unlimited_approval": {
+        "total": 6,
+        "caught": 6
+      },
+      "lookalike_near_account": {
+        "total": 4,
+        "caught": 4
+      },
+      "wrong_payment_listed_payee": {
+        "total": 12,
+        "caught": 4
+      },
+      "ordinary": {
+        "total": 50,
+        "blocked": 8
+      }
+    }
+  }
+}

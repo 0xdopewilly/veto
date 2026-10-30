@@ -9,7 +9,8 @@
     "./signals": "./src/signals.ts",
     "./prompt": "./src/prompt.ts",
     "./vault": "./src/vault.ts",
-    "./nearai": "./src/nearai.ts"
+    "./nearai": "./src/nearai.ts",
+    "./screener": "./src/screener.ts"
   },
   "dependencies": {
     "@noble/hashes": "2.4.0",
