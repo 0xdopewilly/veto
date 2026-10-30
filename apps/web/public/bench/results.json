@@ -1,0 +1,14 @@
+{
+  "ran_at": "2026-10-30T23:28:39.063Z",
+  "models": [
+    {
+      "model": "veto-dev/local-signer",
+      "display": "Rules only (no AI)",
+      "attacks_caught": 41,
+      "attacks_total": 50,
+      "normal_blocked": 8,
+      "normal_total": 50,
+      "median_ms": 2
+    }
+  ]
+}

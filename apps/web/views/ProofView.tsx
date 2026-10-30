@@ -55,8 +55,10 @@ export function ProofView({ id }: { id: string }) {
     },
     {
       icon: "key",
-      title: "Signed by the model",
-      text: "The enclave signed the request and the verdict together, so neither can be swapped later.",
+      title: test ? "Signed by the test key" : "Signed by the model",
+      text: test
+        ? "The test key signed the request and the verdict together, in the same format NEAR AI uses."
+        : "The enclave signed the request and the verdict together, so neither can be swapped later.",
       value: shortAddress(v.signer),
     },
     {

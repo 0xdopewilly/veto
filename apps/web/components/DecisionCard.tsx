@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { Proposal } from "@veto/core/proposal";
 import { metaOf, type VaultState } from "@/lib/vault";
 import { imitated, reasonText } from "@/lib/decision";
-import { formatAgo, formatShort, remaining } from "@/lib/format";
+import { formatAgo, formatShort, remaining, possessive } from "@/lib/format";
 import { useNow } from "@/lib/useNow";
 import { Icon } from "./Icon";
 import styles from "./DecisionCard.module.css";
@@ -26,7 +26,7 @@ export function DecisionCard({ state, proposal, style }: { state: VaultState; pr
     detail = left.done ? "Ready to pay · you can still cancel" : "Override pending · you can cancel";
   } else {
     headline = look
-      ? `${amount} held. Sent to a lookalike of ${look.payee.name}'s address.`
+      ? `${amount} held. Sent to a lookalike of ${possessive(look.payee.name)} address.`
       : `${amount} held. ${proposal.verdict?.reasons[0] ? reasonText(proposal.verdict.reasons[0]) : "Stopped by the AI screen"}.`;
     detail = `Vetoed ${formatAgo(proposal.verdict?.recorded_at ?? proposal.created_at, now)} · ${proposal.request.chain.toUpperCase()}`;
   }

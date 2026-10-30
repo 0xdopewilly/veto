@@ -91,3 +91,6 @@ export function formatDuration(secs: number): string {
 }
 
 export const nsToDate = (ns: string | bigint) => new Date(nsToMs(ns));
+
+/** "Kano Cotton Mills' address", "Aba's address". */
+export const possessive = (name: string) => (name.endsWith("s") ? `${name}'` : `${name}'s`);

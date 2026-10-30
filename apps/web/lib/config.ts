@@ -7,9 +7,16 @@ export const VAULT_NAME = process.env.NEXT_PUBLIC_VAULT_NAME ?? "Lagoon Goods";
 
 export const VAULT_ID = process.env.NEXT_PUBLIC_VAULT_ID ?? "treasury.veto-lagoon-dygj2w.testnet";
 
-export const RPC_URL =
+/** The public NEAR RPC the app's server talks to (also shown in code samples). */
+export const RPC_UPSTREAM =
   process.env.NEXT_PUBLIC_RPC_URL ??
   (NETWORK === "testnet" ? "https://test.rpc.fastnear.com" : "https://free.rpc.fastnear.com");
+
+/**
+ * In the browser, reads go through the app's own /api/rpc, which caches identical calls for a
+ * moment and retries another RPC, so a throttled free RPC can't leave the screen loading.
+ */
+export const RPC_URL = typeof window === "undefined" ? RPC_UPSTREAM : `${window.location.origin}/api/rpc`;
 
 export const EXPLORER = NETWORK === "testnet" ? "https://testnet.nearblocks.io" : "https://nearblocks.io";
 

@@ -18,6 +18,7 @@ import {
   remaining,
   shortAddress,
   shortHash,
+  possessive,
 } from "@/lib/format";
 import { Screen, BackLink, delay } from "@/components/Screen";
 import { Circuit } from "@/components/Circuit";
@@ -181,7 +182,7 @@ function LookalikeReason({ state, p, look }: { state: VaultState; p: Proposal; l
   const evm = p.request.payee.startsWith("0x");
   return (
     <>
-      <span className={styles.reasonTitle}>A lookalike of {look.payee.name}'s address</span>
+      <span className={styles.reasonTitle}>A lookalike of {possessive(look.payee.name)} address</span>
       <p className={styles.reasonText}>
         {evm
           ? `${history.count ? `Your last ${history.count} payment${history.count === 1 ? "" : "s"} to them went to a different address` : "Their saved address is different"} that shortens to the same ${shortAddress(p.request.payee)}. Only the middle differs, which is how address-poisoning scams work.`
@@ -288,7 +289,7 @@ function OverridePending({ state, p }: { state: VaultState; p: Proposal }) {
             <div className={`${styles.warning} rise`} style={delay(260)} role="note">
               <span className={styles.warningTitle}>Check before it pays</span>
               <p>
-                This address is a lookalike of {look.payee.name}'s saved address. Only let it pay if {look.payee.name} confirmed the new address by phone.
+                This address is a lookalike of {possessive(look.payee.name)} saved address. Only let it pay if {look.payee.name} confirmed the new address by phone.
               </p>
             </div>
           )}

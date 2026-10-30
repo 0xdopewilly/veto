@@ -7,7 +7,8 @@
   "description": "Veto Bench: 100 payment scenarios, half attacks and half ordinary payments, scored per model.",
   "scripts": {
     "bench": "node run.ts",
-    "verify": "node verify.ts"
+    "verify": "node verify.ts",
+    "publish": "node publish.ts"
   },
   "dependencies": {
     "@veto/core": "workspace:*",

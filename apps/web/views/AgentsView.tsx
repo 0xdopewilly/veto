@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { accessKeys, metaOf, useVault, type VaultState } from "@/lib/vault";
 import { useWallet } from "@/lib/wallet";
-import { RPC_URL, VAULT_ID } from "@/lib/config";
+import { RPC_UPSTREAM, VAULT_ID } from "@/lib/config";
 import { STATUS_TEXT, payeeLabel } from "@/lib/decision";
 import { formatAmount, formatWhen, NATIVE } from "@/lib/format";
 import { Screen, delay } from "@/components/Screen";
@@ -151,7 +151,7 @@ function ConnectAgent() {
     [{ text: "import", tone: "kw" }, { text: " { Account, JsonRpcProvider, teraToGas } " }, { text: "from", tone: "kw" }, { text: ' "near-api-js"', tone: "str" }, { text: ";" }],
     [],
     [{ text: "const", tone: "kw" }, { text: " agent = " }, { text: "new", tone: "kw" }, { text: " Account(" }, { text: '"buyer.your-vault.near"', tone: "str" }, { text: "," }],
-    [{ text: "  " }, { text: "new", tone: "kw" }, { text: " JsonRpcProvider({ url: " }, { text: `"${RPC_URL}"`, tone: "str" }, { text: " })," }],
+    [{ text: "  " }, { text: "new", tone: "kw" }, { text: " JsonRpcProvider({ url: " }, { text: `"${RPC_UPSTREAM}"`, tone: "str" }, { text: " })," }],
     [{ text: "  process.env.AGENT_KEY);" }, { text: " // a key that can only call propose", tone: "muted" }],
     [],
     [{ text: "const", tone: "kw" }, { text: " id = " }, { text: "await", tone: "kw" }, { text: " agent.callFunction({" }],

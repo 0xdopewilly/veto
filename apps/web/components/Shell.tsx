@@ -96,7 +96,7 @@ function Sidebar({ onFreeze }: { onFreeze: () => void }) {
       <div className={styles.sideFoot}>
         <button className={`${styles.walletButton} press`} onClick={accountId ? disconnect : connect}>
           <Icon name="wallet" size={16} />
-          <span className="mono">{accountId ?? "Connect wallet"}</span>
+          <span className={accountId ? "mono" : undefined}>{accountId ?? "Connect wallet"}</span>
         </button>
         <button className={`${styles.freeze} press`} onClick={onFreeze}>
           <Icon name={frozen ? "unlock" : "lock"} size={16} />
