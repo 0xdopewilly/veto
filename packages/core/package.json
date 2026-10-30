@@ -4,9 +4,15 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./proposal": "./src/proposal.ts",
+    "./signals": "./src/signals.ts",
+    "./prompt": "./src/prompt.ts",
+    "./vault": "./src/vault.ts",
+    "./nearai": "./src/nearai.ts"
   },
   "dependencies": {
+    "@noble/hashes": "2.4.0",
     "ethers": "6.17.0",
     "near-api-js": "7.4.0"
   },

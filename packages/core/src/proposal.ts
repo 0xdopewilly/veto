@@ -1,4 +1,5 @@
-import { createHash } from "node:crypto";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
 
 export type Status =
   | "Screening"
@@ -63,8 +64,9 @@ export interface VaultConfig {
   proposal_count: string;
 }
 
+/** Runs in Node and the browser. */
 export const sha256Hex = (data: string | Uint8Array): string =>
-  createHash("sha256").update(data).digest("hex");
+  bytesToHex(sha256(typeof data === "string" ? utf8ToBytes(data) : data));
 
 /** Must match `proposal_hash_of` in contract/src/lib.rs exactly. */
 export function proposalHash(vaultId: string, proposal: Pick<Proposal, "id" | "request" | "context_hash">): string {
