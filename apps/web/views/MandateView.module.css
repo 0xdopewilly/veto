@@ -1,8 +1,8 @@
 .columns {
-  margin-top: 28px;
+  margin-top: 24px;
   display: flex;
   flex-direction: column;
-  gap: 36px;
+  gap: 14px;
 }
 
 .h2 {
@@ -18,6 +18,13 @@
   font-weight: 600;
 }
 
+.words,
+.enforce {
+  padding: 22px 20px;
+  border-radius: var(--r-card);
+  background: var(--card);
+}
+
 .words {
   display: flex;
   flex-direction: column;
@@ -25,20 +32,22 @@
 
 .textarea {
   width: 100%;
-  min-height: 150px;
-  padding: 16px;
-  border-radius: 16px;
-  border: 1px solid #2a2a2a;
-  background: var(--input);
+  min-height: 160px;
+  padding: 18px 18px;
+  border-radius: var(--r-tile);
+  border: 0;
+  background: var(--tile);
+  box-shadow: inset 0 0 0 1px transparent;
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.55;
   resize: vertical;
-  transition: border-color 200ms ease;
+  transition: box-shadow 200ms ease, background-color 200ms ease;
 }
 
 .textarea:focus {
   outline: none;
-  border-color: var(--green);
+  background: #1e1e1e;
+  box-shadow: inset 0 0 0 1.5px var(--green);
 }
 
 .helper {
@@ -51,7 +60,7 @@
 .buttons {
   margin-top: 18px;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 10px;
 }
 
@@ -82,16 +91,30 @@
   margin: 8px 0 0;
 }
 
+.limits {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .limitGroup {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
+  padding: 4px 16px;
+  border-radius: var(--r-tile);
+  background: var(--tile);
 }
 
 .limitGroup dt,
 .limitGroup dd {
   padding: 13px 0;
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--control);
   font-size: 15px;
+}
+
+.limitGroup dt:nth-last-child(2),
+.limitGroup dd:last-child {
+  border-bottom: 0;
 }
 
 .limitGroup dt {
@@ -111,13 +134,18 @@
 .limitForm summary {
   display: inline-flex;
   align-items: center;
-  min-height: 44px;
-  font-size: 14.5px;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 21px;
+  background: var(--control);
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   list-style: none;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+}
+
+.limitForm[open] summary {
+  background: var(--control-hover);
 }
 
 .limitForm summary::-webkit-details-marker {
@@ -138,21 +166,70 @@
   color: var(--muted);
 }
 
-.field input,
 .field select {
-  height: 48px;
-  padding: 0 14px;
-  border-radius: 14px;
-  border: 1px solid #2a2a2a;
-  background: var(--input);
+  height: 52px;
+  padding: 0 16px;
+  border-radius: var(--r-tile);
+  border: 0;
+  background: var(--tile);
   font-size: 15.5px;
   color: var(--sand);
 }
 
-.field input:focus,
+/* Dark well: the token on the left, the amount large and right-aligned. */
+.well {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 72px;
+  padding: 0 18px 0 12px;
+  border-radius: var(--r-tile);
+  background: var(--tile);
+  box-shadow: inset 0 0 0 1px transparent;
+  transition: box-shadow 200ms ease;
+}
+
+.well:focus-within {
+  box-shadow: inset 0 0 0 1.5px var(--green);
+}
+
+.token {
+  flex: none;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 20px;
+  background: var(--control);
+  color: var(--sand);
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+}
+
+.well input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  text-align: right;
+  font-size: 28px;
+  font-weight: 300;
+  letter-spacing: -0.03em;
+  color: var(--sand);
+}
+
+.well input::placeholder {
+  color: var(--dim);
+}
+
+.well input:focus {
+  outline: none;
+}
+
 .field select:focus {
   outline: none;
-  border-color: var(--green);
+  box-shadow: inset 0 0 0 1.5px var(--green);
 }
 
 .formHint {
@@ -167,12 +244,20 @@
   padding: 0;
 }
 
+.checks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .checks li {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 50px;
-  border-bottom: 1px solid var(--hairline);
+  min-height: 52px;
+  padding: 0 14px;
+  border-radius: 16px;
+  background: var(--tile);
   font-size: 15px;
 }
 
@@ -194,7 +279,7 @@
   align-items: center;
   gap: 10px;
   padding: 14px 16px;
-  border-radius: 16px;
+  border-radius: var(--r-tile);
   background: var(--purple-tint);
   color: var(--sand);
   font-size: 14px;
@@ -207,8 +292,8 @@
 
 .banner {
   margin-top: 20px;
-  padding: 16px 18px;
-  border-radius: 18px;
+  padding: 18px 20px;
+  border-radius: var(--r-card);
   background: var(--purple-tint);
   box-shadow: inset 0 0 0 1px rgba(151, 151, 255, 0.35);
   display: flex;
@@ -243,8 +328,18 @@
   .columns {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr));
-    gap: 48px;
+    gap: 16px;
     align-items: start;
+  }
+  .words,
+  .enforce {
+    padding: 26px;
+  }
+  .buttons {
+    flex-direction: row;
+  }
+  .buttons > * {
+    width: auto;
   }
   .banner {
     flex-direction: row;

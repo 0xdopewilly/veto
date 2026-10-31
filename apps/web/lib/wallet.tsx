@@ -91,6 +91,12 @@ export function useWallet(): WalletContextValue {
 
 export type TxStatus = "idle" | "pending" | "done" | "error";
 
+/** The transaction hash from whatever the wallet returned. */
+export function txHashOf(result: unknown): string | undefined {
+  const r = result as { transaction?: { hash?: string }; transaction_outcome?: { id?: string } } | undefined;
+  return r?.transaction?.hash ?? r?.transaction_outcome?.id;
+}
+
 /**
  * Runs one vault transaction at a time and tracks its state for the button that sent it.
  * Refreshes vault data when the transaction lands.

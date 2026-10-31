@@ -1,22 +1,28 @@
-import { RPC_UPSTREAM } from "@/lib/config";
+import { RPC_ENDPOINTS } from "@/lib/server/rpc";
 
 // NEAR JSON-RPC relay for the browser. Identical calls within a short window share one
 // upstream request, and a throttled or failing RPC falls back to the next one.
-const UPSTREAMS = [RPC_UPSTREAM, process.env.NEXT_PUBLIC_NETWORK === "mainnet" ? "https://rpc.mainnet.near.org" : "https://rpc.testnet.near.org"];
-const TTL_MS = 1500;
+const UPSTREAMS = RPC_ENDPOINTS;
+const TTL_MS = 2000;
+const STALE_OK_MS = 60_000;
 const cache = new Map<string, { at: number; body: Promise<string> }>();
+const lastGood = new Map<string, { at: number; body: string }>();
 
 async function forward(payload: string): Promise<string> {
   let last = "";
-  for (const url of UPSTREAMS) {
-    try {
-      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: payload, cache: "no-store" });
-      const text = await res.text();
-      if (res.ok) return text;
-      last = `${res.status} from ${url}`;
-    } catch (e) {
-      last = (e as Error).message;
+  // Two rounds over every endpoint, backing off when they rate-limit us.
+  for (let round = 0; round < 2; round++) {
+    for (const url of UPSTREAMS) {
+      try {
+        const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: payload, cache: "no-store" });
+        const text = await res.text();
+        if (res.ok) return text;
+        last = `${res.status} from ${url}`;
+      } catch (e) {
+        last = (e as Error).message;
+      }
     }
+    await new Promise((r) => setTimeout(r, 400 * (round + 1)));
   }
   throw new Error(last);
 }
@@ -36,11 +42,20 @@ export async function POST(req: Request) {
   }
   try {
     const body = await entry.body;
+    lastGood.set(key, { at: Date.now(), body });
     const id = payload.match(/"id":\s*("[^"]*"|\d+)/)?.[1];
     return new Response(id ? body.replace(/"id":\s*("[^"]*"|\d+)/, `"id":${id}`) : body, {
       headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
     });
   } catch (e) {
+    // Serve the last good answer for this exact call rather than fail the screen.
+    const stale = lastGood.get(key);
+    if (stale && Date.now() - stale.at < STALE_OK_MS) {
+      const id = payload.match(/"id":\s*("[^"]*"|\d+)/)?.[1];
+      return new Response(id ? stale.body.replace(/"id":\s*("[^"]*"|\d+)/, `"id":${id}`) : stale.body, {
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store", "X-Veto-Stale": "1" },
+      });
+    }
     return Response.json({ error: (e as Error).message }, { status: 502 });
   }
 }

@@ -1,10 +1,17 @@
 .screen {
   min-height: 100%;
-  padding: calc(16px + var(--safe-top)) 20px calc(var(--tabbar) + var(--safe-bottom) + 40px);
+  padding: calc(16px + var(--safe-top)) 20px calc(var(--tabbar) + var(--safe-bottom) + 32px);
 }
 
 .pushed {
   padding-bottom: calc(34px + var(--safe-bottom));
+}
+
+/* Home draws its own full-bleed header on phones. */
+.flush {
+  padding-top: 0;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .inner {
@@ -25,14 +32,16 @@
 
 @media (min-width: 900px) {
   .screen,
-  .pushed {
-    padding: 40px 48px 64px;
+  .pushed,
+  .flush {
+    padding: 6px 8px 40px;
   }
   .inner {
     max-width: 1120px;
+    margin: 0;
   }
   .wide {
-    max-width: 1200px;
+    max-width: 1560px;
   }
   .coral {
     background: var(--black);
@@ -52,13 +61,14 @@
 }
 
 .backCircle {
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
-  background: var(--raised);
+  background: var(--control);
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background-color 200ms ease;
 }
 
 .backText {
@@ -72,13 +82,15 @@
 
 @media (min-width: 900px) {
   .backCircle {
-    width: 32px;
-    height: 32px;
-    background: transparent;
-    box-shadow: inset 0 0 0 1px var(--outline);
+    width: 36px;
+    height: 36px;
+    background: var(--tile);
+  }
+  .back:hover .backCircle {
+    background: var(--control);
   }
   .backCoral .backCircle {
-    background: transparent;
+    background: var(--tile);
     color: var(--sand);
   }
   .backText {

@@ -1,0 +1,24 @@
+.bar {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.seg {
+  width: 5px;
+  height: 18px;
+  border-radius: 3px;
+  background: var(--control);
+}
+
+.green {
+  background: var(--green);
+}
+
+.coral {
+  background: var(--coral);
+}
+
+.purple {
+  background: var(--purple);
+}

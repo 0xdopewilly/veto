@@ -21,12 +21,17 @@ import {
   possessive,
 } from "@/lib/format";
 import { Screen, BackLink, delay } from "@/components/Screen";
+import { Boot } from "@/components/Boot";
 import { Circuit } from "@/components/Circuit";
+import { LineReveal } from "@/components/LineReveal";
+import { MaskedLetters } from "@/components/MaskedLetters";
+import { Odometer } from "@/components/Odometer";
+import { useMorphHold } from "@/lib/morph";
 import { AddressCompare } from "@/components/AddressCompare";
 import { Icon } from "@/components/Icon";
 import { Pill } from "@/components/Pill";
 import { OwnerButton } from "@/components/OwnerButton";
-import { LoadingScreen, VLoader } from "@/components/VLoader";
+import { VLoader } from "@/components/VLoader";
 import styles from "./DecisionView.module.css";
 
 const periodName = (secs: string) => (secs === "604800" ? "weekly" : secs === "86400" ? "daily" : "period");
@@ -44,15 +49,15 @@ export function DecisionView({ id }: { id: string }) {
       </Screen>
     );
   }
-  if (!state || !proposal) return <LoadingScreen caption="Loading the decision" />;
+  if (!state || !proposal) return <Boot loading caption="Loading the decision" />;
 
   return (
-    <>
+    <Boot>
       <span className="visually-hidden" role="status" aria-live="polite">
         {STATUS_TEXT[proposal.status]}
       </span>
       <DecisionBody state={state} proposal={proposal} />
-    </>
+    </Boot>
   );
 }
 
@@ -78,6 +83,16 @@ function amountParts(state: VaultState, p: Proposal) {
   return { meta, figure: `${parts.prefix}${parts.whole}${parts.cents}`, unit: parts.suffix || meta.symbol };
 }
 
+/** The decision's amount rolling into place once the screen is revealed. */
+function Amount({ figure, unit, muted = false, at, play }: { figure: string; unit: string; muted?: boolean; at: number; play: boolean }) {
+  return (
+    <div className={`${styles.amountRow} rise`} style={delay(at)}>
+      <Odometer value={figure} className={styles.amount} delay={at + 60} play={play} />
+      <span className={muted ? styles.unitMuted : styles.unit}>{unit}</span>
+    </div>
+  );
+}
+
 function capCaption(state: VaultState, p: Proposal): string {
   const spend = state.spend[p.request.asset];
   const meta = metaOf(state, p.request.asset);
@@ -91,6 +106,7 @@ function capCaption(state: VaultState, p: Proposal): string {
 
 function Vetoed({ state, p }: { state: VaultState; p: Proposal }) {
   const router = useRouter();
+  const play = !useMorphHold();
   const { keep } = useKeptBlocked();
   const { figure, unit } = amountParts(state, p);
   const look = imitated(state.payees, p);
@@ -121,18 +137,17 @@ function Vetoed({ state, p }: { state: VaultState; p: Proposal }) {
   return (
     <Screen pushed tone="coral" wide>
       <div className={styles.topRow}>
-        <BackLink href="/app" label="Back to overview" onCoral />
+        <BackLink href="/app" label="Back to overview" onCoral morphId={p.id} />
         <span className={styles.time}>{formatWhen(p.verdict?.recorded_at ?? p.created_at)}</span>
       </div>
 
       <section className={styles.band} aria-label="Verdict">
         <div className={styles.bandMain}>
-          <span className={`${styles.eyebrow} rise`} style={delay(60)}>Stopped by the AI screen</span>
-          <h1 className={`${styles.vetoed} stamp`}>VETOED</h1>
-          <div className={`${styles.amountRow} rise`} style={delay(420)}>
-            <span className={`${styles.amount} tabular`}>{figure}</span>
-            <span className={styles.unit}>{unit}</span>
-          </div>
+          <LineReveal className={styles.eyebrow} text="Stopped by the AI screen" delay={40} />
+          <h1 className={styles.vetoed}>
+            <MaskedLetters text="VETOED" delay={170} stagger={35} />
+          </h1>
+          <Amount figure={figure} unit={unit} at={420} play={play} />
           <span className={`mono ${styles.to} rise`} style={delay(480)}>
             to {shortAddress(p.request.payee)} on {p.request.chain.toUpperCase()}
           </span>
@@ -146,7 +161,7 @@ function Vetoed({ state, p }: { state: VaultState; p: Proposal }) {
       <div className={styles.columns}>
         <div className={styles.colMain}>
           <section className={`${styles.circuitCard} rise`} style={delay(560)} aria-label="Checks">
-            <Circuit ai="veto" paid={false} delay={780} />
+            <Circuit ai="veto" paid={false} delay={450} play={play} />
             <p className={styles.caption}>{capCaption(state, p)}</p>
           </section>
 
@@ -242,31 +257,31 @@ function OverridePending({ state, p }: { state: VaultState; p: Proposal }) {
   const requestedAt = (BigInt(at) - BigInt(state.config.override_delay_secs) * 1_000_000_000n).toString();
 
   return (
-    <Screen pushed>
+    <Screen pushed wide>
       <div className={styles.topRow}>
-        <BackLink href="/app" label="Back to overview" />
+        <BackLink href="/app" label="Back to overview" morphId={p.id} />
       </div>
       <div className={styles.pendingLayout}>
-        <section className={styles.pendingHero}>
+        <section className={`${styles.pendingHero} ${styles.panel}`}>
           <span className={`${styles.pendingPill} rise`}>
             <Icon name="clock" size={14} stroke={2.25} /> Override pending
           </span>
           {left.done ? (
             <h1 className={`${styles.countdown} rise`} style={delay(80)}>Ready to pay</h1>
           ) : (
-            <h1 className={`${styles.countdown} tabular rise`} style={delay(80)}>
+            <h1 className={`${styles.countdown} rise`} style={delay(80)}>
               <span className={styles.countLabel}>Pays in</span>
               {left.hours > 0 && (
                 <>
-                  {left.hours}
+                  <Odometer value={String(left.hours)} fixed />
                   <small> h </small>
                 </>
               )}
-              {left.minutes}
+              <Odometer value={left.hours > 0 ? String(left.minutes).padStart(2, "0") : String(left.minutes)} fixed />
               <small> min </small>
               {left.hours === 0 && (
                 <>
-                  {String(left.seconds).padStart(2, "0")}
+                  <Odometer value={String(left.seconds).padStart(2, "0")} fixed />
                   <small> s</small>
                 </>
               )}
@@ -278,7 +293,7 @@ function OverridePending({ state, p }: { state: VaultState; p: Proposal }) {
 
           <dl className={`${styles.details} rise`} style={delay(200)}>
             <dt>Amount</dt>
-            <dd className="tabular">{formatAmount(p.request.amount, meta)}</dd>
+            <dd>{formatAmount(p.request.amount, meta)}</dd>
             <dt>To</dt>
             <dd className="mono">{shortAddress(p.request.payee)} on {p.request.chain.toUpperCase()}</dd>
             <dt>Limits</dt>
@@ -306,7 +321,7 @@ function OverridePending({ state, p }: { state: VaultState; p: Proposal }) {
           </div>
         </section>
 
-        <section className={`${styles.timelineCard} rise`} style={delay(380)} aria-label="Timeline">
+        <section className={`${styles.timelineCard} ${styles.panel} rise`} style={delay(380)} aria-label="Timeline">
           <h2 className={styles.h2Small}>Timeline</h2>
           <ol className={styles.timeline}>
             <li>
@@ -334,25 +349,24 @@ function OverridePending({ state, p }: { state: VaultState; p: Proposal }) {
 /* ------------------------------------------------------------------ Paid */
 
 function Paid({ state, p }: { state: VaultState; p: Proposal }) {
+  const play = !useMorphHold();
   const { meta, figure, unit } = amountParts(state, p);
   const listed = listedPayee(state.payees, p);
   const spend = state.spend[p.request.asset];
   return (
-    <Screen pushed>
+    <Screen pushed wide>
       <div className={styles.topRow}>
-        <BackLink href="/app" label="Back to overview" />
+        <BackLink href="/app" label="Back to overview" morphId={p.id} />
         <span className={styles.timeMuted}>{formatWhen(p.settled_at ?? p.created_at)}</span>
       </div>
       <div className={styles.paidLayout}>
-        <section className={styles.paidHero}>
+        <section className={`${styles.paidHero} ${styles.panel}`}>
+          <span className={styles.paidGlow} aria-hidden="true" />
           <span className={`${styles.paidCheck} pop`} style={delay(120)}>
             <Icon name="check" size={28} stroke={3} />
           </span>
-          <h1 className={`${styles.paidTitle} rise`} style={delay(200)}>Paid</h1>
-          <div className={`${styles.amountRow} rise`} style={delay(260)}>
-            <span className={`${styles.amount} tabular`}>{figure}</span>
-            <span className={styles.unitMuted}>{unit}</span>
-          </div>
+          <LineReveal as="h1" className={styles.paidTitle} text="Paid" delay={200} />
+          <Amount figure={figure} unit={unit} muted at={260} play={play} />
           <span className={`${styles.paidTo} rise`} style={delay(320)}>
             to {payeeLabel(state.payees, p)} on {p.request.chain.toUpperCase()}
           </span>
@@ -363,7 +377,7 @@ function Paid({ state, p }: { state: VaultState; p: Proposal }) {
           <div className={`${styles.paidLine} draw`} style={delay(600)} aria-hidden="true" />
         </section>
 
-        <section className={`${styles.checks} rise`} style={delay(420)} aria-label="Checks">
+        <section className={`${styles.checks} ${styles.panel} rise`} style={delay(420)} aria-label="Checks">
           <h2 className={styles.h2Small}>Checks</h2>
           <div className={styles.checkRow}>
             <div>
@@ -381,10 +395,10 @@ function Paid({ state, p }: { state: VaultState; p: Proposal }) {
             </div>
             <span className={styles.passBadge}>Pass</span>
           </div>
-          <Circuit ai="pass" paid delay={500} />
+          <Circuit ai="pass" paid delay={500} play={play} />
         </section>
 
-        <aside className={`${styles.colSideDark} rise`} style={delay(480)}>
+        <aside className={`${styles.colSideDark} ${styles.panel} rise`} style={delay(480)}>
           <ProofSummary p={p} />
         </aside>
       </div>
@@ -401,11 +415,11 @@ function InFlight({ state, p }: { state: VaultState; p: Proposal }) {
   const left = remaining(p.screen_deadline, now);
   return (
     <Screen pushed>
-      <BackLink href="/app" label="Back to overview" />
+      <BackLink href="/app" label="Back to overview" morphId={p.id} />
       <section className={styles.inflight}>
         <VLoader size={96} label={screening ? "Screening" : "Sending"} />
-        <h1 className={styles.plainTitle}>{screening ? "Screening privately" : "Sending"}</h1>
-        <p className={styles.plainText}>
+        <LineReveal as="h1" className={styles.plainTitle} text={screening ? "Screening privately" : "Sending"} />
+        <p className={`${styles.plainText} rise`} style={delay(80)}>
           {formatAmount(p.request.amount, meta)} to <span className="mono">{shortAddress(p.request.payee)}</span>
           {screening ? ", inside an enclave on NEAR AI Cloud." : ". Both checks passed; the transfer is on its way."}
         </p>
@@ -414,7 +428,7 @@ function InFlight({ state, p }: { state: VaultState; p: Proposal }) {
             {left.done ? "No verdict arrived in time. It will expire, so nothing is paid." : `If no verdict arrives in ${left.minutes} min ${left.seconds} s, it fails closed and nothing is paid.`}
           </p>
         )}
-        <div className={styles.inflightCircuit}>
+        <div className={`${styles.inflightCircuit} ${styles.panel} rise`} style={delay(160)}>
           <Circuit ai={screening ? "pending" : "pass"} paid={false} />
         </div>
       </section>
@@ -435,19 +449,19 @@ function Closed({ state, p }: { state: VaultState; p: Proposal }) {
   const copy = CLOSED[p.status] ?? CLOSED.Expired;
   return (
     <Screen pushed>
-      <BackLink href="/app" label="Back to overview" />
+      <BackLink href="/app" label="Back to overview" morphId={p.id} />
       <section className={styles.inflight}>
         <span className={styles.closedIcon}>
           <Icon name={p.status === "Failed" ? "x" : "clock"} size={26} />
         </span>
-        <h1 className={`${styles.plainTitle} rise`}>{copy.title}</h1>
+        <LineReveal as="h1" className={styles.plainTitle} text={copy.title} />
         <p className={`${styles.plainText} rise`} style={delay(80)}>{copy.text}</p>
         <p className={`${styles.plainMuted} rise`} style={delay(140)}>
           {formatAmount(p.request.amount, meta)} to <span className="mono">{shortAddress(p.request.payee)}</span>, proposed by{" "}
           <span className="mono">{p.agent}</span>, {formatWhen(p.created_at)}.
         </p>
         {p.verdict && (
-          <div className={styles.closedProof}>
+          <div className={`${styles.closedProof} ${styles.panel} rise`} style={delay(200)}>
             <ProofSummary p={p} />
           </div>
         )}

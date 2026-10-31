@@ -8,6 +8,7 @@ import { Lockup } from "@/components/Logo";
 import { Circuit } from "@/components/Circuit";
 import { Pill } from "@/components/Pill";
 import { Icon } from "@/components/Icon";
+import { LineReveal } from "@/components/LineReveal";
 import styles from "./StartViews.module.css";
 
 export function WelcomeView() {
@@ -21,7 +22,7 @@ export function WelcomeView() {
       </header>
 
       <section className={styles.intro} aria-label="Introduction">
-        <h1 className={`${styles.h1} rise`} style={delay(80)}>A second signer that can only say no.</h1>
+        <LineReveal as="h1" className={styles.h1} lines={["A second signer", "that can only", "say no."]} delay={80} />
         <p className={`${styles.lead} rise`} style={delay(160)}>
           Veto screens every payment your agent makes, privately, before it leaves your vault. It can block a payment. It can never approve more than your limits allow.
         </p>
@@ -65,7 +66,7 @@ export function VaultSetupView() {
         <span className={styles.step}>Step 1 of 2</span>
       </div>
 
-      <h1 className={`${styles.title} rise`}>{testnet ? "Your vault" : "Create your vault"}</h1>
+      <LineReveal as="h1" className={styles.title} text={testnet ? "Your vault" : "Create your vault"} />
       {testnet && (
         <p className={`${styles.note} rise`} style={delay(60)}>
           <Icon name="shield" size={16} />

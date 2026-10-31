@@ -9,7 +9,8 @@ import { STATUS_TEXT, payeeLabel } from "@/lib/decision";
 import { formatAmount, formatWhen, NATIVE } from "@/lib/format";
 import { Screen, delay } from "@/components/Screen";
 import { OwnerButton } from "@/components/OwnerButton";
-import { LoadingScreen } from "@/components/VLoader";
+import { Boot } from "@/components/Boot";
+import { LineReveal } from "@/components/LineReveal";
 import head from "./PageHead.module.css";
 import styles from "./AgentsView.module.css";
 
@@ -51,11 +52,12 @@ const shortKey = (key: string) => (key.length > 20 ? `${key.slice(0, 11)}…${ke
 
 export function AgentsView() {
   const { state } = useVault();
-  if (!state) return <LoadingScreen caption="Loading agents" />;
+  if (!state) return <Boot loading caption="Loading agents" />;
 
   return (
+    <Boot>
     <Screen>
-      <h1 className={`${head.title} rise`}>Agents</h1>
+      <LineReveal as="h1" className={head.title} text="Agents" />
       <p className={`${head.lead} rise`} style={delay(60)}>
         Each agent has its own key. It can ask the vault to pay; it can't change the rules.
       </p>
@@ -69,6 +71,7 @@ export function AgentsView() {
 
       <ConnectAgent />
     </Screen>
+    </Boot>
   );
 }
 
@@ -110,7 +113,7 @@ function AgentCard({ state, agent, active, style }: { state: VaultState; agent: 
         {proposeKey?.allowance && (
           <div className={styles.fact}>
             <dt>Gas allowance</dt>
-            <dd className="tabular">{formatAmount(proposeKey.allowance, NATIVE)} left</dd>
+            <dd>{formatAmount(proposeKey.allowance, NATIVE)} left</dd>
           </div>
         )}
         <div className={styles.fact}>

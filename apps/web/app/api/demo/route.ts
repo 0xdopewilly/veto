@@ -1,13 +1,19 @@
 import { demo, demoAccounts } from "@/lib/server/demo";
 import { buildScenarios } from "@/lib/server/scenarios";
+import { vaultSnapshot } from "@/lib/server/state";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   if (!demo.enabled) return Response.json({ enabled: false });
-  const { reader, screener, owner } = demoAccounts();
-  const history = await reader.proposals(0, 50);
+  const { screener, owner } = demoAccounts();
+  let history;
+  try {
+    history = (await vaultSnapshot()).state.proposals;
+  } catch (e) {
+    return Response.json({ error: `Could not reach the vault: ${(e as Error).message}` }, { status: 503 });
+  }
   return Response.json({
     enabled: true,
     network: "testnet",

@@ -7,7 +7,8 @@ import { explorerAddress, verifierUrl, VAULT_ID } from "@/lib/config";
 import { formatAmount, formatWhen, shortAddress, shortHash } from "@/lib/format";
 import { Screen, BackLink, delay } from "@/components/Screen";
 import { Icon, type IconName } from "@/components/Icon";
-import { LoadingScreen } from "@/components/VLoader";
+import { Boot } from "@/components/Boot";
+import { LineReveal } from "@/components/LineReveal";
 import styles from "./ProofView.module.css";
 
 export function ProofView({ id }: { id: string }) {
@@ -23,7 +24,7 @@ export function ProofView({ id }: { id: string }) {
       </Screen>
     );
   }
-  if (!state || !p) return <LoadingScreen caption="Loading the proof" />;
+  if (!state || !p) return <Boot loading caption="Loading the proof" />;
 
   const v = p.verdict;
   if (!v) {
@@ -77,11 +78,12 @@ export function ProofView({ id }: { id: string }) {
   ];
 
   return (
-    <Screen pushed>
+    <Boot>
+    <Screen pushed wide>
       <BackLink href={back} label="Back to the decision" />
       <div className={styles.layout}>
-        <div>
-          <h1 className={`${styles.title} rise`}>Proof</h1>
+        <div className={styles.main}>
+          <LineReveal as="h1" className={styles.title} text="Proof" />
           <p className={`${styles.lead} rise`} style={delay(60)}>How this decision was made and checked.</p>
 
           <ol className={styles.timeline}>
@@ -129,5 +131,6 @@ export function ProofView({ id }: { id: string }) {
         </aside>
       </div>
     </Screen>
+    </Boot>
   );
 }

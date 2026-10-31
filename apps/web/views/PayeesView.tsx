@@ -9,7 +9,8 @@ import { formatWhen, shortAddress } from "@/lib/format";
 import { Screen, delay } from "@/components/Screen";
 import { Icon } from "@/components/Icon";
 import { OwnerButton } from "@/components/OwnerButton";
-import { LoadingScreen } from "@/components/VLoader";
+import { Boot } from "@/components/Boot";
+import { LineReveal } from "@/components/LineReveal";
 import head from "./PageHead.module.css";
 import styles from "./PayeesView.module.css";
 
@@ -30,7 +31,7 @@ export function PayeesView() {
   const [chain, setChain] = useState("near");
   const [address, setAddress] = useState("");
 
-  if (!state) return <LoadingScreen caption="Loading payees" />;
+  if (!state) return <Boot loading caption="Loading payees" />;
 
   const blocked = state.proposals
     .filter((p) => p.status === "Vetoed" || p.status === "Cancelled")
@@ -39,9 +40,10 @@ export function PayeesView() {
   const canAdd = name.trim().length > 0 && name.trim().length <= 64 && address.trim().length > 0;
 
   return (
+    <Boot>
     <Screen>
       <div className={styles.titleRow}>
-        <h1 className={`${head.title} rise`}>Payees</h1>
+        <LineReveal as="h1" className={head.title} text="Payees" />
         <a href="#add" className={`${styles.add} press rise`}>
           <Icon name="plus" size={16} stroke={2.25} /> Add payee
         </a>
@@ -75,7 +77,7 @@ export function PayeesView() {
               </span>
               <span role="cell" className={styles.cell}>{chainLabel(payee.chain)}</span>
               <span role="cell" className={`${styles.cell} mono ${styles.address}`}>{payee.address}</span>
-              <span role="cell" className={`${styles.count} tabular`}>
+              <span role="cell" className={styles.count}>
                 {history.count} <span className={styles.mobileOnly}>payment{history.count === 1 ? "" : "s"}</span>
               </span>
               <span role="cell" className={styles.cell}>{history.last ? formatWhen(history.last.settled_at ?? history.last.created_at) : "Never"}</span>
@@ -156,5 +158,6 @@ export function PayeesView() {
         </section>
       </div>
     </Screen>
+    </Boot>
   );
 }

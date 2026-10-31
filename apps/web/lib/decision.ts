@@ -1,6 +1,6 @@
 import type { Payee, Proposal, Status } from "@veto/core/proposal";
 import { REASON_TEXT, type ReasonCode } from "@veto/core/prompt";
-import { lookalike } from "@veto/core/signals";
+import { computeSignals, lookalike } from "@veto/core/signals";
 import { shortAddress } from "./format";
 
 export type Tone = "pass" | "veto" | "pending" | "neutral";
@@ -72,3 +72,14 @@ export function compareAddresses(saved: string, requested: string) {
 
 /** True for verdicts signed by a local test key rather than a NEAR AI enclave. */
 export const isTestSigner = (modelId: string) => modelId.startsWith("veto-dev/");
+
+const SIGNAL_WEIGHT: Record<string, number> = { NEW_PAYEE: 3, LOOKALIKE_ADDRESS: 4, DUPLICATE_INVOICE: 4, AMOUNT_ANOMALY: 3 };
+
+/** How loudly a payment's risk signals fired, as 0–10 segments for the signal bar. */
+export function riskOf(p: Proposal, payees: Payee[], proposals: Proposal[]): { filled: number; signals: number } {
+  const history = proposals.filter((x) => Number(x.id) < Number(p.id));
+  const signals = computeSignals(p.request, payees, history).filter((s) => s.code !== "LISTED_PAYEE");
+  let score = 1 + signals.reduce((sum, s) => sum + (SIGNAL_WEIGHT[s.code] ?? 2), 0);
+  if (p.status === "Vetoed") score += p.verdict?.reasons.length || 1;
+  return { filled: Math.min(10, score), signals: signals.length };
+}

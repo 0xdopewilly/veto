@@ -1,10 +1,12 @@
 "use client";
 
-import { useContext, useRef, useState, type ReactNode } from "react";
+import { useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { LayoutRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
-import { AnimatePresence, motion, useReducedMotion, type Variants } from "motion/react";
+import { AnimatePresence, motion, type Transition, type Variants } from "motion/react";
 import { useIsDesktop } from "@/lib/media";
+import { ReturnContext, useCalm } from "@/lib/motion";
+import { morphArrived, useMorph } from "@/lib/morph";
 import styles from "./RouteStage.module.css";
 
 /** Keeps a leaving route rendering its own content while it animates out. */
@@ -21,35 +23,49 @@ export function levelOf(path: string): number {
   return 0;
 }
 
-const PUSH = { duration: 0.56, ease: [0.32, 0.72, 0, 1] as const };
-const TAB = { duration: 0.36, ease: [0.2, 0.8, 0.2, 1] as const };
+const PUSH: Transition = { type: "spring", stiffness: 260, damping: 32, mass: 1 };
+const TAB: Transition = { type: "spring", stiffness: 300, damping: 30, mass: 0.9 };
+const BEHIND = { x: "-24%", scale: 0.96, filter: "brightness(0.5) blur(2px)" };
+const FRONT = { x: 0, scale: 1, filter: "brightness(1) blur(0px)" };
+
+type Custom = { dir: number; instant: boolean };
 
 const mobile: Variants = {
-  enter: (dir: number) =>
-    dir > 0
-      ? { x: "100%", opacity: 1, y: 0, zIndex: 2, filter: "brightness(1)" }
-      : dir < 0
-        ? { x: "-28%", opacity: 1, y: 0, zIndex: 1, filter: "brightness(0.45)" }
-        : { x: 0, opacity: 0, y: 12, zIndex: 2, filter: "brightness(1)" },
-  center: (dir: number) => ({
-    x: 0,
+  enter: ({ dir, instant }: Custom) =>
+    instant
+      ? { ...FRONT, opacity: 1, y: 0, zIndex: 2 }
+      : dir > 0
+        ? { ...FRONT, x: "100%", opacity: 1, y: 0, zIndex: 2 }
+        : dir < 0
+          ? { ...BEHIND, opacity: 1, y: 0, zIndex: 1 }
+          : { ...FRONT, opacity: 0, y: 14, zIndex: 2 },
+  center: ({ dir, instant }: Custom) => ({
+    ...FRONT,
     y: 0,
     opacity: 1,
-    filter: "brightness(1)",
-    transition: dir === 0 ? TAB : PUSH,
+    transition: instant ? { duration: 0 } : dir === 0 ? TAB : PUSH,
+    transitionEnd: { filter: "none" },
   }),
-  exit: (dir: number) =>
-    dir > 0
-      ? { x: "-28%", filter: "brightness(0.45)", zIndex: 1, transition: PUSH }
-      : dir < 0
-        ? { x: "100%", zIndex: 2, transition: PUSH }
-        : { opacity: 0, zIndex: 1, transition: { duration: 0.2 } },
+  exit: ({ dir, instant }: Custom) =>
+    instant
+      ? { opacity: 0, transition: { duration: 0 } }
+      : dir > 0
+        ? { ...BEHIND, zIndex: 1, transition: PUSH }
+        : dir < 0
+          ? { x: "100%", zIndex: 2, transition: PUSH }
+          : { opacity: 0, scale: 0.99, zIndex: 1, transition: { duration: 0.18 } },
 };
 
 const desktop: Variants = {
-  enter: { opacity: 0, y: 10, x: 0 },
-  center: { opacity: 1, y: 0, x: 0, transition: { duration: 0.42, ease: [0.2, 0.8, 0.2, 1] } },
-  exit: { opacity: 0, y: -8, transition: { duration: 0.2 } },
+  enter: ({ instant }: Custom) => (instant ? { opacity: 1 } : { opacity: 0, y: 12, filter: "blur(6px)" }),
+  center: ({ instant }: Custom) => ({
+    opacity: 1,
+    y: 0,
+    filter: "blur(0px)",
+    transition: instant ? { duration: 0 } : { type: "spring", stiffness: 220, damping: 28 },
+    transitionEnd: { filter: "none" },
+  }),
+  exit: ({ instant }: Custom) => (instant ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, y: -6, filter: "blur(4px)", transition: { duration: 0.18 } }),
 };
 
 const reduced: Variants = {
@@ -61,26 +77,42 @@ const reduced: Variants = {
 export function RouteStage({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isDesktop = useIsDesktop();
-  const reduce = useReducedMotion();
-  const [nav, setNav] = useState({ path: pathname, dir: 0 });
+  const calm = useCalm();
+  const morph = useMorph();
+  const [nav, setNav] = useState({ path: pathname, dir: 0, instant: false });
   if (nav.path !== pathname) {
-    setNav({ path: pathname, dir: Math.sign(levelOf(pathname) - levelOf(nav.path)) });
+    // A route change while the circle covers the screen swaps without a slide.
+    setNav({ path: pathname, dir: Math.sign(levelOf(pathname) - levelOf(nav.path)), instant: morph.phase !== "idle" });
   }
-  const variants = reduce ? reduced : isDesktop ? desktop : mobile;
+
+  useEffect(() => {
+    if (morph.phase === "idle") return;
+    const raf = requestAnimationFrame(() => requestAnimationFrame(morphArrived));
+    return () => cancelAnimationFrame(raf);
+    // Only on route changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  const variants = calm ? reduced : isDesktop ? desktop : mobile;
+  const custom: Custom = { dir: nav.dir, instant: nav.instant };
+  const hold = morph.phase === "grow" || morph.phase === "covered";
 
   return (
-    <div className={styles.stage}>
-      <AnimatePresence initial={false} custom={nav.dir}>
+    <div className={styles.stage} data-hold={hold || undefined}>
+      <AnimatePresence initial={false} custom={custom}>
         <motion.div
           key={pathname}
           className={styles.screen}
-          custom={nav.dir}
+          custom={custom}
           variants={variants}
           initial="enter"
           animate="center"
           exit="exit"
+          data-return={nav.dir < 0 || undefined}
         >
-          <Frozen>{children}</Frozen>
+          <ReturnContext.Provider value={nav.dir < 0}>
+            <Frozen>{children}</Frozen>
+          </ReturnContext.Provider>
         </motion.div>
       </AnimatePresence>
     </div>

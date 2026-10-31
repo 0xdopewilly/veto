@@ -1,0 +1,43 @@
+.odo {
+  display: inline-flex;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
+.sep {
+  display: inline-block;
+}
+
+.cell {
+  position: relative;
+  display: inline-block;
+  transition: width 300ms ease;
+  height: 1.1em;
+  line-height: 1.1em;
+  overflow: hidden;
+  vertical-align: bottom;
+  /* Soft fade at the top and bottom edge while digits travel. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14%, #000 86%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 14%, #000 86%, transparent 100%);
+}
+
+.ghost {
+  visibility: hidden;
+}
+
+.column {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  will-change: transform;
+}
+
+.digit {
+  display: block;
+  text-align: center;
+  height: 1.1em;
+  line-height: 1.1em;
+}

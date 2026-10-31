@@ -1,60 +1,29 @@
-.layer {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
+.badge {
+  margin-top: 18px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--control);
+  color: var(--sand);
+  display: grid;
+  place-items: center;
 }
 
-.backdrop {
-  position: absolute;
-  inset: 0;
-  border: 0;
-  padding: 0;
-  background: rgba(0, 0, 0, 0.7);
-  cursor: pointer;
-}
-
-.sheet {
-  position: relative;
-  width: 100%;
-  max-width: 520px;
-  background: var(--sheet);
-  border-radius: 28px 28px 0 0;
-  padding: 10px 20px calc(30px + var(--safe-bottom));
-  display: flex;
-  flex-direction: column;
-}
-
-@media (min-width: 900px) {
-  .layer {
-    align-items: center;
-  }
-  .sheet {
-    border-radius: 28px;
-    padding: 10px 28px 28px;
-  }
-}
-
-.handle {
-  align-self: center;
-  width: 36px;
-  height: 5px;
-  border-radius: 3px;
-  background: var(--outline);
+.badgeOn {
+  background: var(--coral);
+  color: var(--black);
 }
 
 .title {
-  margin: 26px 0 0;
-  font-size: 27px;
+  margin: 18px 0 0;
+  font-size: 28px;
   font-weight: 600;
-  letter-spacing: -0.025em;
-  line-height: 1.15;
+  letter-spacing: -0.03em;
+  line-height: 1.12;
 }
 
 .lead {
-  margin: 12px 0 0;
+  margin: 10px 0 0;
   font-size: 15.5px;
   line-height: 1.5;
   color: var(--muted);
@@ -63,36 +32,37 @@
 .list {
   list-style: none;
   margin: 18px 0 0;
-  padding: 0;
+  padding: 6px;
+  border-radius: var(--r-tile);
+  background: var(--tile);
 }
 
 .row {
   display: flex;
   align-items: center;
   gap: 14px;
-  min-height: 60px;
-  border-bottom: 1px solid #262626;
+  min-height: 58px;
+  padding: 0 10px;
   font-size: 15.5px;
   line-height: 1.4;
 }
 
-.row:last-child {
-  border-bottom: 0;
+.row + .row {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .rowIcon {
   flex: none;
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
-  background: #1f1f1f;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: var(--control);
+  display: grid;
+  place-items: center;
 }
 
 .actions {
-  margin-top: 26px;
+  margin-top: 22px;
   display: flex;
   flex-direction: column;
   gap: 10px;

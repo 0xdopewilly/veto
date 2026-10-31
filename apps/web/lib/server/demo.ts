@@ -1,7 +1,8 @@
 // Server-only: the testnet demo's accounts. Each key can only call its own vault methods
 // (agent: propose; guardian: submit_verdict/expire; demo owner: the owner methods).
 import { Account, type KeyPairString } from "near-api-js";
-import { DEFAULT_MODEL, DevScreener, NearAiScreener, provider, VaultReader, type Screener } from "@veto/core";
+import { DEFAULT_MODEL, DevScreener, NearAiScreener, VaultReader, type Screener } from "@veto/core";
+import { serverRpc } from "./rpc";
 
 const env = (key: string) => process.env[key]?.trim() ?? "";
 
@@ -20,7 +21,7 @@ let cached: { reader: VaultReader; agent: Account; guardian: Account; owner: Acc
 export function demoAccounts() {
   if (!demo.enabled) throw new Error("the testnet demo is not configured");
   if (!cached) {
-    const rpc = provider("testnet");
+    const rpc = serverRpc();
     const nearAiKey = env("NEARAI_API_KEY");
     cached = {
       reader: new VaultReader(demo.vaultId, rpc),

@@ -1,0 +1,61 @@
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  cursor: pointer;
+}
+
+.sheet {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--card);
+  border-radius: 34px 34px 0 0;
+  padding: 10px 20px calc(28px + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.6), inset 0 1px 0 var(--glass-edge);
+  touch-action: pan-y;
+}
+
+.handle {
+  flex: none;
+  align-self: center;
+  width: 40px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--outline);
+  margin-bottom: 4px;
+}
+
+@media (min-width: 900px) {
+  .layer {
+    align-items: center;
+  }
+  .sheet {
+    border-radius: 32px;
+    padding: 24px 28px 28px;
+  }
+  .wide {
+    max-width: 640px;
+  }
+  .handle {
+    display: none;
+  }
+}

@@ -74,7 +74,23 @@ export async function accessKeys(accountId: string) {
   return rpc.viewAccessKeyList({ accountId, finalityQuery: { finality: "optimistic" } });
 }
 
+/** Reads the shared server snapshot; falls back to reading the chain directly. */
 async function load(): Promise<VaultState> {
+  try {
+    const res = await fetch("/api/state", { cache: "no-store" });
+    if (res.ok) {
+      const data = await res.json();
+      data.balances = Object.fromEntries(Object.entries(data.balances as Record<string, string>).map(([k, v]) => [k, BigInt(v)]));
+      for (const [id, meta] of Object.entries(data.assets as Record<string, AssetMeta>)) metaCache.set(id, meta);
+      return data as VaultState;
+    }
+  } catch {
+    // fall through to a direct read
+  }
+  return loadDirect();
+}
+
+async function loadDirect(): Promise<VaultState> {
   const [config, proposals, payees, agents, policies, pending, account] = await Promise.all([
     reader.config(),
     reader.proposals(0, 100),

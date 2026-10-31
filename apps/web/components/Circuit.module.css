@@ -1,15 +1,17 @@
 .circuit {
   display: flex;
   align-items: flex-start;
-  --dot: 38px;
+  --dot: 40px;
 }
 
-.large {
-  --dot: 56px;
+@media (min-width: 900px) {
+  .large {
+    --dot: 58px;
+  }
 }
 
 .node {
-  width: 60px;
+  width: 62px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -17,49 +19,130 @@
   flex: none;
 }
 
-.large .node {
-  width: 92px;
-  gap: 10px;
+@media (min-width: 900px) {
+  .large .node {
+    width: 92px;
+    gap: 10px;
+  }
 }
 
 .dot {
+  position: relative;
   width: var(--dot);
   height: var(--dot);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  isolation: isolate;
 }
 
 .vault {
-  box-shadow: inset 0 0 0 1.5px rgba(242, 241, 233, 0.35);
+  background: var(--tile);
+  box-shadow: inset 0 0 0 1.5px rgba(242, 241, 233, 0.3);
 }
 
-.pass {
-  color: var(--green);
-  background: rgba(0, 236, 151, 0.12);
-  box-shadow: inset 0 0 0 1.5px var(--green);
+.neutral {
+  background: var(--tile);
+  box-shadow: inset 0 0 0 1.5px rgba(242, 241, 233, 0.16);
 }
 
-.veto {
-  color: var(--black);
+.fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  z-index: -1;
+}
+
+.fillPass {
+  background: var(--green);
+}
+
+.fillVeto {
   background: var(--coral);
+}
+
+.fillPaid {
+  background: var(--green);
+}
+
+.glow {
+  position: absolute;
+  inset: -40%;
+  border-radius: 50%;
+  z-index: -2;
+  filter: blur(14px);
+  pointer-events: none;
+}
+
+.glowPass {
+  background: radial-gradient(circle, rgba(0, 236, 151, 0.55), transparent 65%);
+}
+
+.glowVeto {
+  background: radial-gradient(circle, rgba(255, 121, 102, 0.75), transparent 65%);
+}
+
+.shock,
+.ripple {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.shock {
+  box-shadow: 0 0 0 2px var(--coral);
+}
+
+.ripple {
+  box-shadow: 0 0 0 2px var(--green);
+}
+
+.mark {
+  fill: none;
+  stroke-width: 2.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.markPass,
+.markVeto {
+  stroke: var(--black);
 }
 
 .waiting {
   color: var(--purple);
+  background: var(--purple-soft);
   box-shadow: inset 0 0 0 1.5px var(--purple);
 }
 
-.paid {
-  color: var(--black);
-  background: var(--green);
+.waitPulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(151, 151, 255, 0.5);
+  animation: wait 1.8s ease-out infinite;
+}
+
+@keyframes wait {
+  0% { box-shadow: 0 0 0 0 rgba(151, 151, 255, 0.5); }
+  80%, 100% { box-shadow: 0 0 0 14px rgba(151, 151, 255, 0); }
 }
 
 .unpaid {
+  background: var(--tile);
+  box-shadow: inset 0 0 0 1.5px rgba(242, 241, 233, 0.16);
   color: var(--muted);
-  box-shadow: inset 0 0 0 1.5px rgba(242, 241, 233, 0.28);
-  border-radius: 50%;
+}
+
+.payeeIcon {
+  display: grid;
+  transition: color 200ms ease;
+}
+
+.payeeIcon[data-paid] {
+  color: var(--black);
 }
 
 .payee {
@@ -74,8 +157,10 @@
   color: var(--sand);
 }
 
-.large .label {
-  font-size: 14px;
+@media (min-width: 900px) {
+  .large .label {
+    font-size: 14px;
+  }
 }
 
 .payee .label {
@@ -90,11 +175,13 @@
   font-weight: 650;
 }
 
-.large .passText,
-.large .vetoText,
-.large .waitText,
-.large .idleText {
-  font-size: 13px;
+@media (min-width: 900px) {
+  .large .passText,
+  .large .vetoText,
+  .large .waitText,
+  .large .idleText {
+    font-size: 13px;
+  }
 }
 
 .passText {
@@ -114,17 +201,71 @@
   font-weight: 550;
 }
 
-.line {
+.seg {
+  position: relative;
   flex: 1;
-  margin-top: calc(var(--dot) / 2 - 1px);
-  height: 2px;
+  height: 4px;
+  margin-top: calc(var(--dot) / 2 - 2px);
 }
 
-.lineOn {
-  background: rgba(0, 236, 151, 0.6);
+.segSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 
-.lineBroken {
-  height: 0;
-  border-top: 2px dashed rgba(242, 241, 233, 0.18);
+.track {
+  stroke: rgba(242, 241, 233, 0.08);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.line {
+  stroke: rgba(0, 236, 151, 0.75);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+}
+
+.dashed {
+  stroke: rgba(242, 241, 233, 0.22);
+  stroke-width: 2;
+  stroke-dasharray: 4 5;
+  vector-effect: non-scaling-stroke;
+}
+
+.packet,
+.loopPacket {
+  position: absolute;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 50%;
+  box-shadow: 0 0 12px 3px currentColor;
+  pointer-events: none;
+}
+
+.loopPacket {
+  left: 0;
+  background: var(--green);
+  color: var(--green);
+  animation: travel 1.3s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes travel {
+  0% { left: 0%; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loopPacket,
+  .waitPulse {
+    animation: none;
+    opacity: 0;
+  }
 }

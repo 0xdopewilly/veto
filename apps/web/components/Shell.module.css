@@ -5,53 +5,105 @@
   background: var(--black);
 }
 
-.sidebar {
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar,
+.topbar {
   display: none;
 }
 
+/* ----------------------------------------------------------- phone nav */
+
 .tabbar {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: 16px;
+  right: 16px;
+  bottom: calc(14px + var(--safe-bottom));
   z-index: 20;
+  height: 72px;
+  padding: 0 10px;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  padding: 6px 12px calc(10px + var(--safe-bottom));
-  background: rgba(0, 0, 0, 0.92);
-  backdrop-filter: blur(12px);
-  border-top: 1px solid var(--hairline);
+  grid-template-columns: repeat(2, minmax(0, 1fr)) 76px repeat(2, minmax(0, 1fr));
+  align-items: center;
+  border-radius: 36px;
+  background: rgba(22, 22, 22, 0.88);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .tab {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  min-height: 54px;
-  text-decoration: none;
+  justify-self: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
   color: var(--nav-idle);
-  font-size: 11.5px;
-  font-weight: 550;
+  text-decoration: none;
+  transition: color 220ms ease;
 }
 
 .tabActive {
-  color: var(--sand);
-  font-weight: 650;
+  color: var(--green);
 }
 
-.tabIndicator {
+.tabWell {
   position: absolute;
-  top: -7px;
-  width: 28px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--sand);
+  inset: 0;
+  border-radius: 50%;
+  background: var(--black);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
+
+.tabIcon {
+  position: relative;
+  display: grid;
+}
+
+.tabDot {
+  position: absolute;
+  bottom: 5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+.tryIt {
+  justify-self: center;
+  width: 66px;
+  height: 66px;
+  margin-top: -34px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--green);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 0 0 7px var(--black), 0 14px 34px -6px rgba(0, 236, 151, 0.55);
+  transition: transform var(--spring-bounce-ms) var(--spring-bounce);
+}
+
+.tryIt:active {
+  transform: scale(0.92);
+  transition-duration: 90ms;
+}
+
+/* -------------------------------------------------------------- desktop */
 
 @media (min-width: 900px) {
+  .shell {
+    padding: 16px;
+    gap: 16px;
+  }
+
   .tabbar {
     display: none;
   }
@@ -59,66 +111,98 @@
   .sidebar {
     flex: none;
     width: var(--sidebar);
-    height: 100dvh;
     display: flex;
     flex-direction: column;
-    gap: 28px;
-    padding: 28px 20px;
-    border-right: 1px solid var(--hairline);
+    gap: 22px;
+    padding: 22px 14px 14px;
+    border-radius: 26px;
+    background: var(--card);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     overflow-y: auto;
+  }
+
+  .topbar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    height: 64px;
+    padding: 0 6px 0 8px;
   }
 }
 
 .brand {
-  padding: 0 14px;
-  text-decoration: none;
+  padding: 4px 12px 0;
   color: var(--sand);
-  min-height: 44px;
+  text-decoration: none;
+  min-height: 40px;
   display: flex;
   align-items: center;
 }
 
-.account {
-  padding: 0 14px;
+.vaultCard {
+  margin: 0 4px;
+  padding: 14px 14px;
+  border-radius: 18px;
+  background: var(--tile);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
-.accountName {
-  font-size: 15px;
+.vaultName {
+  font-size: 14.5px;
   font-weight: 600;
 }
 
-.accountId {
-  font-size: 12px;
+.vaultId {
+  font-size: 11.5px;
   color: var(--muted);
   overflow-wrap: anywhere;
 }
 
 .status {
-  margin-top: 6px;
+  margin-top: 8px;
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: 12.5px;
 }
 
 .statusDot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--green);
+  box-shadow: 0 0 0 0 rgba(0, 236, 151, 0.5);
+  animation: live 2.4s ease-out infinite;
 }
 
 .statusDot[data-frozen] {
   background: var(--coral);
+  animation: none;
+}
+
+@keyframes live {
+  0% { box-shadow: 0 0 0 0 rgba(0, 236, 151, 0.55); }
+  70%, 100% { box-shadow: 0 0 0 7px rgba(0, 236, 151, 0); }
 }
 
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+}
+
+.navGroup {
+  padding: 14px 14px 6px;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.navGroup:first-child {
+  padding-top: 0;
 }
 
 .navItem {
@@ -128,60 +212,338 @@
   gap: 12px;
   height: 44px;
   padding: 0 14px;
-  border-radius: 22px;
+  border-radius: 16px;
   text-decoration: none;
   color: var(--nav-idle);
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 550;
-  transition: color 200ms ease;
+  transition: color 200ms ease, background-color 200ms ease;
 }
 
 .navItem:hover {
   color: var(--sand);
+  background: rgba(255, 255, 255, 0.025);
 }
 
 .navItem > * {
   position: relative;
 }
 
-.navActive {
+.navActive,
+.navActive:hover {
   color: var(--sand);
+  background: transparent;
 }
 
 .navPill {
   position: absolute !important;
   inset: 0;
-  border-radius: 22px;
-  background: var(--raised);
+  border-radius: 16px;
+  background:
+    radial-gradient(90px 46px at 0% 55%, rgba(0, 236, 151, 0.34), transparent 75%),
+    var(--control);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 8px 22px -10px rgba(0, 236, 151, 0.35);
+}
+
+.navExt {
+  margin-left: auto;
+  color: var(--dim);
 }
 
 .sideFoot {
   margin-top: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  padding-top: 14px;
 }
 
-.walletButton,
-.freeze {
+.footButton {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 44px;
-  padding: 0 14px;
-  border-radius: 22px;
+  gap: 10px;
+  height: 46px;
+  padding: 0 16px;
+  border-radius: 16px;
   border: 0;
-  background: transparent;
+  background: var(--tile);
   color: var(--sand);
   font-size: 14px;
   font-weight: 550;
   cursor: pointer;
-  box-shadow: inset 0 0 0 1px var(--outline);
 }
 
-.walletButton span {
-  font-size: 12px;
+.footButton:hover {
+  background: var(--control);
+}
+
+.footAlarm {
+  background: var(--coral);
+  color: var(--black);
+}
+
+.footAlarm:hover {
+  background: #ff8b7a;
+}
+
+/* Shorter screens: tighten the sidebar so it never needs to scroll. */
+@media (min-width: 900px) and (max-height: 860px) {
+  .sidebar {
+    gap: 12px;
+    padding-top: 16px;
+  }
+  .vaultCard {
+    padding: 11px 14px;
+  }
+  .status {
+    margin-top: 5px;
+  }
+  .navGroup {
+    padding: 8px 14px 4px;
+  }
+  .navItem {
+    height: 40px;
+  }
+  .footButton {
+    height: 42px;
+  }
+  .sideFoot {
+    padding-top: 8px;
+  }
+}
+
+@media (min-width: 900px) {
+  .sidebar {
+    scrollbar-width: none;
+  }
+  .sidebar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+}
+
+/* ---------------------------------------------------------------- top bar */
+
+.search {
+  position: relative;
+  flex: 0 1 440px;
+  display: flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 6px 0 16px;
+  border-radius: 24px;
+  background: var(--card);
+}
+
+.searchIcon {
+  color: var(--muted);
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  font-size: 14.5px;
+  outline: none;
+}
+
+.searchInput::placeholder {
+  color: var(--dim);
+}
+
+.search:focus-within {
+  box-shadow: 0 0 0 2px rgba(0, 236, 151, 0.4);
+}
+
+.kbd {
+  flex: none;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 17px;
+  background: var(--green-soft);
+  color: var(--green);
+  font: 600 12.5px var(--font-sans), sans-serif;
+  display: grid;
+  place-items: center;
+}
+
+.results {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  padding: 8px;
+  border-radius: 22px;
+  background: rgba(24, 24, 24, 0.96);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), inset 0 0 0 1px var(--glass-edge);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 14px;
+  text-decoration: none;
+  color: var(--sand);
+}
+
+.result:hover,
+.result:focus-visible {
+  background: var(--control);
+}
+
+.resultIcon {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--control);
+  display: grid;
+  place-items: center;
+}
+
+.resultText {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.resultTitle {
+  font-size: 14px;
+  font-weight: 550;
+}
+
+.resultSub {
+  font-size: 12.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.noResults {
+  padding: 12px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.topRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.network {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 20px;
+  background: var(--card);
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.networkDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--purple);
+}
+
+.circle {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--card);
+  color: var(--sand);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.circle:hover {
+  background: var(--tile);
+}
+
+.bellDot {
+  position: absolute;
+  top: 11px;
+  right: 12px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--coral);
+  box-shadow: 0 0 0 2px var(--card);
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 14px 0 5px;
+  border-radius: 24px;
+  border: 0;
+  background: var(--card);
+  color: var(--sand);
+  cursor: pointer;
+  max-width: 260px;
+}
+
+.account:hover {
+  background: var(--tile);
+}
+
+.avatar {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--green);
+  color: var(--black);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.accountText {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.2;
+}
+
+.accountName {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.accountSub {
+  max-width: 150px;
+  font-size: 11.5px;
+  color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

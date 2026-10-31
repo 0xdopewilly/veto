@@ -1,63 +1,83 @@
 .table {
+  position: relative;
   display: flex;
   flex-direction: column;
+  gap: 4px;
 }
 
 .head {
   display: none;
 }
 
+.rowWrap {
+  position: relative;
+}
+
 .row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 14px;
-  min-height: 68px;
-  border-bottom: 1px solid var(--hairline);
+  min-height: 72px;
+  padding: 10px 12px;
+  margin: 0 -12px;
+  border-radius: var(--r-tile);
   text-decoration: none;
   color: var(--sand);
+  overflow: hidden;
 }
 
-.row:last-child {
-  border-bottom: 0;
+.row:active {
+  background: var(--tile);
 }
 
 .decision {
   flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.statusWord,
 .chain,
-.agent,
-.when {
+.signals,
+.when,
+.desktopOnly {
   display: none;
 }
 
 .icon {
-  width: 36px;
-  height: 36px;
+  position: relative;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  transition: background-color 400ms ease, color 400ms ease;
+}
+
+.glyph {
+  display: grid;
+  place-items: center;
 }
 
 .pass {
-  background: var(--green-tint);
+  background: var(--green-soft);
   color: var(--green);
 }
 
 .veto {
-  background: var(--coral-tint);
+  background: var(--coral-soft);
   color: var(--coral);
 }
 
 .pending {
-  background: var(--purple-tint);
+  background: var(--purple-soft);
   color: var(--purple);
 }
 
 .neutral {
-  background: var(--raised);
+  background: var(--control);
   color: var(--muted);
 }
 
@@ -66,7 +86,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 
 .title {
@@ -89,6 +109,14 @@
   white-space: nowrap;
 }
 
+.amountCell {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
 .amount {
   font-size: 15.5px;
   font-weight: 550;
@@ -101,6 +129,53 @@
   text-decoration-color: var(--coral);
 }
 
+/* Solid status pills with dark text. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 11px;
+  font-size: 11.5px;
+  font-weight: 650;
+  white-space: nowrap;
+  transition: background-color 400ms ease, color 400ms ease;
+}
+
+.pill_pass {
+  background: var(--green);
+  color: var(--black);
+}
+
+.pill_veto {
+  background: var(--coral);
+  color: var(--black);
+}
+
+.pill_pending {
+  background: var(--purple);
+  color: var(--black);
+}
+
+.pill_neutral {
+  background: var(--control);
+  color: var(--muted);
+}
+
+/* A new payment arrives with a band of light passing over it. */
+.sweep {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 20%, rgba(0, 236, 151, 0.16) 45%, rgba(242, 241, 233, 0.12) 50%, transparent 72%);
+  transform: translateX(-100%);
+  animation: sweep 1.3s var(--ease-out-expo) 250ms forwards;
+}
+
+@keyframes sweep {
+  to { transform: translateX(100%); }
+}
+
 .empty {
   margin: 0;
   padding: 24px 0;
@@ -110,60 +185,117 @@
 }
 
 @media (min-width: 900px) {
+  .table {
+    gap: 6px;
+    container: activity / inline-size;
+  }
   .head,
   .row {
     display: grid;
-    grid-template-columns: 150px minmax(0, 1.6fr) 100px 140px minmax(0, 1.2fr) 120px;
-    gap: 16px;
+    grid-template-columns: 132px minmax(0, 1fr) 84px 104px 92px;
+    gap: 14px;
     align-items: center;
   }
   .head {
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--hairline);
-    font-size: 13.5px;
+    height: 40px;
+    padding: 0 16px;
+    border-radius: 14px;
+    background: var(--tile);
+    font-size: 12.5px;
     color: var(--muted);
   }
   .row {
-    min-height: 72px;
-    padding: 0 8px;
-    margin: 0 -8px;
-    border-radius: 12px;
-    transition: background-color 200ms ease, transform 140ms ease;
+    min-height: 68px;
+    margin: 0;
+    padding: 0 16px;
+    border-radius: 18px;
+    box-shadow: inset 0 0 0 1px var(--hairline);
+    transition: background-color 200ms ease, box-shadow 200ms ease, transform var(--spring-bounce-ms) var(--spring-bounce);
   }
   .row:hover {
-    background: #0b0b0b;
+    background: var(--tile);
+    box-shadow: inset 0 0 0 1px transparent;
   }
   .vetoedRow {
-    background: rgba(255, 121, 102, 0.06);
+    background: rgba(255, 121, 102, 0.05);
+  }
+  .icon {
+    width: 36px;
+    height: 36px;
   }
   .decision {
+    gap: 10px;
+  }
+  .desktopOnly {
+    display: inline-flex;
+  }
+  .mobileOnly {
+    display: none;
+  }
+  .signals {
     display: flex;
-    align-items: center;
-    gap: 12px;
   }
-  .statusWord {
-    display: inline;
-    font-size: 14.5px;
-    font-weight: 550;
-  }
-  .chain,
-  .agent,
   .when {
     display: block;
-    font-size: 14px;
+    font-size: 13.5px;
     color: var(--muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .agent {
-    font-size: 12.5px;
-  }
   .right,
-  .amount {
+  .amountCell {
     text-align: right;
   }
-  .mobileOnly {
+}
+
+.pillUnder {
+  display: inline-flex;
+}
+
+@media (min-width: 900px) {
+  .pillUnder {
+    display: none;
+  }
+}
+
+/* Narrow tables: the status pill moves under the amount so the payee keeps its room. */
+@container activity (max-width: 719px) {
+  .head,
+  .row {
+    grid-template-columns: 36px minmax(0, 1fr) 80px 104px 84px;
+    gap: 14px;
+  }
+  .desktopOnly {
+    display: none;
+  }
+  .pillUnder {
+    display: inline-flex;
+  }
+  .row {
+    min-height: 74px;
+  }
+  .head > :first-child {
+    font-size: 0;
+  }
+}
+
+/* Wide tables have room for the chain. */
+@container activity (min-width: 820px) {
+  .head,
+  .row {
+    grid-template-columns: 140px minmax(0, 1fr) 64px 92px 112px 112px;
+    gap: 16px;
+  }
+  .chain {
+    display: block;
+    font-size: 13.5px;
+    color: var(--muted);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sweep {
     display: none;
   }
 }

@@ -9,7 +9,8 @@ import { Screen, delay } from "@/components/Screen";
 import { Icon } from "@/components/Icon";
 import { Pill } from "@/components/Pill";
 import { OwnerButton } from "@/components/OwnerButton";
-import { LoadingScreen } from "@/components/VLoader";
+import { Boot } from "@/components/Boot";
+import { LineReveal } from "@/components/LineReveal";
 import head from "./PageHead.module.css";
 import styles from "./MandateView.module.css";
 
@@ -35,14 +36,15 @@ export function MandateView() {
   const { state } = useVault();
   const [draft, setDraft] = useState<string | null>(null);
 
-  if (!state) return <LoadingScreen caption="Loading your mandate" />;
+  if (!state) return <Boot loading caption="Loading your mandate" />;
   const text = draft ?? state.config.mandate;
   const changed = draft !== null && draft !== state.config.mandate;
   const raiseDelay = formatDuration(Number(state.config.raise_delay_secs));
 
   return (
+    <Boot>
     <Screen>
-      <h1 className={`${head.title} rise`}>Mandate</h1>
+      <LineReveal as="h1" className={head.title} text="Mandate" />
       <p className={`${head.lead} rise`} style={delay(60)}>
         What your agent may pay from <span className="mono">{VAULT_ID}</span>, and how Veto checks every payment against it.
       </p>
@@ -65,11 +67,11 @@ export function MandateView() {
           />
           <p className={styles.helper}>Write it the way you'd brief a new bookkeeper. The AI screen reads it on every payment.</p>
           <div className={styles.buttons}>
-            <OwnerButton method="set_mandate" args={{ mandate: text }} success="Saved" onDone={() => setDraft(null)}>
+            <OwnerButton method="set_mandate" args={{ mandate: text }} success="Saved" full onDone={() => setDraft(null)}>
               Save mandate
             </OwnerButton>
             {changed && (
-              <Pill variant="secondary" size="md" onClick={() => setDraft(null)}>
+              <Pill variant="secondary" size="md" full onClick={() => setDraft(null)}>
                 Discard changes
               </Pill>
             )}
@@ -88,9 +90,9 @@ export function MandateView() {
                 return (
                   <div key={asset} className={styles.limitGroup}>
                     <dt>{periodWord(state.config.period_secs)} limit · {meta.symbol}</dt>
-                    <dd className="tabular">{formatAmount(policy.period_limit, meta)}</dd>
+                    <dd>{formatAmount(policy.period_limit, meta)}</dd>
                     <dt>Largest single payment</dt>
-                    <dd className="tabular">{formatAmount(policy.max_single, meta)}</dd>
+                    <dd>{formatAmount(policy.max_single, meta)}</dd>
                   </div>
                 );
               })}
@@ -126,6 +128,7 @@ export function MandateView() {
         </section>
       </div>
     </Screen>
+    </Boot>
   );
 }
 
@@ -200,16 +203,22 @@ function LimitForm({ state }: { state: VaultState }) {
           </label>
         )}
         <label className={styles.field}>
-          <span>{periodWord(state.config.period_secs)} limit ({meta.symbol})</span>
-          <input inputMode="decimal" placeholder={current ? formatAmount(current.period_limit, meta, { symbol: false }) : ""} value={period} onChange={(e) => setPeriod(e.target.value)} />
+          <span>{periodWord(state.config.period_secs)} limit</span>
+          <span className={styles.well}>
+            <span className={styles.token}>{meta.symbol}</span>
+            <input inputMode="decimal" placeholder={current ? formatAmount(current.period_limit, meta, { symbol: false }) : ""} value={period} onChange={(e) => setPeriod(e.target.value)} />
+          </span>
         </label>
         <label className={styles.field}>
-          <span>Largest single payment ({meta.symbol})</span>
-          <input inputMode="decimal" placeholder={current ? formatAmount(current.max_single, meta, { symbol: false }) : ""} value={single} onChange={(e) => setSingle(e.target.value)} />
+          <span>Largest single payment</span>
+          <span className={styles.well}>
+            <span className={styles.token}>{meta.symbol}</span>
+            <input inputMode="decimal" placeholder={current ? formatAmount(current.max_single, meta, { symbol: false }) : ""} value={single} onChange={(e) => setSingle(e.target.value)} />
+          </span>
         </label>
       </div>
       {valid ? (
-        <OwnerButton method="set_policy" args={{ asset, policy: { period_limit: periodUnits, max_single: singleUnits } }} size="md" success="Submitted">
+        <OwnerButton method="set_policy" args={{ asset, policy: { period_limit: periodUnits, max_single: singleUnits } }} full success="Submitted">
           Save limits
         </OwnerButton>
       ) : (
