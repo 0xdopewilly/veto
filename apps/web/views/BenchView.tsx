@@ -56,6 +56,7 @@ export function BenchView() {
           </Link>
           <nav aria-label="Site" className={styles.nav}>
             <Link href="/app">Overview</Link>
+            <Link href="/docs">Docs</Link>
             <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
           </nav>
         </div>

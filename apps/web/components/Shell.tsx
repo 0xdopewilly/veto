@@ -47,6 +47,7 @@ const VAULT_NAV: NavItem[] = [
 ];
 const OTHER_NAV: NavItem[] = [
   { href: "/bench", label: "Veto Bench", icon: "chart" },
+  { href: "/docs", label: "Docs", icon: "file" },
   { href: "/", label: "About Veto", icon: "home" },
   { href: GITHUB_URL, label: "GitHub", icon: "github", external: true },
 ];

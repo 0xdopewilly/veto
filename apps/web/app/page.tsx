@@ -58,10 +58,10 @@ const CHAIN = [
 ];
 
 const NEAR = [
-  { title: "NEAR Intents", text: "Pays a supplier on any chain, in the asset they want, from one vault balance.", icon: "globe" },
-  { title: "Chain Signatures", text: "One vault contract controls addresses on Base, Arbitrum and more, and only signs after both gates pass.", icon: "key" },
+  { title: "NEAR Intents", text: "Pays a supplier on another chain, in the asset they want, from one vault balance.", icon: "globe" },
+  { title: "Signed 1Click quotes", text: "The vault checks 1Click's signature on every cross-chain quote and that it pays exactly the screened payee and amount.", icon: "key" },
   { title: "NEAR AI Cloud", text: "Private inference inside TEEs, with every response signed by the model's enclave key.", icon: "shield" },
-  { title: "NEAR accounts", text: "The agent is a sub-account whose function-call key can only propose payments. Gas keys give each agent its own budget.", icon: "bot" },
+  { title: "NEAR accounts", text: "The agent is a sub-account whose function-call key can only propose payments; the guardian's can only submit verdicts.", icon: "bot" },
 ] as const;
 
 export default function Landing() {
@@ -78,6 +78,7 @@ export default function Landing() {
             <a href="#how">How it works</a>
             <a href="#proof">Proof</a>
             <Link href="/bench">Bench</Link>
+            <Link href="/docs">Docs</Link>
             <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
           </nav>
           <Magnetic strength={0.22} className={styles.desktopOnly}>
@@ -248,6 +249,7 @@ export default function Landing() {
           <Lockup size={20} />
           <span className={styles.footerText}>
             Built for NEAR HACKATHON 2026 · MIT licence ·{" "}
+            <Link href="/docs">Docs</Link>
             <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
           </span>
         </div>

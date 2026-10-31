@@ -50,7 +50,7 @@ export function WelcomeView() {
           Open the demo vault
         </Pill>
       </div>
-      <p className={styles.footnote}>Built on NEAR Intents, Chain Signatures and NEAR AI Cloud.</p>
+      <p className={styles.footnote}>Built on NEAR AI Cloud, NEAR Intents and NEAR's access keys.</p>
     </div>
   );
 }
