@@ -72,10 +72,12 @@ export function Shell({ children }: { children: ReactNode }) {
 
 function ShellFrame({ children }: { children: ReactNode }) {
   const [freezeOpen, setFreezeOpen] = useState(false);
-  const [inboxOpen, setInboxOpen] = useState(false);
   const pathname = usePathname();
+  // The inbox belongs to the page it was opened on, so following a link out of it closes it.
+  const [inboxAt, setInboxAt] = useState<string | null>(null);
+  const inboxOpen = inboxAt === pathname;
   const showTabs = levelOf(pathname) === 0;
-  const api = useMemo(() => ({ openFreeze: () => setFreezeOpen(true), openInbox: () => setInboxOpen(true) }), []);
+  const api = useMemo(() => ({ openFreeze: () => setFreezeOpen(true), openInbox: () => setInboxAt(pathname) }), [pathname]);
 
   return (
     <ShellContext.Provider value={api}>
@@ -88,7 +90,7 @@ function ShellFrame({ children }: { children: ReactNode }) {
         <TabBar visible={showTabs} onInbox={api.openInbox} />
       </div>
       <FreezeSheet open={freezeOpen} onClose={() => setFreezeOpen(false)} />
-      <InboxSheet open={inboxOpen} onClose={() => setInboxOpen(false)} />
+      <InboxSheet open={inboxOpen} onClose={() => setInboxAt(null)} />
       <MorphOverlay />
       <Spotlight />
     </ShellContext.Provider>
