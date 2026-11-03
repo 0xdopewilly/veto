@@ -17,6 +17,7 @@ const SECTIONS = [
   { id: "rule", label: "The AI can only say no" },
   { id: "proof", label: "Checking a decision" },
   { id: "cross-chain", label: "Other chains" },
+  { id: "outlayer", label: "OutLayer wallets" },
   { id: "privacy", label: "What stays private" },
   { id: "try", label: "Try it on testnet" },
   { id: "developers", label: "For developers" },
@@ -29,7 +30,8 @@ type Status = "live" | "built" | "next";
 const STATUS_TEXT: Record<Status, string> = { live: "Live on testnet", built: "Built and tested", next: "Next" };
 
 const STATUS: { part: string; status: Status; note: string }[] = [
-  { part: "Vault contract: caps, verdict check, overrides, freeze", status: "live", note: "30 contract tests; deployed on NEAR testnet." },
+  { part: "Vault contract: caps, verdict check, overrides, freeze", status: "live", note: "38 contract tests; deployed on NEAR testnet." },
+  { part: "OutLayer agent wallets", status: "live", note: "Veto is an approver on an OutLayer wallet's policy. Pass, veto and override all run on testnet, settled against the wallet's real transactions." },
   { part: "Agent inbox and guardian screening", status: "live", note: "Real proposals and verdicts on testnet. Verdicts come from a labelled test key until the NEAR AI key is connected." },
   { part: "Owner actions in the app", status: "live", note: "With the owner's NEAR wallet, or the limited demo-owner key on testnet." },
   { part: "Private AI screen on NEAR AI Cloud", status: "built", note: "Client, prompt and on-chain signature check are done; the vault already trusts the model's attested key. Live calls start when the API key is added." },
@@ -50,6 +52,9 @@ const METHODS: { method: string; who: string; does: string }[] = [
   { method: "set_mandate, add_payee, remove_payee, add_agent, set_agent_active", who: "Owner", does: "What the agent may do, in plain words and as lists." },
   { method: "add_signer(address, model_id)", who: "Owner", does: "Approves a model key after checking its TEE attestation." },
   { method: "set_route(chain, route)", who: "Owner", does: "Lets the vault pay suppliers on another chain through NEAR Intents." },
+  { method: "add_wallet(provider, wallet, name)", who: "Owner", does: "Lets the guardian screen payments from an external agent wallet, such as an OutLayer wallet." },
+  { method: "propose_external(request, context_hash, external)", who: "Guardian", does: "Records a payment the wallet is holding for approval. Same caps; then it is screened like any other." },
+  { method: "settle_external(id, paid, tx_hash)", who: "Guardian", does: "Marks it paid once the wallet's transaction is final on NEAR, or releases the spend if it failed." },
 ];
 
 const FAQ: { q: string; a: string }[] = [
@@ -63,7 +68,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "How is this different from a policy wallet?",
-    a: "A policy wallet enforces caps and an allowlist, and Veto's contract does the same. Those rules stop payments to strangers. They can't stop a payment to a listed supplier for an invoice that was already paid, or for more than was billed, and a strict allowlist blocks every new supplier. Veto adds a private screen that reads the evidence behind each payment and can only say no, so the two work together rather than compete.",
+    a: "A policy wallet enforces caps and an allowlist, and Veto's contract does the same. Those rules stop payments to strangers. They can't stop a payment to a listed supplier for an invoice that was already paid, or for more than was billed, and a strict allowlist blocks every new supplier. Veto adds a private screen that reads the evidence behind each payment and can only say no, so the two work together rather than compete. On an OutLayer wallet that is literal: Veto is an approver on the wallet's policy.",
   },
   {
     q: "Why not just use a card with limits?",
@@ -251,6 +256,37 @@ export function DocsView() {
               The vault checks 1Click's ed25519 signature on the quote itself and confirms it pays the screened payee, on the screened chain,
               for the screened amount, refunds only to the vault and stays under the fee cap. The caps count what actually leaves the vault,
               fees included. Then it sends the deposit. A doctored quote is refused on-chain.
+            </p>
+          </section>
+
+          <section id="outlayer" className={styles.section} data-reveal>
+            <h2>Agent wallets on OutLayer</h2>
+            <p>
+              Some agents don't pay from a vault at all. They hold an OutLayer wallet: keys inside a TEE, with an owner policy that can require
+              approvals. Veto plugs in as one of those approvers, so the same screen covers a wallet it doesn't hold.
+            </p>
+            <ol className={styles.steps}>
+              <li>
+                <strong>The agent asks its wallet to pay.</strong> The wallet's policy needs an approval, so OutLayer holds the payment and
+                returns an approval id. The agent hands that id and its evidence to the guardian.
+              </li>
+              <li>
+                <strong>The vault records it.</strong> The guardian reads the held operation, checks OutLayer's hash of it, and records the
+                payment on your vault with <code>propose_external</code>. Your caps apply exactly as they do to vault payments.
+              </li>
+              <li>
+                <strong>It is screened and checked on-chain.</strong> The model screens it privately, and the vault checks the signed verdict.
+                The OutLayer approval id and operation hash are part of the proposal hash the model must echo.
+              </li>
+              <li>
+                <strong>Veto votes only after a pass.</strong> If the vault passes it, the guardian signs a yes on OutLayer and the wallet sends
+                it. The guardian then checks that transaction on NEAR, and only then marks it paid. On a veto Veto never votes, so the
+                wallet keeps holding it.
+              </li>
+            </ol>
+            <p className={styles.note}>
+              The owner is a second approver on the wallet. An override on the vault waits out the same delay, then Veto votes yes; the owner
+              can also approve on OutLayer directly. OutLayer drops an approval nobody signs within 24 hours.
             </p>
           </section>
 

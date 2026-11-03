@@ -70,6 +70,8 @@ const NEAR = [
   { title: "Signed 1Click quotes", text: "The vault checks 1Click's signature on every cross-chain quote and that it pays exactly the screened payee and amount.", icon: "key" },
   { title: "NEAR AI Cloud", text: "Private inference inside TEEs, with every response signed by the model's enclave key.", icon: "shield" },
   { title: "NEAR accounts", text: "The agent is a sub-account whose function-call key can only propose payments; the guardian's can only submit verdicts.", icon: "bot" },
+  { title: "On-chain verdict check", text: "The vault recovers the model's enclave signature with ecrecover and checks it names this exact payment before anything moves.", icon: "check" },
+  { title: "OutLayer agent wallets", text: "Veto is an approver on an OutLayer wallet's policy, so a TEE wallet it doesn't hold gets the same caps, screen and record.", icon: "lock" },
 ] as const;
 
 export default function Landing() {
