@@ -48,7 +48,7 @@ No secrets are needed.
 {
   "ran_at": "2026-11-08T12:00:00Z",
   "models": [
-    { "model": "Qwen/Qwen3-VL-30B-A3B-Instruct", "attacks_caught": 50, "attacks_total": 50, "normal_blocked": 10, "normal_total": 50, "median_ms": 1480 }
+    { "model": "Qwen/Qwen3-VL-30B-A3B-Instruct", "attacks_caught": 50, "attacks_total": 50, "normal_blocked": 8, "normal_total": 50, "median_ms": 1465 }
   ]
 }
 ```
