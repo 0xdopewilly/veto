@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { canonicalJson, computeSignals, lookalike, parseVerdict, proposalHash, type Payee, type Proposal } from "../src/index.ts";
+import { canonicalJson, computeSignals, lookalike, parseVerdict, paymentFromApproval, proposalHash, sha256Hex, type Approval, type Payee, type Proposal } from "../src/index.ts";
 
 const KANO = "0xA11cE57b2F0c88dE41a9B3c07e6D1f45a3c0D9F2";
 const POISONED = "0xA11cE5f09d3B7a21Cc04e8F5b6A0d92e71B1D9F2";
@@ -70,4 +70,42 @@ test("verdict parsing tolerates code fences", () => {
   const v = parseVerdict('```json\n{"proposal_id":"4","proposal_hash":"ab","verdict":"VETO","reasons":["NEW_PAYEE"]}\n```');
   assert.deepEqual(v, { proposal_id: "4", proposal_hash: "ab", verdict: "VETO", reasons: ["NEW_PAYEE"] });
   assert.throws(() => parseVerdict('{"verdict":"MAYBE"}'));
+});
+
+const WALLET_PUBKEY = "ed25519:583d89b1a496f19ea9d11888b77b1cd3a62bb8d2a495eeaf35a72004e6dffae2";
+function approvalFor(op: Record<string, unknown>): Approval {
+  const op_canonical = canonicalJson(op);
+  return {
+    id: "8a5202ac-91bf-472d-9f51-7c189763aa03",
+    wallet_id: "w",
+    status: "pending",
+    required_approvals: 1,
+    request_hash: sha256Hex(op_canonical),
+    op: op as Approval["op"],
+    op_canonical,
+    wallet_pubkey: WALLET_PUBKEY,
+    expires_at: "",
+  };
+}
+
+test("an OutLayer ft_transfer approval decodes to the payment it would make", () => {
+  const args = { receiver_id: "kano-cotton.testnet", amount: "180000000", memo: "INV-2290" };
+  const approval = approvalFor({
+    kind: "call",
+    to: "usdc.testnet",
+    method: "ft_transfer",
+    args_base64: Buffer.from(JSON.stringify(args)).toString("base64"),
+    deposit: "1",
+    gas: "30000000000000",
+  });
+  assert.deepEqual(paymentFromApproval(approval), { chain: "near", asset: "usdc.testnet", payee: "kano-cotton.testnet", amount: "180000000", memo: "INV-2290" });
+});
+
+test("an OutLayer native transfer decodes, and a doctored operation is refused", () => {
+  const approval = approvalFor({ kind: "transfer", to: "kano-cotton.testnet", amount: "10000000000000000000000" });
+  assert.equal(paymentFromApproval(approval).asset, "near");
+  const doctored = { ...approval, op_canonical: approval.op_canonical.replace("kano-cotton", "kano-cottom") };
+  assert.throws(() => paymentFromApproval(doctored), /does not match/);
+  const other = approvalFor({ kind: "call", to: "usdc.testnet", method: "ft_transfer_call", args_base64: "e30=", deposit: "1" });
+  assert.throws(() => paymentFromApproval(other), /unsupported/);
 });
