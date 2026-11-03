@@ -3,7 +3,7 @@
 import { VaultReader } from "@veto/core/vault";
 import { VAULT_ID } from "@/lib/config";
 import { NATIVE, type AssetMeta } from "@/lib/format";
-import type { AgentInfo, AssetPolicy, PendingPolicy, SpendStatus, VaultState } from "@/lib/vault";
+import type { AgentInfo, AssetPolicy, PendingPolicy, SpendStatus, VaultState, WalletInfo } from "@/lib/vault";
 import { serverRpc } from "./rpc";
 
 const FRESH_MS = 3000;
@@ -18,11 +18,13 @@ async function load(): Promise<VaultState> {
   const view = <T>(contractId: string, method: string, args: Record<string, unknown> = {}) =>
     rpc.callFunction({ contractId, method, args, blockQuery: { finality: "optimistic" } }) as Promise<T>;
 
-  const [config, proposals, payees, agents, policies, pending, account] = await Promise.all([
+  const [config, proposals, payees, agents, wallets, policies, pending, account] = await Promise.all([
     reader.config(),
     reader.proposals(0, 100),
     reader.payees(),
     reader.view<[string, AgentInfo][]>("get_agents"),
+    // Vaults deployed before external wallets existed don't have this view.
+    reader.view<[string, WalletInfo][]>("get_wallets").catch(() => [] as [string, WalletInfo][]),
     reader.view<[string, AssetPolicy][]>("get_policies"),
     reader.view<[string, PendingPolicy][]>("get_pending_policies"),
     rpc.viewAccount({ accountId: VAULT_ID }),
@@ -50,7 +52,7 @@ async function load(): Promise<VaultState> {
   tokenIds.forEach((id, i) => (balances[id] = tokenBalances[i]));
   const spend = Object.fromEntries(spendList.map((s) => [s.asset, s]));
 
-  return { config, proposals, payees, agents, policies, pending, spend, assets, balances, primaryAsset: tokenIds[0] ?? "near" };
+  return { config, proposals, payees, agents, wallets, policies, pending, spend, assets, balances, primaryAsset: tokenIds[0] ?? "near" };
 }
 
 /** The latest snapshot; a stale one (up to a minute old) if the RPCs are briefly unavailable. */

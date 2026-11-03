@@ -31,11 +31,19 @@ export interface AgentInfo {
   added_at: string;
 }
 
+/** An external agent wallet (e.g. OutLayer) whose payments the vault screens. */
+export interface WalletInfo {
+  provider: string;
+  name: string;
+  added_at: string;
+}
+
 export interface VaultState {
   config: VaultConfig;
   proposals: Proposal[];
   payees: Payee[];
   agents: [string, AgentInfo][];
+  wallets: [string, WalletInfo][];
   policies: [string, AssetPolicy][];
   pending: [string, PendingPolicy][];
   spend: Record<string, SpendStatus>;
@@ -91,11 +99,13 @@ async function load(): Promise<VaultState> {
 }
 
 async function loadDirect(): Promise<VaultState> {
-  const [config, proposals, payees, agents, policies, pending, account] = await Promise.all([
+  const [config, proposals, payees, agents, wallets, policies, pending, account] = await Promise.all([
     reader.config(),
     reader.proposals(0, 100),
     reader.payees(),
     reader.view<[string, AgentInfo][]>("get_agents"),
+    // Vaults deployed before external wallets existed don't have this view.
+    reader.view<[string, WalletInfo][]>("get_wallets").catch(() => []),
     reader.view<[string, AssetPolicy][]>("get_policies"),
     reader.view<[string, PendingPolicy][]>("get_pending_policies"),
     rpc.viewAccount({ accountId: VAULT_ID }),
@@ -118,7 +128,7 @@ async function loadDirect(): Promise<VaultState> {
   const spend = Object.fromEntries(spendList.map((s) => [s.asset, s]));
 
   const primaryAsset = tokenIds[0] ?? "near";
-  return { config, proposals, payees, agents, policies, pending, spend, assets, balances, primaryAsset };
+  return { config, proposals, payees, agents, wallets, policies, pending, spend, assets, balances, primaryAsset };
 }
 
 const VaultContext = createContext<VaultContextValue>({ state: null, error: null, refresh: async () => {} });

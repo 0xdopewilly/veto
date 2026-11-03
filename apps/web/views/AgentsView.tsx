@@ -67,6 +67,9 @@ export function AgentsView() {
         {state.agents.map(([agent, info], i) => (
           <AgentCard key={agent} state={state} agent={agent} active={info.active} style={delay(120 + i * 80)} />
         ))}
+        {(state.wallets ?? []).map(([wallet, info], i) => (
+          <WalletCard key={wallet} state={state} wallet={wallet} name={info.name} provider={info.provider} style={delay(120 + (state.agents.length + i) * 80)} />
+        ))}
       </div>
 
       <ConnectAgent />
@@ -145,6 +148,53 @@ function AgentCard({ state, agent, active, style }: { state: VaultState; agent: 
           </OwnerButton>
         </div>
       )}
+    </article>
+  );
+}
+
+/** An agent that pays from its own OutLayer wallet; Veto is an approver on that wallet's policy. */
+function WalletCard({ state, wallet, name, provider, style }: { state: VaultState; wallet: string; name: string; provider: string; style?: React.CSSProperties }) {
+  const mine = state.proposals.filter((p) => p.external?.wallet === wallet);
+  const paid = mine.filter((p) => p.status === "Paid").length;
+  const held = mine.filter((p) => p.status === "Vetoed").length;
+  const last = mine[0];
+  return (
+    <article className={`${styles.card} rise`} style={style}>
+      <header className={styles.cardHead}>
+        <h2 className={styles.agentName}>{name || "Agent wallet"}</h2>
+        <span className={`${styles.badge} ${styles.on}`}>{provider === "outlayer" ? "OutLayer" : provider}</span>
+      </header>
+      <p className={styles.cardText}>
+        Pays from its own wallet, which holds every payment until Veto approves it. Veto approves only what passes your caps and the screen here.
+      </p>
+      <dl className={styles.facts}>
+        <div className={styles.fact}>
+          <dt>Wallet</dt>
+          <dd>
+            <span className={`mono ${styles.key}`}>{shortKey(wallet)}</span>
+          </dd>
+        </div>
+        <div className={styles.fact}>
+          <dt>Approvals</dt>
+          <dd>Veto's approver or you. A veto means Veto never signs, so the wallet keeps holding the payment.</dd>
+        </div>
+        <div className={styles.fact}>
+          <dt>So far</dt>
+          <dd>
+            {mine.length} payment{mine.length === 1 ? "" : "s"} · {paid} paid, {held} held by a veto
+          </dd>
+        </div>
+        {last && (
+          <div className={styles.fact}>
+            <dt>Last action</dt>
+            <dd>
+              Asked to pay {formatAmount(last.request.amount, metaOf(state, last.request.asset))} to {payeeLabel(state.payees, last)} ·{" "}
+              {STATUS_TEXT[last.status].toLowerCase()} {formatWhen(last.created_at).toLowerCase()}{" "}
+              <Link href={`/app/decisions/${last.id}`} className={styles.link}>View decision</Link>
+            </dd>
+          </div>
+        )}
+      </dl>
     </article>
   );
 }
