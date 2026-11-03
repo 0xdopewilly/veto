@@ -14,3 +14,39 @@
   letter-spacing: -0.03em;
   line-height: 1;
 }
+
+/* Signing: the payer's stroke draws, then Veto's joins it; the word settles in after. */
+.sign path {
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 1;
+  animation: sign 0.7s var(--ease-draw) 0.15s forwards;
+}
+
+.sign path + path {
+  animation-delay: 0.42s;
+}
+
+.lockup:has(.sign) .word {
+  animation: wordIn 0.6s var(--ease-out-expo) 0.5s both;
+}
+
+@keyframes sign {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes wordIn {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sign path,
+  .lockup:has(.sign) .word {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, type MouseEvent } from "react";
+import { useCallback, useEffect, type MouseEvent } from "react";
 import type { Proposal } from "@veto/core/proposal";
 import { metaOf, type VaultState } from "@/lib/vault";
 import { imitated, reasonText } from "@/lib/decision";
@@ -60,7 +60,7 @@ export function usePrefetchDecision(id: string) {
  */
 export function useOpenDecision() {
   const router = useRouter();
-  return (e: MouseEvent<HTMLElement>, id: string, color: string) => {
+  return useCallback((e: MouseEvent<HTMLElement>, id: string, color: string) => {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
     e.preventDefault();
     router.prefetch(`/app/decisions/${id}`, FULL);
@@ -74,7 +74,7 @@ export function useOpenDecision() {
       href: `/app/decisions/${id}`,
       push: router.push,
     });
-  };
+  }, [router]);
 }
 
 /** The coral "Needs your decision" card, or purple while an override counts down. */

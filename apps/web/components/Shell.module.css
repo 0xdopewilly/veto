@@ -548,3 +548,101 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* The mark answers live decisions: a soft glow in the decision's colour, and a small seal. */
+.brandMark,
+.tryMark {
+  position: relative;
+  display: inline-flex;
+}
+
+.tryMark {
+  display: grid;
+  place-items: center;
+}
+
+.brandMark[data-pulse="pass"],
+.tryMark[data-pulse="pass"] {
+  --pulse: rgba(0, 236, 151, 0.6);
+}
+
+.brandMark[data-pulse="veto"],
+.tryMark[data-pulse="veto"] {
+  --pulse: rgba(255, 121, 102, 0.75);
+}
+
+.brandMark[data-pulse="pending"],
+.tryMark[data-pulse="pending"] {
+  --pulse: rgba(151, 151, 255, 0.6);
+}
+
+.brandMark[data-pulse]::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 50%;
+  width: 48px;
+  height: 48px;
+  margin-top: -24px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--pulse) 0%, transparent 68%);
+  pointer-events: none;
+  animation: markGlow 1.4s var(--ease-out-expo) both;
+}
+
+.tryMark[data-pulse]::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 66px;
+  height: 66px;
+  margin: -33px 0 0 -33px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--pulse);
+  pointer-events: none;
+  animation: markRing 1.2s var(--ease-out-expo) both;
+}
+
+.brandMark[data-pulse] svg,
+.tryMark[data-pulse] svg {
+  transform-origin: 50% 78%;
+  animation: markSeal 0.6s var(--ease-pop);
+}
+
+@keyframes markGlow {
+  from {
+    opacity: 1;
+    transform: scale(0.35);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+
+@keyframes markRing {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.75);
+  }
+}
+
+@keyframes markSeal {
+  40% {
+    transform: scale(1.14);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brandMark[data-pulse]::before,
+  .tryMark[data-pulse]::before,
+  .brandMark[data-pulse] svg,
+  .tryMark[data-pulse] svg {
+    animation: none;
+  }
+}

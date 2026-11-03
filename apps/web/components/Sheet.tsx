@@ -69,8 +69,8 @@ function SheetBody({ onClose, labelledBy, children, wide }: { onClose: () => voi
         dragElastic={{ top: 0.04, bottom: 0.75 }}
         dragMomentum={false}
         onDragEnd={onDragEnd}
-        initial={calm ? { opacity: 0 } : desktop ? { opacity: 0, scale: 0.94, y: 24, filter: "blur(6px)" } : { y: "100%" }}
-        animate={calm ? { opacity: 1 } : desktop ? { opacity: 1, scale: 1, y: 0, filter: "blur(0px)" } : { y: 0 }}
+        initial={calm ? { opacity: 0 } : desktop ? { opacity: 0, scale: 0.94, y: 24 } : { y: "100%" }}
+        animate={calm ? { opacity: 1 } : desktop ? { opacity: 1, scale: 1, y: 0 } : { y: 0 }}
         exit={calm ? { opacity: 0 } : desktop ? { opacity: 0, scale: 0.96, y: 12, transition: { duration: 0.2 } } : { y: "100%", transition: { type: "spring", stiffness: 300, damping: 34 } }}
         transition={calm ? { duration: 0.2 } : SPRING_SURFACE}
       >

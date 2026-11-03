@@ -121,6 +121,8 @@ function ScenarioCard({ scenario, run, index, busy, compact }: { scenario: DemoS
       animate={{ opacity: 1, y: 0 }}
       transition={{ ...SPRING_UI, delay: 0.08 + index * 0.06 }}
       layout
+      // Measure only when this card's own content can change size, not on every render.
+      layoutDependency={`${run?.proposalId ?? (run ? "sending" : "idle")}:${run?.error ?? ""}:${proposal?.status ?? ""}`}
     >
       <div className={styles.mailTop}>
         <span className={styles.avatar} aria-hidden="true">{initial}</span>

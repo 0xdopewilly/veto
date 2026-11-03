@@ -136,6 +136,37 @@ async function loadDirect(): Promise<VaultState> {
 
 const VaultContext = createContext<VaultContextValue>({ state: null, error: null, refresh: async () => {} });
 
+const sig = (v: unknown) => JSON.stringify(v, (_k, x) => (typeof x === "bigint" ? x.toString() : x));
+
+/**
+ * Keeps the previous objects wherever a fresh read brings nothing new: an idle poll returns the
+ * same state (no re-render at all), and when one payment changes only its row re-renders.
+ */
+function reconcile(prev: VaultState | null, next: VaultState): VaultState {
+  if (!prev) return next;
+  if (sig(prev) === sig(next)) return prev;
+  const old = new Map(prev.proposals.map((p) => [p.id, p]));
+  const proposals = next.proposals.map((p) => {
+    const o = old.get(p.id);
+    return o && sig(o) === sig(p) ? o : p;
+  });
+  const same = proposals.length === prev.proposals.length && proposals.every((p, i) => p === prev.proposals[i]);
+  const keep = <T,>(a: T, b: T) => (sig(a) === sig(b) ? a : b);
+  return {
+    ...next,
+    proposals: same ? prev.proposals : proposals,
+    config: keep(prev.config, next.config),
+    payees: keep(prev.payees, next.payees),
+    agents: keep(prev.agents, next.agents),
+    wallets: keep(prev.wallets, next.wallets),
+    policies: keep(prev.policies, next.policies),
+    pending: keep(prev.pending, next.pending),
+    spend: keep(prev.spend, next.spend),
+    assets: keep(prev.assets, next.assets),
+    balances: keep(prev.balances, next.balances),
+  };
+}
+
 export function VaultProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<VaultState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -145,7 +176,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     if (busy.current) return;
     busy.current = true;
     try {
-      setState(await load());
+      const next = await load();
+      setState((prev) => reconcile(prev, next));
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not reach the vault");

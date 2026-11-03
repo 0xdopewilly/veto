@@ -14,6 +14,7 @@ import { metaOf } from "@/lib/vault";
 import { formatShort } from "@/lib/format";
 import { SPRING_BOUNCE, SPRING_SURFACE, SPRING_UI, useCalm } from "@/lib/motion";
 import { Lockup, Mark } from "./Logo";
+import { useDecisionPulse } from "@/lib/pulse";
 import { Icon, type IconName } from "./Icon";
 import { RouteStage, levelOf } from "./RouteStage";
 import { FreezeSheet } from "./FreezeSheet";
@@ -127,10 +128,13 @@ function Sidebar({ onFreeze }: { onFreeze: () => void }) {
     );
   };
 
+  const pulse = useDecisionPulse();
   return (
     <aside className={styles.sidebar} aria-label="Vault">
       <Link href="/" className={styles.brand} aria-label="Veto home">
-        <Lockup size={24} />
+        <span key={pulse?.key ?? "signed"} className={styles.brandMark} data-pulse={pulse?.tone}>
+          <Lockup size={24} sign={!pulse} />
+        </span>
       </Link>
       <div className={styles.vaultCard}>
         <span className={styles.vaultName}>{VAULT_NAME}</span>
@@ -308,6 +312,7 @@ function Search() {
 const TABS = VAULT_NAV.filter((n) => n.tab);
 
 function TabBar({ visible, onInbox }: { visible: boolean; onInbox: () => void }) {
+  const pulse = useDecisionPulse();
   const pathname = usePathname();
   const active = activeHref(pathname);
   const calm = useCalm();
@@ -346,7 +351,9 @@ function TabBar({ visible, onInbox }: { visible: boolean; onInbox: () => void })
         >
           {left.map(tab)}
           <button className={styles.tryIt} onClick={onInbox} aria-label="Try it: open the agent inbox">
-            <Mark size={30} tone="mono" />
+            <span key={pulse?.key ?? "still"} className={styles.tryMark} data-pulse={pulse?.tone}>
+              <Mark size={30} tone="mono" />
+            </span>
           </button>
           {right.map(tab)}
         </motion.nav>

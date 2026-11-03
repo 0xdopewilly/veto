@@ -74,3 +74,73 @@
     animation: breathe 1.6s ease-in-out infinite;
   }
 }
+
+.mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  animation: loaderIn 0.55s var(--ease-out-expo) both;
+}
+
+/* Swells exactly when the two strokes seal (the middle of the 1.8 s cycle). */
+.halo {
+  position: absolute;
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 236, 151, 0.16) 0%, rgba(255, 121, 102, 0.06) 38%, transparent 66%);
+  pointer-events: none;
+  animation: halo 1.8s ease-in-out infinite;
+}
+
+.caption {
+  background: linear-gradient(90deg, var(--muted) 0%, var(--muted) 38%, var(--sand) 50%, var(--muted) 62%, var(--muted) 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: loaderIn 0.55s var(--ease-out-expo) 0.12s both, shimmer 2.6s linear 0.6s infinite;
+}
+
+@keyframes halo {
+  0%, 38% {
+    opacity: 0.35;
+    transform: scale(0.72);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 0.35;
+    transform: scale(0.72);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes loaderIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .halo,
+  .mark,
+  .caption {
+    animation: none;
+  }
+  .caption {
+    color: var(--muted);
+    background: none;
+  }
+}

@@ -36,8 +36,11 @@ export function VLoader({ size = 40, tone = "dark", label }: { size?: number; to
 export function LoadingScreen({ caption = "Opening your vault" }: { caption?: string }) {
   return (
     <div className={styles.screen} role="status" aria-live="polite">
-      <VLoader size={88} />
-      <span>{caption}</span>
+      <span className={styles.mark}>
+        <span className={styles.halo} aria-hidden="true" />
+        <VLoader size={88} />
+      </span>
+      <span className={styles.caption}>{caption}</span>
     </div>
   );
 }

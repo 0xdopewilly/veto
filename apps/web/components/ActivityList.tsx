@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef, type MouseEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { Payee, Proposal, Status } from "@veto/core/proposal";
 import { metaOf, type VaultState } from "@/lib/vault";
+import type { AssetMeta } from "@/lib/format";
 import { STATUS_TEXT, imitated, payeeLabel, reasonText, riskOf, toneOf, type Tone } from "@/lib/decision";
 import { formatAgo, formatAmount, formatWhen } from "@/lib/format";
 import { SPRING_BOUNCE, SPRING_SURFACE, useCalm, useEntrance } from "@/lib/motion";
@@ -87,8 +88,6 @@ export function ActivityList({
   startDelay?: number;
   empty?: string;
 }) {
-  const calm = useCalm();
-  const entrance = useEntrance();
   const open = useOpenDecision();
   // Everything in the vault when the list first rendered counts as already seen.
   const seen = useRef<Set<string> | null>(null);
@@ -118,69 +117,104 @@ export function ActivityList({
             {empty}
           </motion.p>
         )}
-        {proposals.map((p, i) => {
-          const tone = toneOf(p.status);
-          const meta = metaOf(state, p.request.asset);
-          const vetoed = p.status === "Vetoed";
-          const isFresh = fresh.has(p.id);
-          const risk = riskOf(p, state.payees, state.proposals);
-          const label = payeeLabel(state.payees, p);
-          const enter = firstPaint.current
-            ? { opacity: 0, y: 16 }
-            : isFresh
-              ? { opacity: 0, y: -28, scale: 0.98 }
-              : { opacity: 0, scale: 0.97 };
-          return (
-            <motion.div
-              key={p.id}
-              layout={calm ? false : "position"}
-              role="row"
-              className={styles.rowWrap}
-              initial={calm ? { opacity: 0 } : firstPaint.current && !entrance ? false : enter}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={calm ? { opacity: 0 } : { opacity: 0, scale: 0.97, transition: { duration: 0.16 } }}
-              transition={{ ...SPRING_SURFACE, delay: firstPaint.current ? (startDelay + i * 55) / 1000 : 0 }}
-            >
-              <Link
-                href={`/app/decisions/${p.id}`}
-                onClick={vetoed ? (e) => open(e, p.id, CORAL) : undefined}
-                className={`${styles.row} ${vetoed ? styles.vetoedRow : ""} press`}
-              >
-                {isFresh && !calm && <span className={styles.sweep} aria-hidden="true" />}
-                <span role="cell" className={styles.decision}>
-                  <StatusIcon status={p.status} tone={tone} />
-                  <span className={styles.desktopOnly}>
-                    <StatusPill status={p.status} tone={tone} />
-                  </span>
-                </span>
-                <span role="cell" className={styles.payee}>
-                  <span className={`${styles.title} ${label.startsWith("0x") ? "mono" : ""}`}>{label}</span>
-                  <span className={styles.sub}>
-                    {subtitle(p, state.payees)}
-                    <span className={styles.mobileOnly}> · {formatAgo(p.created_at)}</span>
-                  </span>
-                </span>
-                <span role="cell" className={styles.chain}>{p.request.chain.toUpperCase()}</span>
-                <span role="cell" className={styles.signals}>
-                  <SignalBar
-                    filled={risk.filled}
-                    tone={p.verdict && !p.verdict.pass ? "coral" : tone === "pending" ? "purple" : "green"}
-                    label={`${risk.signals} risk signal${risk.signals === 1 ? "" : "s"}`}
-                    delay={firstPaint.current ? (startDelay + i * 55) / 1000 + 0.2 : 0}
-                  />
-                </span>
-                <span role="cell" className={styles.amountCell}>
-                  <span className={`${styles.amount} ${vetoed ? styles.struck : ""}`}>{formatAmount(p.request.amount, meta)}</span>
-                  <span className={styles.pillUnder}>
-                    <StatusPill status={p.status} tone={tone} />
-                  </span>
-                </span>
-                <span role="cell" className={styles.when}>{formatWhen(p.created_at)}</span>
-              </Link>
-            </motion.div>
-          );
-        })}
+        {proposals.map((p, i) => (
+          <Row
+            key={p.id}
+            p={p}
+            payees={state.payees}
+            history={state.proposals}
+            meta={metaOf(state, p.request.asset)}
+            fresh={fresh.has(p.id)}
+            index={i}
+            first={firstPaint.current}
+            delay={(startDelay + i * 55) / 1000}
+            open={open}
+          />
+        ))}
       </AnimatePresence>
     </div>
   );
 }
+
+/**
+ * One payment. Memoised: with the vault keeping unchanged payments as the same objects, a row
+ * re-renders only when its own payment changes, not on every poll or navigation.
+ */
+const Row = memo(function Row({
+  p,
+  payees,
+  history,
+  meta,
+  fresh,
+  index,
+  first,
+  delay,
+  open,
+}: {
+  p: Proposal;
+  payees: Payee[];
+  history: Proposal[];
+  meta: AssetMeta;
+  fresh: boolean;
+  index: number;
+  first: boolean;
+  delay: number;
+  open: (e: MouseEvent<HTMLElement>, id: string, color: string) => void;
+}) {
+  const calm = useCalm();
+  const entrance = useEntrance();
+  const tone = toneOf(p.status);
+  const vetoed = p.status === "Vetoed";
+  const risk = riskOf(p, payees, history);
+  const label = payeeLabel(payees, p);
+  const enter = first ? { opacity: 0, y: 16 } : fresh ? { opacity: 0, y: -28, scale: 0.98 } : { opacity: 0, scale: 0.97 };
+  return (
+    <motion.div
+      layout={calm ? false : "position"}
+      layoutDependency={index}
+      role="row"
+      className={styles.rowWrap}
+      initial={calm ? { opacity: 0 } : first && !entrance ? false : enter}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={calm ? { opacity: 0 } : { opacity: 0, scale: 0.97, transition: { duration: 0.16 } }}
+      transition={{ ...SPRING_SURFACE, delay: first ? delay : 0 }}
+    >
+      <Link
+        href={`/app/decisions/${p.id}`}
+        onClick={vetoed ? (e) => open(e, p.id, CORAL) : undefined}
+        className={`${styles.row} ${vetoed ? styles.vetoedRow : ""} press`}
+      >
+        {fresh && !calm && <span className={styles.sweep} aria-hidden="true" />}
+        <span role="cell" className={styles.decision}>
+          <StatusIcon status={p.status} tone={tone} />
+          <span className={styles.desktopOnly}>
+            <StatusPill status={p.status} tone={tone} />
+          </span>
+        </span>
+        <span role="cell" className={styles.payee}>
+          <span className={`${styles.title} ${label.startsWith("0x") ? "mono" : ""}`}>{label}</span>
+          <span className={styles.sub}>
+            {subtitle(p, payees)}
+            <span className={styles.mobileOnly}> · {formatAgo(p.created_at)}</span>
+          </span>
+        </span>
+        <span role="cell" className={styles.chain}>{p.request.chain.toUpperCase()}</span>
+        <span role="cell" className={styles.signals}>
+          <SignalBar
+            filled={risk.filled}
+            tone={p.verdict && !p.verdict.pass ? "coral" : tone === "pending" ? "purple" : "green"}
+            label={`${risk.signals} risk signal${risk.signals === 1 ? "" : "s"}`}
+            delay={first ? delay + 0.2 : 0}
+          />
+        </span>
+        <span role="cell" className={styles.amountCell}>
+          <span className={`${styles.amount} ${vetoed ? styles.struck : ""}`}>{formatAmount(p.request.amount, meta)}</span>
+          <span className={styles.pillUnder}>
+            <StatusPill status={p.status} tone={tone} />
+          </span>
+        </span>
+        <span role="cell" className={styles.when}>{formatWhen(p.created_at)}</span>
+      </Link>
+    </motion.div>
+  );
+});

@@ -18,6 +18,15 @@
   animation: none !important;
 }
 
+.dim {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: #000;
+  pointer-events: none;
+  will-change: opacity;
+}
+
 .screen {
   position: absolute;
   inset: 0;

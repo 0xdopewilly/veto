@@ -84,3 +84,25 @@
   padding-left: 8px;
   padding-right: 8px;
 }
+
+.primary {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 32%, rgba(255, 255, 255, 0.42) 50%, transparent 68%);
+  transform: translateX(-130%);
+  pointer-events: none;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .primary:hover:not(:disabled)::after {
+    transform: translateX(130%);
+    transition: transform 0.8s var(--ease-out-expo);
+  }
+}

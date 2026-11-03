@@ -24,7 +24,7 @@ export function Boot({ loading = false, caption, children }: { loading?: boolean
           <motion.div
             key="loader"
             className={styles.veil}
-            exit={calm ? { opacity: 0 } : { opacity: 0, scale: 1.04, filter: "blur(6px)" }}
+            exit={calm ? { opacity: 0 } : { opacity: 0, scale: 1.06 }}
             transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
           >
             <LoadingScreen caption={caption} />
@@ -34,8 +34,8 @@ export function Boot({ loading = false, caption, children }: { loading?: boolean
       {!loading && (
         <motion.div
           className={styles.content}
-          initial={animateIn ? (calm ? { opacity: 0 } : { opacity: 0, scale: 0.985, filter: "blur(8px)" }) : false}
-          animate={{ opacity: 1, scale: 1, filter: "blur(0px)", transitionEnd: { filter: "none", transform: "none" } }}
+          initial={animateIn ? (calm ? { opacity: 0 } : { opacity: 0, scale: 0.985, y: 6 }) : false}
+          animate={{ opacity: 1, scale: 1, y: 0, transitionEnd: { transform: "none" } }}
           transition={calm ? { duration: 0.25 } : SPRING_SURFACE}
         >
           {children}

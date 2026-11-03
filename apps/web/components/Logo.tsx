@@ -9,7 +9,7 @@ const STROKES: Record<Tone, [string, string]> = {
 };
 
 /** Two signers, one V: the payer's stroke and Veto's stroke meet at the point. */
-export function Mark({ size = 28, tone = "dark", title }: { size?: number; tone?: Tone; title?: string }) {
+export function Mark({ size = 28, tone = "dark", title, sign = false }: { size?: number; tone?: Tone; title?: string; sign?: boolean }) {
   const [left, right] = STROKES[tone];
   return (
     <svg
@@ -19,18 +19,18 @@ export function Mark({ size = 28, tone = "dark", title }: { size?: number; tone?
       role={title ? "img" : undefined}
       aria-label={title}
       aria-hidden={title ? undefined : true}
-      className={styles.mark}
+      className={`${styles.mark} ${sign ? styles.sign : ""}`}
     >
-      <path d="M17 14 32 50" fill="none" stroke={left} strokeWidth="11" strokeLinecap="round" />
-      <path d="M47 14 32 50" fill="none" stroke={right} strokeWidth="11" strokeLinecap="round" />
+      <path pathLength={1} d="M17 14 32 50" fill="none" stroke={left} strokeWidth="11" strokeLinecap="round" />
+      <path pathLength={1} d="M47 14 32 50" fill="none" stroke={right} strokeWidth="11" strokeLinecap="round" />
     </svg>
   );
 }
 
-export function Lockup({ size = 25, tone = "dark" }: { size?: number; tone?: Tone }) {
+export function Lockup({ size = 25, tone = "dark", sign = false }: { size?: number; tone?: Tone; sign?: boolean }) {
   return (
     <span className={styles.lockup} style={{ gap: Math.round(size * 0.36) }}>
-      <Mark size={Math.round(size * 1.12)} tone={tone} />
+      <Mark size={Math.round(size * 1.12)} tone={tone} sign={sign} />
       <span className={styles.word} style={{ fontSize: size }}>
         veto
       </span>

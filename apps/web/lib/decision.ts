@@ -88,7 +88,17 @@ export const requesterLabel = (p: Proposal) => (p.external ? `${shortAddress(p.e
 const SIGNAL_WEIGHT: Record<string, number> = { NEW_PAYEE: 3, LOOKALIKE_ADDRESS: 4, DUPLICATE_INVOICE: 4, AMOUNT_ANOMALY: 3 };
 
 /** How loudly a payment's risk signals fired, as 0–10 segments for the signal bar. */
+const riskCache = new WeakMap<Proposal, { payees: Payee[]; proposals: Proposal[]; value: { filled: number; signals: number } }>();
+
 export function riskOf(p: Proposal, payees: Payee[], proposals: Proposal[]): { filled: number; signals: number } {
+  const hit = riskCache.get(p);
+  if (hit && hit.payees === payees && hit.proposals === proposals) return hit.value;
+  const value = computeRisk(p, payees, proposals);
+  riskCache.set(p, { payees, proposals, value });
+  return value;
+}
+
+function computeRisk(p: Proposal, payees: Payee[], proposals: Proposal[]): { filled: number; signals: number } {
   const history = proposals.filter((x) => Number(x.id) < Number(p.id));
   const signals = computeSignals(p.request, payees, history).filter((s) => s.code !== "LISTED_PAYEE");
   let score = 1 + signals.reduce((sum, s) => sum + (SIGNAL_WEIGHT[s.code] ?? 2), 0);

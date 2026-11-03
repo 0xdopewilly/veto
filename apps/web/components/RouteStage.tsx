@@ -25,8 +25,11 @@ export function levelOf(path: string): number {
 
 const PUSH: Transition = { type: "spring", stiffness: 260, damping: 32, mass: 1 };
 const TAB: Transition = { type: "spring", stiffness: 300, damping: 30, mass: 0.9 };
-const BEHIND = { x: "-24%", scale: 0.96, filter: "brightness(0.5) blur(2px)" };
-const FRONT = { x: 0, scale: 1, filter: "brightness(1) blur(0px)" };
+// Screens only move (transform); the screen underneath darkens through one shared layer whose
+// opacity animates. Both run on the compositor, so a push never repaints a full screen.
+const BEHIND = { x: "-24%", scale: 0.96 };
+const FRONT = { x: 0, scale: 1 };
+const DIM = 0.5;
 
 type Custom = { dir: number; instant: boolean };
 
@@ -35,16 +38,15 @@ const mobile: Variants = {
     instant
       ? { ...FRONT, opacity: 1, y: 0, zIndex: 2 }
       : dir > 0
-        ? { ...FRONT, x: "100%", opacity: 1, y: 0, zIndex: 2 }
+        ? { ...FRONT, x: "100%", opacity: 1, y: 0, zIndex: 3 }
         : dir < 0
           ? { ...BEHIND, opacity: 1, y: 0, zIndex: 1 }
-          : { ...FRONT, opacity: 0, y: 14, zIndex: 2 },
+          : { ...FRONT, opacity: 0, y: 14, zIndex: 3 },
   center: ({ dir, instant }: Custom) => ({
     ...FRONT,
     y: 0,
     opacity: 1,
     transition: instant ? { duration: 0 } : dir === 0 ? TAB : PUSH,
-    transitionEnd: { filter: "none" },
   }),
   exit: ({ dir, instant }: Custom) =>
     instant
@@ -52,20 +54,18 @@ const mobile: Variants = {
       : dir > 0
         ? { ...BEHIND, zIndex: 1, transition: PUSH }
         : dir < 0
-          ? { x: "100%", zIndex: 2, transition: PUSH }
+          ? { x: "100%", zIndex: 3, transition: PUSH }
           : { opacity: 0, scale: 0.99, zIndex: 1, transition: { duration: 0.18 } },
 };
 
 const desktop: Variants = {
-  enter: ({ instant }: Custom) => (instant ? { opacity: 1 } : { opacity: 0, y: 12, filter: "blur(6px)" }),
+  enter: ({ instant }: Custom) => (instant ? { opacity: 1 } : { opacity: 0, y: 12 }),
   center: ({ instant }: Custom) => ({
     opacity: 1,
     y: 0,
-    filter: "blur(0px)",
     transition: instant ? { duration: 0 } : { type: "spring", stiffness: 220, damping: 28 },
-    transitionEnd: { filter: "none" },
   }),
-  exit: ({ instant }: Custom) => (instant ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, y: -6, filter: "blur(4px)", transition: { duration: 0.18 } }),
+  exit: ({ instant }: Custom) => (instant ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, y: -6, transition: { duration: 0.18 } }),
 };
 
 const reduced: Variants = {
@@ -97,8 +97,18 @@ export function RouteStage({ children }: { children: ReactNode }) {
   const custom: Custom = { dir: nav.dir, instant: nav.instant };
   const hold = morph.phase === "grow" || morph.phase === "covered";
 
+  const pushes = !calm && !isDesktop && !nav.instant && nav.dir !== 0;
   return (
     <div className={styles.stage} data-hold={hold || undefined}>
+      {/* Darkens whatever screen is underneath during a push or a pop. */}
+      <motion.div
+        key={`dim:${pathname}`}
+        className={styles.dim}
+        aria-hidden="true"
+        initial={{ opacity: pushes && nav.dir < 0 ? DIM : 0 }}
+        animate={{ opacity: pushes && nav.dir > 0 ? DIM : 0 }}
+        transition={PUSH}
+      />
       <AnimatePresence initial={false} custom={custom}>
         <motion.div
           key={pathname}
