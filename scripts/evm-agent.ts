@@ -23,13 +23,13 @@ const { id, tx } = await veto.propose({
   chain: "base-sepolia",
   asset: "base-sepolia:eth",
   payee: state.evmPayee.address,
-  amount: toUnits("0.0005", 18),
+  amount: toUnits("0.0001", 18),
   memo: invoice,
   evidence: {
     source: "email",
     from: "billing@ikejafreight.ng",
     subject: `Invoice ${invoice}: freight, Lagos to Kano`,
-    body: `Invoice ${invoice} for last week's freight run. Amount due: 0.0005 ETH on Base Sepolia, to our usual address ${state.evmPayee.address}.`,
+    body: `Invoice ${invoice} for last week's freight run. Amount due: 0.0001 ETH on Base Sepolia, to our usual address ${state.evmPayee.address}.`,
   },
 });
 console.log(`vault: proposal ${id}  https://testnet.nearblocks.io/txns/${tx}`);

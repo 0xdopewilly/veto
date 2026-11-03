@@ -6,7 +6,7 @@ import { useCallback, useEffect, type MouseEvent } from "react";
 import type { Proposal } from "@veto/core/proposal";
 import { metaOf, type VaultState } from "@/lib/vault";
 import { imitated, reasonText } from "@/lib/decision";
-import { formatAgo, formatShort, remaining, possessive } from "@/lib/format";
+import { formatAgo, formatShort, remaining, possessive, chainLabel } from "@/lib/format";
 import { morphOpen } from "@/lib/morph";
 import { useNow } from "@/lib/useNow";
 import { Icon } from "./Icon";
@@ -39,7 +39,7 @@ export function useDecisionCopy(state: VaultState, proposal: Proposal) {
     headline: look
       ? `${amount} held. Sent to a lookalike of ${possessive(look.payee.name)} address.`
       : `${amount} held. ${proposal.verdict?.reasons[0] ? reasonText(proposal.verdict.reasons[0]) : "Stopped by the AI screen"}.`,
-    detail: `Vetoed ${formatAgo(proposal.verdict?.recorded_at ?? proposal.created_at, now)} · ${proposal.request.chain.toUpperCase()}`,
+    detail: `Vetoed ${formatAgo(proposal.verdict?.recorded_at ?? proposal.created_at, now)} · ${chainLabel(proposal.request.chain)}`,
   };
 }
 

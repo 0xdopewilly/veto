@@ -4,7 +4,7 @@ import { metaOf, useVault } from "@/lib/vault";
 import { useProposal } from "@/lib/useProposal";
 import { isTestSigner, requesterLabel } from "@/lib/decision";
 import { explorerAddress, verifierUrl, VAULT_ID } from "@/lib/config";
-import { formatAmount, formatWhen, shortAddress, shortHash } from "@/lib/format";
+import { formatAmount, formatWhen, shortAddress, shortHash, chainLabel } from "@/lib/format";
 import { Screen, BackLink, delay } from "@/components/Screen";
 import { Icon, type IconName } from "@/components/Icon";
 import { Boot } from "@/components/Boot";
@@ -61,7 +61,7 @@ export function ProofView({ id }: { id: string }) {
           {
             icon: "key" as IconName,
             title: "Signed with NEAR Chain Signatures",
-            text: `The vault built this exact transfer on ${p.request.chain} and NEAR's MPC network signed it for the vault's own address. The vault never signs anything else.`,
+            text: `The vault built this exact transfer on ${chainLabel(p.request.chain)} and NEAR's MPC network signed it for the vault's own address. The vault never signs anything else.`,
             value: p.evm.tx_hash ? `tx ${shortHash(p.evm.tx_hash)}` : `signing hash ${shortHash(p.evm.signing_hash)}`,
           },
         ]

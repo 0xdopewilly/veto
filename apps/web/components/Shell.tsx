@@ -11,7 +11,7 @@ import { useKeptBlocked } from "@/lib/dismissed";
 import { GITHUB_URL, NETWORK, VAULT_ID, VAULT_NAME } from "@/lib/config";
 import { payeeLabel, STATUS_TEXT } from "@/lib/decision";
 import { metaOf } from "@/lib/vault";
-import { formatShort } from "@/lib/format";
+import { formatShort, chainLabel } from "@/lib/format";
 import { SPRING_BOUNCE, SPRING_SURFACE, SPRING_UI, useCalm } from "@/lib/motion";
 import { Lockup, Mark } from "./Logo";
 import { useDecisionPulse } from "@/lib/pulse";
@@ -248,7 +248,7 @@ function Search() {
     const payees = state.payees
       .filter((p) => p.name.toLowerCase().includes(q) || p.address.toLowerCase().includes(q))
       .slice(0, 3)
-      .map((p) => ({ key: `y${p.address}`, href: "/app/payees", title: p.name, sub: `${p.chain.toUpperCase()} · ${p.address}`, icon: "users" as IconName }));
+      .map((p) => ({ key: `y${p.address}`, href: "/app/payees", title: p.name, sub: `${chainLabel(p.chain)} · ${p.address}`, icon: "users" as IconName }));
     return [...proposals, ...payees];
   }, [state, q]);
 

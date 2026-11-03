@@ -14,6 +14,7 @@
     "guardian": "node services/guardian/src/main.ts",
     "build:contracts": "cd contract && RUSTFLAGS='--cfg near -C link-arg=-s' cargo build --target wasm32-unknown-unknown --release && cd ../test-token && RUSTFLAGS='--cfg near -C link-arg=-s' cargo build --target wasm32-unknown-unknown --release",
     "demo:setup": "node scripts/demo-setup.ts",
+    "demo:health": "node scripts/demo-health.ts",
     "bench": "node bench/run.ts",
     "test": "node --test packages/core/test/core.test.ts && cd contract && cargo test"
   }

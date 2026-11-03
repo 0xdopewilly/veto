@@ -16,9 +16,16 @@ function split(raw: bigint, decimals: number, places: number) {
   return { negative, whole, frac };
 }
 
-/** "$300.00" for dollar tokens, "0.30 NEAR" otherwise. */
+/** Dollars keep cents; other coins show their significant digits (0.0001 ETH, never 0.00 ETH). */
+function placesFor(raw: bigint, meta: AssetMeta) {
+  if (isDollar(meta)) return 2;
+  const frac = ((raw < 0n ? -raw : raw) % 10n ** BigInt(meta.decimals)).toString().padStart(meta.decimals, "0").slice(0, 6).replace(/0+$/, "");
+  return Math.max(2, frac.length);
+}
+
+/** "$300.00" for dollar tokens, "0.30 NEAR" or "0.0001 ETH" otherwise. */
 export function formatAmount(raw: string | bigint, meta: AssetMeta, opts: { symbol?: boolean } = {}): string {
-  const { negative, whole, frac } = split(BigInt(raw), meta.decimals, 2);
+  const { negative, whole, frac } = split(BigInt(raw), meta.decimals, placesFor(BigInt(raw), meta));
   const number = `${negative ? "-" : ""}${whole.toLocaleString("en-US")}.${frac}`;
   if (isDollar(meta)) return `${negative ? "-" : ""}$${whole.toLocaleString("en-US")}.${frac}`;
   return opts.symbol === false ? number : `${number} ${meta.symbol}`;
@@ -26,17 +33,31 @@ export function formatAmount(raw: string | bigint, meta: AssetMeta, opts: { symb
 
 /** Whole part and cents separately, for the large balance figure. */
 export function formatParts(raw: string | bigint, meta: AssetMeta) {
-  const { whole, frac } = split(BigInt(raw), meta.decimals, 2);
+  const { whole, frac } = split(BigInt(raw), meta.decimals, placesFor(BigInt(raw), meta));
   return { prefix: isDollar(meta) ? "$" : "", whole: whole.toLocaleString("en-US"), cents: `.${frac}`, suffix: isDollar(meta) ? "" : meta.symbol };
 }
 
 /** Short amount for sentences: "$300" or "0.3 NEAR". */
 export function formatShort(raw: string | bigint, meta: AssetMeta): string {
-  const { whole, frac } = split(BigInt(raw), meta.decimals, 2);
+  const { whole, frac } = split(BigInt(raw), meta.decimals, placesFor(BigInt(raw), meta));
   const trimmed = frac.replace(/0+$/, "");
   const number = `${whole.toLocaleString("en-US")}${trimmed ? `.${trimmed}` : ""}`;
   return isDollar(meta) ? `$${number}` : `${number} ${meta.symbol}`;
 }
+
+const CHAIN_NAMES: Record<string, string> = {
+  near: "NEAR",
+  base: "Base",
+  "base-sepolia": "Base Sepolia",
+  arbitrum: "Arbitrum",
+  ethereum: "Ethereum",
+  sepolia: "Sepolia",
+  solana: "Solana",
+};
+
+/** "base-sepolia" -> "Base Sepolia". */
+export const chainLabel = (id: string) =>
+  CHAIN_NAMES[id.toLowerCase()] ?? id.replace(/(^|-)([a-z])/g, (_, dash: string, c: string) => `${dash ? " " : ""}${c.toUpperCase()}`);
 
 export function shortAddress(address: string): string {
   if (/^0x[0-9a-fA-F]{40}$/.test(address)) return `${address.slice(0, 6)}…${address.slice(-4)}`;

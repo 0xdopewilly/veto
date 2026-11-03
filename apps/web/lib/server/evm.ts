@@ -3,8 +3,8 @@
 import { vaultSnapshot } from "./state";
 
 const env = (key: string) => process.env[key]?.trim() ?? "";
-/** The scenario pays 0.0005 ETH; keep a little over for gas. */
-const NEEDED = 600_000_000_000_000n;
+/** The scenario pays 0.0001 ETH; keep a little over for gas. */
+const NEEDED = 150_000_000_000_000n;
 
 export async function evmDemo() {
   const { state } = await vaultSnapshot();

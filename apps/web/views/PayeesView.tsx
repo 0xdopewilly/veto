@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useVault } from "@/lib/vault";
 import { useWallet } from "@/lib/wallet";
 import { compareAddresses, imitated, payeeHistory } from "@/lib/decision";
-import { formatWhen, shortAddress } from "@/lib/format";
+import { formatWhen, shortAddress, chainLabel } from "@/lib/format";
 import { Screen, delay } from "@/components/Screen";
 import { Icon } from "@/components/Icon";
 import { OwnerButton } from "@/components/OwnerButton";
@@ -22,7 +22,6 @@ const CHAINS = [
   { id: "solana", label: "Solana" },
 ];
 
-const chainLabel = (id: string) => CHAINS.find((c) => c.id === id.toLowerCase())?.label ?? id;
 
 export function PayeesView() {
   const { state } = useVault();
@@ -33,10 +32,18 @@ export function PayeesView() {
 
   if (!state) return <Boot loading caption="Loading payees" />;
 
+  // One row per lookalike address: its latest attempt, and how many times it was tried.
+  const attempts = new Map<string, number>();
   const blocked = state.proposals
     .filter((p) => p.status === "Vetoed" || p.status === "Cancelled")
     .map((p) => ({ p, look: imitated(state.payees, p) }))
-    .filter((x): x is { p: typeof x.p; look: NonNullable<typeof x.look> } => !!x.look);
+    .filter((x): x is { p: typeof x.p; look: NonNullable<typeof x.look> } => !!x.look)
+    .filter(({ p }) => {
+      const key = `${p.request.chain}:${p.request.payee.toLowerCase()}`;
+      attempts.set(key, (attempts.get(key) ?? 0) + 1);
+      return attempts.get(key) === 1;
+    });
+  const tries = (p: { request: { chain: string; payee: string } }) => attempts.get(`${p.request.chain}:${p.request.payee.toLowerCase()}`) ?? 1;
   const canAdd = name.trim().length > 0 && name.trim().length <= 64 && address.trim().length > 0;
 
   return (
@@ -148,7 +155,7 @@ export function PayeesView() {
                     {parts.requested.end}
                   </span>
                   <span className={styles.blockedSub}>
-                    Lookalike of {look.payee.name} · blocked {formatWhen(p.verdict?.recorded_at ?? p.created_at)}
+                    Lookalike of {look.payee.name} · blocked {tries(p) > 1 ? `${tries(p)} times, last ` : ""}{formatWhen(p.verdict?.recorded_at ?? p.created_at)}
                   </span>
                 </span>
                 <Icon name="arrowRight" size={16} />

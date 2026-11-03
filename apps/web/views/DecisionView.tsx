@@ -19,6 +19,7 @@ import {
   shortAddress,
   shortHash,
   possessive,
+  chainLabel,
 } from "@/lib/format";
 import { Screen, BackLink, delay } from "@/components/Screen";
 import { Boot } from "@/components/Boot";
@@ -167,7 +168,7 @@ function Vetoed({ state, p }: { state: VaultState; p: Proposal }) {
           </h1>
           <Amount figure={figure} unit={unit} at={420} play={play} />
           <span className={`mono ${styles.to} rise`} style={delay(480)}>
-            to {shortAddress(p.request.payee)} on {p.request.chain.toUpperCase()}
+            to {shortAddress(p.request.payee)} on {chainLabel(p.request.chain)}
           </span>
           <p className={`${styles.request} rise`} style={delay(540)}>
             <span className="mono">{requesterLabel(p)}</span> tried to pay {what}.{p.external ? " OutLayer is holding it; Veto never approved it." : ""}
@@ -313,7 +314,7 @@ function OverridePending({ state, p }: { state: VaultState; p: Proposal }) {
             <dt>Amount</dt>
             <dd>{formatAmount(p.request.amount, meta)}</dd>
             <dt>To</dt>
-            <dd className="mono">{shortAddress(p.request.payee)} on {p.request.chain.toUpperCase()}</dd>
+            <dd className="mono">{shortAddress(p.request.payee)} on {chainLabel(p.request.chain)}</dd>
             <dt>Limits</dt>
             <dd>Still limited by your contract caps</dd>
           </dl>
@@ -386,7 +387,7 @@ function Paid({ state, p }: { state: VaultState; p: Proposal }) {
           <LineReveal as="h1" className={styles.paidTitle} text="Paid" delay={200} />
           <Amount figure={figure} unit={unit} muted at={260} play={play} />
           <span className={`${styles.paidTo} rise`} style={delay(320)}>
-            to {payeeLabel(state.payees, p)} on {p.request.chain.toUpperCase()}
+            to {payeeLabel(state.payees, p)} on {chainLabel(p.request.chain)}
           </span>
           <span className={`${styles.paidMeta} rise`} style={delay(360)}>
             {formatWhen(p.settled_at ?? p.created_at)}
@@ -418,7 +419,7 @@ function Paid({ state, p }: { state: VaultState; p: Proposal }) {
               <div>
                 <span className={styles.checkName}>Chain Signatures</span>
                 <span className={styles.checkDetail}>
-                  NEAR's MPC network signed this exact transfer for the vault's own address on {p.request.chain}.{" "}
+                  NEAR's MPC network signed this exact transfer for the vault's own address on {chainLabel(p.request.chain)}.{" "}
                   {evmTxUrl(p) && (
                     <a href={evmTxUrl(p)!} target="_blank" rel="noreferrer">
                       View it on the explorer

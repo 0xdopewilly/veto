@@ -7,7 +7,7 @@ import type { Payee, Proposal, Status } from "@veto/core/proposal";
 import { metaOf, type VaultState } from "@/lib/vault";
 import type { AssetMeta } from "@/lib/format";
 import { STATUS_TEXT, imitated, payeeLabel, reasonText, riskOf, toneOf, type Tone } from "@/lib/decision";
-import { formatAgo, formatAmount, formatWhen } from "@/lib/format";
+import { formatAgo, formatAmount, formatWhen, chainLabel } from "@/lib/format";
 import { SPRING_BOUNCE, SPRING_SURFACE, useCalm, useEntrance } from "@/lib/motion";
 import { CORAL, useOpenDecision } from "./DecisionCard";
 import { Icon } from "./Icon";
@@ -40,7 +40,7 @@ function subtitle(p: Proposal, payees: Payee[]) {
   const look = imitated(payees, p);
   if (p.status === "Vetoed" && look) return `Lookalike of ${look.payee.name}`;
   if (p.status === "Vetoed" && p.verdict?.reasons[0]) return reasonText(p.verdict.reasons[0]);
-  return p.request.memo ?? p.request.chain.toUpperCase();
+  return p.request.memo ?? chainLabel(p.request.chain);
 }
 
 const GLYPH = { pass: "check", veto: "x", pending: "clock", neutral: "clock" } as const;
@@ -198,7 +198,7 @@ const Row = memo(function Row({
             <span className={styles.mobileOnly}> · {formatAgo(p.created_at)}</span>
           </span>
         </span>
-        <span role="cell" className={styles.chain}>{p.request.chain.toUpperCase()}</span>
+        <span role="cell" className={styles.chain}>{chainLabel(p.request.chain)}</span>
         <span role="cell" className={styles.signals}>
           <SignalBar
             filled={risk.filled}
