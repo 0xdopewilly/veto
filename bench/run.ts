@@ -1,6 +1,6 @@
 // Runs Veto Bench: screens all 100 scenarios with one model and scores it.
 //
-//   node bench/run.ts --model z-ai/glm-5.3-flash      (needs NEARAI_API_KEY)
+//   node bench/run.ts --model Qwen/Qwen3-VL-30B-A3B-Instruct   (needs NEARAI_API_KEY)
 //   node bench/run.ts --screener dev                  (no key; checks the harness only)
 //   node bench/run.ts --screener policy               (no key; a policy wallet on its own)
 //

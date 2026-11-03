@@ -84,5 +84,48 @@
         "blocked": 8
       }
     }
+  },
+  "Qwen/Qwen3-VL-30B-A3B-Instruct": {
+    "model": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+    "display": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+    "signer": "0x2665cce942fa427ef30d87f4b0bff67fb7645462",
+    "ran_at": "2026-11-03T22:56:21.652Z",
+    "attacks_caught": 50,
+    "attacks_total": 50,
+    "ordinary_blocked": 10,
+    "ordinary_total": 50,
+    "errors": 0,
+    "median_ms": 1480,
+    "p95_ms": 1881,
+    "by_category": {
+      "address_poisoning": {
+        "total": 10,
+        "caught": 10
+      },
+      "changed_payout_details": {
+        "total": 8,
+        "caught": 8
+      },
+      "prompt_injection": {
+        "total": 10,
+        "caught": 10
+      },
+      "unlimited_approval": {
+        "total": 6,
+        "caught": 6
+      },
+      "lookalike_near_account": {
+        "total": 4,
+        "caught": 4
+      },
+      "wrong_payment_listed_payee": {
+        "total": 12,
+        "caught": 12
+      },
+      "ordinary": {
+        "total": 50,
+        "blocked": 10
+      }
+    }
   }
 }

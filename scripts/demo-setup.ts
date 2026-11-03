@@ -179,16 +179,12 @@ if (!state.testSignerKey) {
   state.testSignerAddress = w.address.toLowerCase();
   saveState(state);
 }
-const rootEnvFile = new URL("../.env.local", import.meta.url);
-const liveModel = existsSync(rootEnvFile) && /^NEARAI_API_KEY=\S+/m.test(readFileSync(rootEnvFile, "utf8"));
-const trustsTestSigner = signers.some(([a]) => a === state.testSignerAddress);
-if (liveModel && trustsTestSigner) {
-  // With the real model connected, the vault stops trusting the test key altogether.
-  await call(vaultId, "remove_signer", { address: state.testSignerAddress });
-  log("NEAR AI key found: removed the demo test signer, so only the enclave's key is trusted");
-} else if (!liveModel && !trustsTestSigner) {
+// The public demo screens with the real model; the test key stays trusted only as its labelled
+// fallback, so a NEAR AI outage (or an empty credit balance) can't stall the demo. Every verdict
+// names its signer, and the app marks the ones the test key signed.
+if (!signers.some(([a]) => a === state.testSignerAddress)) {
   await call(vaultId, "add_signer", { address: state.testSignerAddress, model_id: "veto-dev/local-signer" });
-  log(`approved the demo test signer ${state.testSignerAddress}`);
+  log(`approved the demo test signer ${state.testSignerAddress} (labelled fallback)`);
 }
 
 // 7. Narrow keys. No allowance cap: each is limited to its methods and its account's balance.

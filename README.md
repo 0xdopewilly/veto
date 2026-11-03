@@ -79,9 +79,9 @@ Run each once on a fresh vault. Running one again re-sends an invoice that was a
 Put `NEARAI_API_KEY=…` in `.env.local` at the repo root, then:
 
 ```sh
-pnpm demo:setup                       # copies the key to the app and removes the test signer from the vault
-pnpm bench --model z-ai/glm-5.3-flash
-node bench/verify.ts bench/results/z-ai_glm-5.3-flash.json   # re-checks every signature offline
+pnpm demo:setup                       # copies the key to the app and approves the model's attested key on the vault
+pnpm bench --model Qwen/Qwen3-VL-30B-A3B-Instruct
+node bench/verify.ts bench/results/Qwen_Qwen3-VL-30B-A3B-Instruct.json   # re-checks every signature offline
 node bench/publish.ts                 # updates the /bench page
 ```
 

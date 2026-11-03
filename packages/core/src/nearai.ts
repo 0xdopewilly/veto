@@ -3,7 +3,9 @@ import { sha256Hex } from "./proposal.ts";
 import { VERDICT_SCHEMA } from "./prompt.ts";
 
 export const NEARAI_BASE_URL = "https://cloud-api.near.ai/v1";
-export const DEFAULT_MODEL = "z-ai/glm-5.3-flash";
+// A plain instruct model hosted in NEAR AI's own TEEs: no reasoning phase, so a verdict takes
+// about 1.5 s and never runs out of tokens before answering.
+export const DEFAULT_MODEL = "Qwen/Qwen3-VL-30B-A3B-Instruct";
 
 export interface ModelVerdict {
   proposal_id: string;

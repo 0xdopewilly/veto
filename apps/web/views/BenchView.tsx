@@ -20,7 +20,7 @@ const SCENARIOS = [
   { category: "Ordinary payments", count: 50, example: "Listed suppliers' invoices, messages that sound urgent but are fine, and new suppliers the mandate allows." },
 ];
 
-const MODELS = ["z-ai/glm-5.3-flash", "Qwen/Qwen3.8-27B", "Qwen/Qwen3.6-35B-A3B-FP8"];
+const MODELS = ["Qwen/Qwen3-VL-30B-A3B-Instruct", "z-ai/glm-5.3-flash", "Qwen/Qwen3.8-27B"];
 
 type Scored = BenchResults["models"][number];
 type Row = Scored | { model: string };
@@ -163,7 +163,7 @@ export function BenchView() {
             <p className={styles.small}>Needs a NEAR AI Cloud API key.</p>
             <pre className={styles.code}>
               <code>
-                pnpm install{"\n"}pnpm bench <span className={styles.muted}>--model</span> <span className={styles.str}>z-ai/glm-5.3-flash</span>
+                pnpm install{"\n"}pnpm bench <span className={styles.muted}>--model</span> <span className={styles.str}>Qwen/Qwen3-VL-30B-A3B-Instruct</span>
               </code>
             </pre>
           </section>

@@ -1,7 +1,7 @@
 // Re-checks a Veto Bench run offline, no API key needed: for every scenario it rehashes
 // the stored request and response bytes, rebuilds the signed text, recovers the signer
 // from the signature and checks it matches the model's attested key.
-//   node bench/verify.ts bench/results/z-ai_glm-5.3-flash.json
+//   node bench/verify.ts bench/results/Qwen_Qwen3-VL-30B-A3B-Instruct.json
 import { readFileSync } from "node:fs";
 import { verifyMessage } from "ethers";
 import { parseVerdict, sha256Hex } from "@veto/core";
