@@ -2,6 +2,7 @@
 //
 //   node bench/run.ts --model z-ai/glm-5.3-flash      (needs NEARAI_API_KEY)
 //   node bench/run.ts --screener dev                  (no key; checks the harness only)
+//   node bench/run.ts --screener policy               (no key; a policy wallet on its own)
 //
 // Results land in bench/results/<model>.json with every signed request and response,
 // so anyone can re-check the signatures offline with `node bench/verify.ts`.
@@ -16,6 +17,7 @@ import {
   proposalHash,
   SYSTEM_PROMPT,
   userMessage,
+  type PaymentRequest,
   type Screener,
 } from "@veto/core";
 import { ASSET, MANDATE, PAYEES, SCENARIOS } from "./scenarios.ts";
@@ -31,16 +33,24 @@ const { values: args } = parseArgs({
 loadEnv(new URL("../.env.local", import.meta.url));
 
 const BENCH_VAULT = "lagoon-bench.near";
-const screener: Screener =
-  args.screener === "dev" ? new DevScreener() : new NearAiScreener(requireEnv("NEARAI_API_KEY"), args.model!);
-const attestedSigner =
-  screener instanceof NearAiScreener ? await attestedKey(screener.model) : (screener as DevScreener).wallet.address.toLowerCase();
+// The plain-policy baseline is what a policy wallet enforces with no screening at all:
+// an allowlist of payees and a per-payment cap. Nothing is signed because nothing is judged.
+const POLICY_MODEL = "baseline/plain-policy";
+const POLICY_CAP = 500_000_000n; // $500 in 6-decimal USDC, the mandate's limit
+const screener: Screener | null =
+  args.screener === "policy" ? null : args.screener === "dev" ? new DevScreener() : new NearAiScreener(requireEnv("NEARAI_API_KEY"), args.model!);
+const model = screener?.model ?? POLICY_MODEL;
+const attestedSigner = !screener
+  ? null
+  : screener instanceof NearAiScreener
+    ? await attestedKey(screener.model)
+    : (screener as DevScreener).wallet.address.toLowerCase();
 
 const scenarios = SCENARIOS.slice(0, args.limit ? Number(args.limit) : SCENARIOS.length);
 const results: Record<string, unknown>[] = [];
 let next = 0;
 let done = 0;
-console.log(`Veto Bench: ${scenarios.length} scenarios, model ${screener.model}, signer ${attestedSigner}`);
+console.log(`Veto Bench: ${scenarios.length} scenarios, model ${model}, signer ${attestedSigner ?? "none"}`);
 
 await Promise.all(
   Array.from({ length: Number(args.concurrency) }, async () => {
@@ -73,6 +83,12 @@ await Promise.all(
         evidence: s.evidence,
       });
       const started = performance.now();
+      if (!screener) {
+        const v = policyVerdict(s.request);
+        results[index] = { id: s.id, category: s.category, label: s.label, verdict: v.verdict, reasons: v.reasons, ms: Math.round(performance.now() - started) };
+        done++;
+        continue;
+      }
       try {
         const r = await screener.screen(SYSTEM_PROMPT, user, { proposalId: proposal.id, proposalHash: hash, signals, evidence: s.evidence });
         const ms = Math.round(performance.now() - started);
@@ -112,9 +128,9 @@ const byCategory = Object.fromEntries(
   }),
 );
 const summary = {
-  model: screener.model,
+  model,
   // The dev screener applies the deterministic signals and a few keyword rules: the no-AI baseline.
-  display: screener instanceof DevScreener ? "Rules only (no AI)" : screener.model,
+  display: !screener ? "Plain policy (caps + allowlist)" : screener instanceof DevScreener ? "Rules only (no AI)" : screener.model,
   signer: attestedSigner,
   ran_at: new Date().toISOString(),
   attacks_caught: attacks.filter((r) => r.verdict === "VETO").length,
@@ -128,11 +144,11 @@ const summary = {
 };
 
 mkdirSync(new URL("results/", import.meta.url), { recursive: true });
-const slug = screener.model.replace(/[^a-z0-9.-]+/gi, "_");
+const slug = model.replace(/[^a-z0-9.-]+/gi, "_");
 writeFileSync(new URL(`results/${slug}.json`, import.meta.url), JSON.stringify({ summary, results }, null, 2));
 const index = new URL("results/summary.json", import.meta.url);
 const all = existsSync(index) ? JSON.parse(readFileSync(index, "utf8")) : {};
-all[screener.model] = summary;
+all[model] = summary;
 writeFileSync(index, JSON.stringify(all, null, 2));
 
 console.log(`\n\nAttacks caught          ${summary.attacks_caught}/${summary.attacks_total}`);
@@ -140,6 +156,12 @@ console.log(`Normal payments blocked ${summary.ordinary_blocked}/${summary.ordin
 console.log(`Median screen time      ${summary.median_ms} ms (p95 ${summary.p95_ms} ms)`);
 if (summary.errors) console.log(`Errors                  ${summary.errors}`);
 for (const [c, v] of Object.entries(byCategory)) console.log(`  ${c.padEnd(24)} ${JSON.stringify(v)}`);
+
+function policyVerdict(request: PaymentRequest) {
+  const listed = PAYEES.some((p) => p.chain === request.chain && p.address.toLowerCase() === request.payee.toLowerCase());
+  const reasons = [...(listed ? [] : ["NEW_PAYEE"]), ...(BigInt(request.amount) > POLICY_CAP ? ["MANDATE_VIOLATION"] : [])];
+  return { verdict: reasons.length ? "VETO" : "PASS", reasons };
+}
 
 async function attestedKey(model: string) {
   const { nonce, report } = await modelAttestation(model);

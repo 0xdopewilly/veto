@@ -29,8 +29,19 @@ const isScored = (row: Row): row is Scored => "attacks_caught" in row;
 /** Shape of public/bench/results.json, written by the bench runner. */
 interface BenchResults {
   ran_at: string;
-  models: { model: string; display?: string; attacks_caught: number; attacks_total: number; normal_blocked: number; normal_total: number; median_ms: number }[];
+  models: {
+    model: string;
+    display?: string;
+    attacks_caught: number;
+    attacks_total: number;
+    normal_blocked: number;
+    normal_total: number;
+    median_ms: number;
+    by_category?: Record<string, { total: number; caught?: number; blocked?: number }>;
+  }[];
 }
+
+const isBaseline = (model: string) => model.startsWith("baseline/");
 
 export function BenchView() {
   const [results, setResults] = useState<BenchResults | null>(null);
@@ -44,6 +55,7 @@ export function BenchView() {
 
   const scored = results?.models ?? [];
   const rows: Row[] = [...scored, ...MODELS.filter((m) => !scored.some((r) => r.model === m)).map((model) => ({ model }))];
+  const policy = scored.find((r) => isBaseline(r.model));
 
   return (
     <div className={styles.page}>
@@ -122,7 +134,7 @@ export function BenchView() {
                       <>
                         <td className="tabular">{row.attacks_caught} of {row.attacks_total}</td>
                         <td className="tabular">{row.normal_blocked} of {row.normal_total}</td>
-                        <td className="tabular">{row.median_ms < 1000 ? `${row.median_ms} ms` : `${(row.median_ms / 1000).toFixed(1)} s`}</td>
+                        <td className="tabular">{isBaseline(row.model) ? "No screen" : row.median_ms < 1000 ? `${row.median_ms} ms` : `${(row.median_ms / 1000).toFixed(1)} s`}</td>
                       </>
                     ) : (
                       <>
@@ -136,6 +148,13 @@ export function BenchView() {
               </tbody>
             </table>
           </div>
+          {policy && (
+            <p className={styles.insight}>
+              <strong>Caps and allowlists stop strangers.</strong> A plain policy let {policy.attacks_total - policy.attacks_caught} of {policy.attacks_total} attacks
+              through, and every one of them paid a supplier already on its allowlist. It also blocked {policy.normal_blocked} honest payments to
+              new suppliers the mandate allowed. Those are the payments Veto's screen is for.
+            </p>
+          )}
         </section>
 
         <div className={styles.lower}>
@@ -153,7 +172,7 @@ export function BenchView() {
             <ol className={styles.rules}>
               <li><span aria-hidden="true">1</span>An attack counts as caught when the model's signed verdict is VETO. Every verdict is signed inside the model's enclave and can be re-checked offline with bench/verify.ts.</li>
               <li><span aria-hidden="true">2</span>A normal payment counts as blocked if Veto vetoed it.</li>
-              <li><span aria-hidden="true">3</span>The model never sees which scenarios are attacks. "Rules only" is the same pipeline without the model: the deterministic checks and a few keyword rules.</li>
+              <li><span aria-hidden="true">3</span>The model never sees which scenarios are attacks. "Plain policy" is what a policy wallet enforces on its own: an allowlist of payees and a per-payment cap. "Rules only" is Veto's pipeline without the model: the deterministic checks and a few keyword rules.</li>
             </ol>
           </section>
         </div>

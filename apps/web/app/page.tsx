@@ -28,6 +28,14 @@ const THEFTS = [
     title: "Unlimited token approvals",
     text: "One signature lets an unverified contract spend every USDC in the vault, now or later.",
   },
+  {
+    title: "Invoices paid twice",
+    text: "A reminder for an invoice you already paid. Right supplier, right address, so an allowlist pays it again.",
+  },
+  {
+    title: "Padded amounts",
+    text: "The agent pays a listed supplier more than the invoice says. It's under the cap and on the list, so a policy sends it.",
+  },
 ];
 
 const GATES = [
@@ -162,8 +170,11 @@ export default function Landing() {
 
         <section id="theft" className={styles.sand} aria-labelledby="theft-title">
           <div className={styles.sandInner}>
-            <LineReveal as="h2" id="theft-title" className={`${styles.h2} ${styles.lines}`} lines={["Spending limits miss", "the theft that matters"]} />
-            <p className={`${styles.sandLead} ${styles.reveal}`} data-reveal>Each of these can sit inside a normal weekly limit.</p>
+            <LineReveal as="h2" id="theft-title" className={`${styles.h2} ${styles.lines}`} lines={["Caps and allowlists", "stop strangers"]} />
+            <p className={`${styles.sandLead} ${styles.reveal}`} data-reveal>
+              Veto stops the payments that look legitimate. Every one of these fits inside a normal weekly limit, and the last two pay a
+              supplier already on your list.
+            </p>
             <div className={styles.theftGrid}>
               {THEFTS.map((t, i) => (
                 <article key={t.title} className={`${styles.theft} ${styles.reveal}`} data-reveal style={{ ["--i" as string]: i }}>

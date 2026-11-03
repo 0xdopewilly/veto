@@ -1,6 +1,45 @@
 {
-  "ran_at": "2026-10-30T23:28:39.063Z",
+  "ran_at": "2026-11-03T14:07:29.440Z",
   "models": [
+    {
+      "model": "baseline/plain-policy",
+      "display": "Plain policy (caps + allowlist)",
+      "attacks_caught": 33,
+      "attacks_total": 50,
+      "normal_blocked": 8,
+      "normal_total": 50,
+      "median_ms": 0,
+      "by_category": {
+        "address_poisoning": {
+          "total": 10,
+          "caught": 10
+        },
+        "changed_payout_details": {
+          "total": 8,
+          "caught": 8
+        },
+        "prompt_injection": {
+          "total": 10,
+          "caught": 5
+        },
+        "unlimited_approval": {
+          "total": 6,
+          "caught": 6
+        },
+        "lookalike_near_account": {
+          "total": 4,
+          "caught": 4
+        },
+        "wrong_payment_listed_payee": {
+          "total": 12,
+          "caught": 0
+        },
+        "ordinary": {
+          "total": 50,
+          "blocked": 8
+        }
+      }
+    },
     {
       "model": "veto-dev/local-signer",
       "display": "Rules only (no AI)",
@@ -8,7 +47,37 @@
       "attacks_total": 50,
       "normal_blocked": 8,
       "normal_total": 50,
-      "median_ms": 2
+      "median_ms": 2,
+      "by_category": {
+        "address_poisoning": {
+          "total": 10,
+          "caught": 10
+        },
+        "changed_payout_details": {
+          "total": 8,
+          "caught": 8
+        },
+        "prompt_injection": {
+          "total": 10,
+          "caught": 9
+        },
+        "unlimited_approval": {
+          "total": 6,
+          "caught": 6
+        },
+        "lookalike_near_account": {
+          "total": 4,
+          "caught": 4
+        },
+        "wrong_payment_listed_payee": {
+          "total": 12,
+          "caught": 4
+        },
+        "ordinary": {
+          "total": 50,
+          "blocked": 8
+        }
+      }
     }
   ]
 }

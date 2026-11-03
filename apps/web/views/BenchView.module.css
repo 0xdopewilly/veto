@@ -164,6 +164,22 @@
   color: var(--muted);
 }
 
+.insight {
+  margin: 16px 0 0;
+  padding: 18px 20px;
+  border-radius: var(--r-tile);
+  background: var(--coral-tint);
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--sand);
+  text-wrap: pretty;
+}
+
+.insight strong {
+  font-weight: 650;
+  color: var(--coral);
+}
+
 .lower {
   margin-top: 16px;
   display: grid;

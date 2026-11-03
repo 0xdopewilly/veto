@@ -62,6 +62,10 @@ const FAQ: { q: string; a: string }[] = [
     a: "The vault only accepts verdicts from the registered guardian account, signed by an approved model key, echoing this exact proposal. A compromised guardian still can't pay more than the caps allow, can't change payees or limits, and can't move money anywhere the agent didn't propose. Running the guardian itself inside a TEE is the next step that removes this trust.",
   },
   {
+    q: "How is this different from a policy wallet?",
+    a: "A policy wallet enforces caps and an allowlist, and Veto's contract does the same. Those rules stop payments to strangers. They can't stop a payment to a listed supplier for an invoice that was already paid, or for more than was billed, and a strict allowlist blocks every new supplier. Veto adds a private screen that reads the evidence behind each payment and can only say no, so the two work together rather than compete.",
+  },
+  {
     q: "Why not just use a card with limits?",
     a: "Cards stop at a spending limit and a merchant category. Most theft against businesses and agents is small and looks routine: a lookalike address, changed payout details, a duplicate invoice, an instruction planted in a web page. Veto reads the evidence behind each payment, works across chains and assets, and leaves a public, checkable record of every decision.",
   },
@@ -151,16 +155,22 @@ export function DocsView() {
           <section id="problem" className={styles.section} data-reveal>
             <h2>Why spending limits aren't enough</h2>
             <p>
-              Agents can now pay invoices, buy services and move funds. The usual safeguard is a spending limit, and it only stops large
-              payments. The theft that actually happens to businesses is small and looks routine:
+              Agents can now pay invoices, buy services and move funds. The usual safeguard is a policy: a spending limit and an allowlist of
+              payees. Caps and allowlists stop strangers. The theft that actually happens to businesses is small, looks routine, and often
+              pays someone already on the list:
             </p>
             <ul className={styles.bullets}>
               <li><strong>Lookalike addresses.</strong> An address that shares its first and last characters with a supplier's, so both look the same when shortened.</li>
               <li><strong>Changed payout details.</strong> An email from a lookalike domain says the supplier's wallet has changed.</li>
               <li><strong>Planted instructions.</strong> A web page or document the agent reads tells it to send money somewhere.</li>
-              <li><strong>Duplicate invoices.</strong> A reminder for an invoice that was already paid.</li>
+              <li><strong>Duplicate invoices.</strong> A reminder for an invoice that was already paid, to the supplier's real address.</li>
+              <li><strong>Padded amounts.</strong> A listed supplier paid more than the invoice says.</li>
             </ul>
-            <p>Every one of these fits inside a normal weekly limit. Veto exists to catch them.</p>
+            <p>
+              Every one of these fits inside a normal weekly limit. On <Link href="/bench">Veto Bench</Link>, a plain policy (allowlist plus a
+              per-payment cap) lets 17 of 50 attacks through, every one to a listed supplier, and blocks 8 honest payments to new suppliers
+              the mandate allowed. Veto exists to catch those payments.
+            </p>
           </section>
 
           <section id="flow" className={styles.section} data-reveal>

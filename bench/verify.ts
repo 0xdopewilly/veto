@@ -9,6 +9,10 @@ import { parseVerdict, sha256Hex } from "@veto/core";
 const file = process.argv[2];
 if (!file) throw new Error("usage: node bench/verify.ts <results file>");
 const { summary, results } = JSON.parse(readFileSync(file, "utf8"));
+if (!summary.signer) {
+  console.log(`${summary.display}: a deterministic baseline with no model, so there are no signatures to verify.`);
+  process.exit(0);
+}
 let ok = 0;
 const problems: string[] = [];
 
