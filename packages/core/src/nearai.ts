@@ -57,7 +57,9 @@ export async function screen(opts: {
       { role: "user", content: opts.user },
     ],
     temperature: 0,
-    max_tokens: 400,
+    // Reasoning models think before answering; keep that short and leave room for the verdict.
+    thinking: { type: "disabled" },
+    max_tokens: 2000,
     stream: false,
     response_format: { type: "json_schema", json_schema: { name: "veto_verdict", strict: true, schema: VERDICT_SCHEMA } },
   };

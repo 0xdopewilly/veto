@@ -73,3 +73,31 @@ export class DevScreener implements Screener {
     };
   }
 }
+
+/**
+ * The real model first; if it can't answer (no credit left, an outage), a test signer, so a
+ * public demo never stalls. Every verdict names the model and key that signed it, and the
+ * vault only accepts keys its owner approved, so a fallback verdict is always visible as one.
+ */
+export class FallbackScreener implements Screener {
+  readonly primary: Screener;
+  readonly fallback: Screener;
+
+  constructor(primary: Screener, fallback: Screener) {
+    this.primary = primary;
+    this.fallback = fallback;
+  }
+
+  get model() {
+    return this.primary.model;
+  }
+
+  async screen(system: string, user: string, hints: { proposalId: string; proposalHash: string; signals: Signal[]; evidence: unknown }) {
+    try {
+      return await this.primary.screen(system, user, hints);
+    } catch (e) {
+      console.warn(`screening with ${this.primary.model} failed (${(e as Error).message}); using ${this.fallback.model}`);
+      return this.fallback.screen(system, user, hints);
+    }
+  }
+}
