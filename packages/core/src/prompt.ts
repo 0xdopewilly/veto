@@ -86,7 +86,8 @@ export function formatAmount(raw: string, decimals: number): string {
   const value = BigInt(raw);
   const base = 10n ** BigInt(decimals);
   const whole = value / base;
-  const frac = (value % base).toString().padStart(decimals, "0").slice(0, 2);
+  // Every significant digit, at least two: 180.00 USDC, but 0.0005 ETH, never "0.00".
+  const frac = (value % base).toString().padStart(decimals, "0").replace(/0+$/, "").padEnd(2, "0");
   return `${whole.toLocaleString("en-US")}.${frac}`;
 }
 
