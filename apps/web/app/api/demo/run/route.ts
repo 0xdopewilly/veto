@@ -7,8 +7,8 @@ import { buildScenarios } from "@/lib/server/scenarios";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// Screening continues after the response; give it room on serverless hosts.
-export const maxDuration = 60;
+// Screening (and, for OutLayer, the vote and settlement) continues after the response.
+export const maxDuration = 120;
 
 /**
  * The agent reads one inbox message and proposes the payment it asks for, exactly as a

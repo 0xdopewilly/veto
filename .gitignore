@@ -10,3 +10,4 @@ bench/results/veto-dev_*.json
 .next/
 next-env.d.ts
 *.tsbuildinfo
+.vercel/

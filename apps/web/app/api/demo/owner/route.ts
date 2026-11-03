@@ -6,6 +6,8 @@ import { approveAndSettle, rejectHeld } from "@/lib/server/outlayer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// An override on an OutLayer payment votes and settles after the response.
+export const maxDuration = 120;
 
 type Args = Record<string, unknown>;
 const id = (a: Args) => typeof a.id === "string" && /^\d{1,10}$/.test(a.id);
