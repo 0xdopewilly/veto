@@ -32,11 +32,11 @@ const STATUS_TEXT: Record<Status, string> = { live: "Live on testnet", built: "B
 const STATUS: { part: string; status: Status; note: string }[] = [
   { part: "Vault contract: caps, verdict check, overrides, freeze", status: "live", note: "47 contract tests; deployed on NEAR testnet." },
   { part: "OutLayer agent wallets", status: "live", note: "Veto is an approver on an OutLayer wallet's policy. Pass, veto and override all run on testnet, settled against the wallet's real transactions." },
-  { part: "Agent inbox and guardian screening", status: "live", note: "Real proposals and verdicts on testnet. Verdicts come from a labelled test key until the NEAR AI key is connected." },
+  { part: "Agent inbox and guardian screening", status: "live", note: "Real proposals and verdicts on testnet, screened by Qwen3-VL-30B inside NEAR AI's enclave. If NEAR AI can't answer, a labelled test key signs instead, so the demo never stalls." },
   { part: "Owner actions in the app", status: "live", note: "With the owner's NEAR wallet, or the limited demo-owner key on testnet." },
-  { part: "Private AI screen on NEAR AI Cloud", status: "built", note: "Client, prompt and on-chain signature check are done; the vault already trusts the model's attested key. Live calls start when the API key is added." },
-  { part: "Paying suppliers on other chains (NEAR Intents)", status: "built", note: "The vault verifies 1Click's signed quote on-chain; tested against a real quote. First mainnet payout after funding." },
-  { part: "Veto Bench", status: "built", note: "100 scenarios, runner and offline verifier. Rules-only baseline published; model runs need the NEAR AI key." },
+  { part: "Private AI screen on NEAR AI Cloud", status: "live", note: "Qwen3-VL-30B runs in an Intel TDX enclave on NEAR AI Cloud and signs each verdict in about 1.5 s. The vault checks the signature on-chain against the model's attested key." },
+  { part: "Paying suppliers on other chains (NEAR Intents)", status: "built", note: "The vault verifies 1Click's signed quote on-chain, tested against a real executable quote. The mainnet payout is scripted and runs once the mainnet vault is funded." },
+  { part: "Veto Bench", status: "live", note: "100 scenarios. Qwen3-VL-30B catches 50 of 50 attacks and blocks 8 of 50 honest payments; all 100 signatures re-verify offline. Plain-policy and rules-only baselines are published beside it." },
   { part: "Shield incident check before cross-chain payouts", status: "built", note: "Holds a payout while a NEAR Intents Shield incident touches its chain, bridge, token or payee; fails closed if it outlasts the deadline. Runs when the Shield key is added." },
   { part: "The vault's own Base address via Chain Signatures", status: "live", note: "The vault builds each passed transfer and NEAR's MPC network signs exactly that; 47 contract tests include byte-for-byte checks against ethers." },
 ];
@@ -61,6 +61,10 @@ const METHODS: { method: string; who: string; does: string }[] = [
 ];
 
 const FAQ: { q: string; a: string }[] = [
+  {
+    q: "Which model screens the payments?",
+    a: "Qwen3-VL-30B-A3B-Instruct, hosted by NEAR AI Cloud inside an Intel TDX enclave. It answers directly without a reasoning phase, so a verdict takes about 1.5 seconds and always arrives in full. The owner approves a model by its attested signing key (add_signer), so any other enclave-hosted model can be used instead; Veto Bench compares them on the same 100 scenarios.",
+  },
   {
     q: "What if the AI gets it wrong?",
     a: "If it misses an attack, the payment is still inside the hard caps, so you're no worse off than with a plain spending limit. If it blocks a good payment, the owner overrides it; the override waits for a delay and can be cancelled. The AI never decides alone that money should move.",
@@ -177,7 +181,8 @@ export function DocsView() {
             <p>
               Every one of these fits inside a normal weekly limit. On <Link href="/bench">Veto Bench</Link>, a plain policy (allowlist plus a
               per-payment cap) lets 17 of 50 attacks through, every one to a listed supplier, and blocks 8 honest payments to new suppliers
-              the mandate allowed. Veto exists to catch those payments.
+              the mandate allowed. Veto's screen, running in NEAR AI's enclave, catches all 50, including every one a plain policy lets
+              through.
             </p>
           </section>
 
@@ -326,7 +331,7 @@ export function DocsView() {
           <section id="try" className={styles.section} data-reveal>
             <h2>Try it on testnet</h2>
             <p>
-              The demo vault is <a href={`${EXPLORER}/address/${VAULT_ID}`} target="_blank" rel="noreferrer" className={styles.mono}>{VAULT_ID}</a>.
+              The live demo is at <a href="https://veto-beta.vercel.app/app">veto-beta.vercel.app</a>, with nothing to install. The demo vault is <a href={`${EXPLORER}/address/${VAULT_ID}`} target="_blank" rel="noreferrer" className={styles.mono}>{VAULT_ID}</a>.
               It belongs to a made-up business, Lagoon Goods, which holds test USDC and pays two suppliers.
             </p>
             <ol className={styles.doSee}>
@@ -335,7 +340,13 @@ export function DocsView() {
               <li><span>Do</span> let it pay "Updated payment details". <span>See</span> <strong>Vetoed</strong>: a lookalike address, a new payee and changed payout details, while the payment was inside the weekly limit.</li>
               <li><span>Do</span> open the decision, then <strong>Proof</strong>. <span>See</span> the signer, the hashes and the on-chain check.</li>
               <li><span>Do</span> press <strong>Override</strong> (the demo owner works without a wallet). <span>See</span> a countdown; the override pays only after the delay and can be cancelled.</li>
+              <li><span>Do</span> switch <strong>Pay from</strong> to <strong>OutLayer wallet</strong> and repeat. <span>See</span> the paid invoice approved by Veto on OutLayer and sent by the wallet; the scam stays held, and <strong>Keep it blocked</strong> rejects it there for good.</li>
+              <li><span>Do</span> let the agent pay <strong>"A supplier paid on Base"</strong>. <span>See</span> <strong>Paid</strong>, sent from the vault's own Base Sepolia address with NEAR Chain Signatures, with a Base explorer link.</li>
             </ol>
+            <p className={styles.note}>
+              Every verdict is signed by Qwen3-VL-30B inside NEAR AI's enclave. If NEAR AI can't answer, the demo's labelled test key signs instead;
+              the decision's Proof page always shows which key signed it.
+            </p>
           </section>
 
           <section id="developers" className={styles.section} data-reveal>

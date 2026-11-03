@@ -35,7 +35,7 @@ node bench/run.ts --screener dev      # Attacks caught 41/50, normal payments bl
 
 - `policy` is what a policy wallet enforces on its own: an allowlist plus a cap. Every attack it misses pays a supplier already on the list.
 - `dev` is Veto's deterministic checks without a model.
-- The model rows need a NEAR AI key. See [With a NEAR AI key](#with-a-near-ai-key).
+- With a NEAR AI key, Qwen3-VL-30B running in NEAR AI's enclave catches 50 of 50 attacks and blocks 8 of 50 honest payments (all 8 are new suppliers whose approval sits inside the email). Every one of its 100 signatures re-verifies offline. See [With a NEAR AI key](#with-a-near-ai-key).
 
 ## Run the whole thing on testnet (no keys, no funds)
 
@@ -61,7 +61,7 @@ Then open http://localhost:3000/app and press **Try it** (the green V on a phone
 | Switch **Pay from** to **OutLayer wallet** and repeat both | Paid: Veto approved it on OutLayer and the wallet sent it. Vetoed: Veto never signs, so OutLayer keeps holding it. **Keep it blocked** then rejects it there for good |
 | Open any decision → **Proof** | The request and response hashes, the signer, and the on-chain signature check |
 
-Until a NEAR AI key is connected, verdicts are signed by a local test key that the demo vault was told to trust. The app labels every such decision "test signer".
+With `NEARAI_API_KEY` set, verdicts come from Qwen3-VL-30B inside NEAR AI's enclave. Without it, or if NEAR AI can't answer, they're signed by a local test key the demo vault was told to trust, and the app labels every such decision "test signer".
 
 ### The guardian and SDK on their own
 
@@ -139,7 +139,8 @@ vault: ecrecover → approved model key → echoes this proposal's id and hash �
 | Payouts from the vault's own Base Sepolia address (NEAR Chain Signatures) | Live on testnet; the inbox shows the Base supplier once the vault's address holds test ETH |
 | OutLayer agent wallets (pass, veto, override) | Live on testnet |
 | Agent inbox, guardian, owner actions in the app | Live on testnet |
-| Private screen on NEAR AI Cloud | Built; runs when the API key is added |
+| Private screen on NEAR AI Cloud (Qwen3-VL-30B in a TDX enclave) | Live on testnet; about 1.5 s per verdict |
+| Veto Bench | Live: 50/50 attacks caught, 8/50 honest payments blocked, 100/100 signatures verified |
 | Payouts to other chains through NEAR Intents | Built; contract tested against a real executable quote; first mainnet payout needs funding |
 | Shield incident check before cross-chain payouts | Built; holds a payout while a NEAR Intents Shield incident touches its route. Runs when `SHIELD_JWT` is set |
 

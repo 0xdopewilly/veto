@@ -56,6 +56,7 @@ export function BenchView() {
   const scored = results?.models ?? [];
   const rows: Row[] = [...scored, ...MODELS.filter((m) => !scored.some((r) => r.model === m)).map((model) => ({ model }))];
   const policy = scored.find((r) => isBaseline(r.model));
+  const best = scored.filter((r) => !isBaseline(r.model) && !r.model.startsWith("veto-dev/")).sort((a, b) => b.attacks_caught - a.attacks_caught)[0];
 
   return (
     <div className={styles.page}>
@@ -152,7 +153,8 @@ export function BenchView() {
             <p className={styles.insight}>
               <strong>Caps and allowlists stop strangers.</strong> A plain policy let {policy.attacks_total - policy.attacks_caught} of {policy.attacks_total} attacks
               through, and every one of them paid a supplier already on its allowlist. It also blocked {policy.normal_blocked} honest payments to
-              new suppliers the mandate allowed. Those are the payments Veto's screen is for.
+              new suppliers the mandate allowed. Those are the payments Veto's screen is for
+              {best ? `: ${best.display ?? best.model}, inside NEAR AI's enclave, caught ${best.attacks_caught} of ${best.attacks_total}.` : "."}
             </p>
           )}
         </section>

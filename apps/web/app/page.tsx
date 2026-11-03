@@ -242,7 +242,8 @@ export default function Landing() {
             <div>
               <h2 id="bench-title" className={styles.h2}>Veto Bench</h2>
               <p className={styles.benchLead}>
-                A public set of attack and everyday payment scenarios. Each model is scored on the attacks it catches and the honest payments it wrongly blocks.
+                A public set of 100 attack and everyday payment scenarios. Screening inside NEAR AI's enclave, Veto catches all 50 attacks; a plain
+                policy wallet lets 17 through. Every verdict is signed and can be re-checked offline.
               </p>
             </div>
             <Magnetic>
