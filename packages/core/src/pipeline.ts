@@ -1,4 +1,5 @@
 import { actions, teraToGas, type Account } from "near-api-js";
+import { payoutQuote, type Route } from "./intents.ts";
 import type { SignedScreening } from "./nearai.ts";
 import { proposalHash, type Proposal } from "./proposal.ts";
 import { SYSTEM_PROMPT, userMessage } from "./prompt.ts";
@@ -35,6 +36,8 @@ export async function screenAndSubmit(opts: {
   screener: Screener;
   proposal: Proposal;
   evidence: unknown;
+  /** 1Click API key; optional, it only lowers 1Click's fee. */
+  oneClickJwt?: string;
 }): Promise<Screened> {
   const { vault, guardian, screener, proposal } = opts;
   const started = Date.now();
@@ -54,6 +57,12 @@ export async function screenAndSubmit(opts: {
     throw new Error("the model did not echo this proposal's id and hash; leaving it to expire");
   }
 
+  // A cross-chain pass pays through NEAR Intents, so it needs an executable quote now.
+  const quote =
+    result.verdict.verdict === "PASS" && proposal.request.chain !== "near"
+      ? await quoteFor(vault, proposal, opts.oneClickJwt)
+      : null;
+
   const outcome = await guardian.signAndSendTransaction({
     receiverId: vault.vaultId,
     actions: [
@@ -66,6 +75,7 @@ export async function screenAndSubmit(opts: {
           request_hash: result.requestHash,
           response: Buffer.from(result.responseBytes).toString("base64"),
           signature: result.signature,
+          quote: quote && { json: quote.json, signature: quote.signature },
         },
         teraToGas("100"),
         0n,
@@ -74,4 +84,12 @@ export async function screenAndSubmit(opts: {
     waitUntil: "FINAL",
   });
   return { result, signals, proposalHash: hash, tx: outcome.transaction.hash, ms: Date.now() - started };
+}
+
+/** A fresh executable 1Click quote for a cross-chain proposal, on the vault's route for its chain. */
+export async function quoteFor(vault: VaultReader, proposal: Proposal, jwt?: string) {
+  const routes = await vault.view<[string, Route][]>("get_routes");
+  const route = routes.find(([chain]) => chain === proposal.request.chain)?.[1];
+  if (!route) throw new Error(`the vault has no route to ${proposal.request.chain}`);
+  return payoutQuote({ vaultId: vault.vaultId, route, payee: proposal.request.payee, amount: proposal.request.amount, jwt });
 }

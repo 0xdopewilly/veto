@@ -91,3 +91,53 @@ export function verifyQuote(r: QuoteResponse, managerKey = ONE_CLICK_MANAGER_KEY
     return false;
   }
 }
+
+/** How a vault pays a supplier on another chain (mirrors `Route` in the contract). */
+export interface Route {
+  token: string;
+  origin_asset: string;
+  destination_asset: string;
+  max_fee_bps: number;
+}
+
+/**
+ * An executable 1Click quote for a screened cross-chain payment: exactly the payee and amount
+ * the vault screened, refunds to the vault, fees inside the route's cap. The vault checks all of
+ * this again on-chain before it sends the deposit.
+ */
+export async function payoutQuote(opts: { vaultId: string; route: Route; payee: string; amount: string; jwt?: string }) {
+  const r = await requestQuote(
+    {
+      dry: false,
+      swapType: "EXACT_OUTPUT",
+      slippageTolerance: 100,
+      originAsset: opts.route.origin_asset,
+      depositType: "ORIGIN_CHAIN",
+      destinationAsset: opts.route.destination_asset,
+      amount: opts.amount,
+      refundTo: opts.vaultId,
+      refundType: "ORIGIN_CHAIN",
+      // 1Click rejects mixed-case EVM addresses that fail the checksum; lowercase always passes.
+      recipient: opts.payee.startsWith("0x") ? opts.payee.toLowerCase() : opts.payee,
+      recipientType: "DESTINATION_CHAIN",
+      deadline: new Date(Date.now() + 15 * 60_000).toISOString(),
+      referral: "veto",
+    },
+    opts.jwt,
+  );
+  if (!verifyQuote(r)) throw new Error("1Click's quote signature does not verify");
+  const amountIn = BigInt(String(r.quote.amountIn));
+  if (amountIn * 10_000n > BigInt(opts.amount) * BigInt(10_000 + opts.route.max_fee_bps)) {
+    throw new Error(`1Click wants ${amountIn} for ${opts.amount}, over the route's ${opts.route.max_fee_bps} bps fee cap`);
+  }
+  return { json: signedQuoteJson(r), signature: r.signature, depositAddress: String(r.quote.depositAddress), amountIn: String(r.quote.amountIn) };
+}
+
+/** 1Click's view of a deposit: PENDING_DEPOSIT, PROCESSING, SUCCESS, REFUNDED, FAILED… */
+export async function payoutStatus(depositAddress: string, jwt?: string) {
+  const res = await fetch(`${ONE_CLICK_URL}/status?depositAddress=${encodeURIComponent(depositAddress)}`, {
+    headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+  });
+  if (!res.ok) throw new Error(`1Click status failed (${res.status})`);
+  return (await res.json()) as { status: string; swapDetails?: { destinationChainTxHashes?: { hash: string; explorerUrl?: string }[] } };
+}

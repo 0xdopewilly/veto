@@ -9,13 +9,16 @@
 // GUARDIAN_PRIVATE_KEY, NEARAI_API_KEY, NEARAI_MODEL, PORT. On testnet, anything not set
 // is read from .veto-dev/testnet.json. VETO_SCREENER=dev uses the local dev screener.
 // OutLayer: OUTLAYER_APPROVER_ID and OUTLAYER_APPROVER_KEY (a full-access key of the
-// account named as an approver on the wallet's policy).
+// account named as an approver on the wallet's policy). ONECLICK_JWT lowers 1Click's fee on
+// cross-chain payouts. With EXECUTE_OVERRIDES=1 the guardian also pays out overrides once their
+// delay has passed (its key must allow execute_override), with a fresh quote when cross-chain.
 import { createServer } from "node:http";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { Account, teraToGas, type KeyPairString } from "near-api-js";
 import {
   approvePassed,
   canonicalJson,
+  quoteFor,
   DEFAULT_MODEL,
   OutLayer,
   provider,
@@ -78,6 +81,15 @@ async function tick() {
         .catch((e) => (voted.delete(proposal.id), log(`proposal ${proposal.id}: OutLayer vote failed: ${e.message}`)));
       continue;
     }
+    if (proposal.status === "OverridePending" && process.env.EXECUTE_OVERRIDES === "1" && !inFlight.has(proposal.id)) {
+      const due = Number(BigInt(proposal.override_executes_at ?? "0") / 1_000_000n);
+      if (Date.now() < due) continue;
+      inFlight.add(proposal.id);
+      executeOverride(proposal)
+        .catch((e) => log(`proposal ${proposal.id}: override not executed: ${e.message}`))
+        .finally(() => inFlight.delete(proposal.id));
+      continue;
+    }
     if (proposal.status !== "Screening" || inFlight.has(proposal.id)) continue;
     inFlight.add(proposal.id);
     handle(proposal)
@@ -99,7 +111,7 @@ async function handle(proposal: Proposal) {
     log(`proposal ${proposal.id}: waiting for the agent's evidence`);
     return;
   }
-  const { result, signals, proposalHash: hash, tx, ms } = await screenAndSubmit({ vault, guardian, screener, proposal, evidence });
+  const { result, signals, proposalHash: hash, tx, ms } = await screenAndSubmit({ vault, guardian, screener, proposal, evidence, oneClickJwt: process.env.ONECLICK_JWT });
   writeFileSync(
     new URL(`audit/${proposal.id}.json`, DATA),
     JSON.stringify(
@@ -126,6 +138,17 @@ async function handle(proposal: Proposal) {
     ),
   );
   log(`proposal ${proposal.id}: ${result.verdict.verdict}${result.verdict.reasons.length ? ` (${result.verdict.reasons.join(", ")})` : ""} in ${ms} ms, tx ${tx}`);
+}
+
+async function executeOverride(proposal: Proposal) {
+  const quote = proposal.request.chain === "near" ? null : await quoteFor(vault, proposal, process.env.ONECLICK_JWT);
+  await guardian.callFunction({
+    contractId: vaultId,
+    methodName: "execute_override",
+    args: { id: proposal.id, quote: quote && { json: quote.json, signature: quote.signature } },
+    gas: teraToGas("150"),
+  });
+  log(`proposal ${proposal.id}: override delay passed, paid out${quote ? ` through 1Click deposit ${quote.depositAddress}` : ""}`);
 }
 
 /** undefined = not received yet; null never happens for a proposal with a context hash. */

@@ -445,6 +445,34 @@ fn verifies_a_real_1click_signature() {
     assert!(!quote::signed_by(&json.replace("0xa11ce57b", "0xdeadbeef"), signature, &key));
 }
 
+/// A real executable quote from 1Click (scripts/oneclick-live-fixture.ts): every on-chain check
+/// passes against 1Click's actual output, and the terms the vault pays from come out of it.
+#[test]
+fn accepts_a_real_executable_1click_quote() {
+    context(owner(), HOUR);
+    let f: Value = near_sdk::serde_json::from_str(include_str!("fixtures/oneclick_live_quote_signed.json")).unwrap();
+    let s = |k: &str| f[k].as_str().unwrap().to_string();
+    let (origin, destination) = (f["route"]["origin_asset"].as_str().unwrap(), f["route"]["destination_asset"].as_str().unwrap());
+    let (payee, vault) = (s("payee"), s("vault"));
+    let want = quote::Expected {
+        origin_asset: origin,
+        destination_asset: destination,
+        recipient: &payee,
+        amount: s("amount").parse().unwrap(),
+        refund_to: &vault,
+        max_fee_bps: 200,
+    };
+    let key = quote::decode_key(ONE_CLICK_MANAGER_KEY).unwrap();
+    let terms = quote::check(&s("json"), &s("signature"), &key, &want).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(terms.amount_out, 5_000_000);
+    assert!(terms.amount_in > terms.amount_out);
+    // The same quote for a different payee, or under a tighter fee cap, is refused.
+    let other = quote::Expected { recipient: "0x000000000000000000000000000000000000dead", ..want };
+    assert_eq!(quote::check(&s("json"), &s("signature"), &key, &other).err(), Some("quote recipient is not the payee"));
+    let tight = quote::Expected { max_fee_bps: 50, ..want };
+    assert_eq!(quote::check(&s("json"), &s("signature"), &key, &tight).err(), Some("quote costs more than the fee limit"));
+}
+
 #[test]
 fn pays_a_base_supplier_through_intents() {
     let mut vault = setup_cross_chain();

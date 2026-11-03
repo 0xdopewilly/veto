@@ -1,0 +1,13 @@
+{
+  "vault": "intents.near",
+  "route": {
+    "token": "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+    "origin_asset": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+    "destination_asset": "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near",
+    "max_fee_bps": 200
+  },
+  "payee": "0xa11ce57b2f0c88de41a9b3c07e6d1f45a3c0d9f2",
+  "amount": "5000000",
+  "json": "{\"amount\":\"5000000\",\"amountIn\":\"5053727\",\"amountInFormatted\":\"5.053727\",\"amountInUsd\":\"5.051700455473\",\"amountOut\":\"5000000\",\"amountOutFormatted\":\"5.0\",\"amountOutUsd\":\"4.997995000000\",\"deadline\":\"2026-11-06T21:29:40.311Z\",\"depositAddress\":\"88c0072aecd436cf35e5499f8c60ba736054757cf9eb41667f80a9353add52f2\",\"depositType\":\"ORIGIN_CHAIN\",\"destinationAsset\":\"nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near\",\"dry\":false,\"minAmountIn\":\"5003189\",\"minAmountOut\":\"5000000\",\"originAsset\":\"nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1\",\"recipient\":\"0xa11ce57b2f0c88de41a9b3c07e6d1f45a3c0d9f2\",\"recipientType\":\"DESTINATION_CHAIN\",\"referral\":\"veto\",\"refundFee\":\"0\",\"refundTo\":\"intents.near\",\"refundType\":\"ORIGIN_CHAIN\",\"slippageTolerance\":100,\"swapType\":\"EXACT_OUTPUT\",\"timeEstimate\":22,\"timeWhenInactive\":\"2026-11-06T21:29:40.311Z\",\"timestamp\":\"2026-11-03T21:14:39.782Z\",\"withdrawFee\":\"2400\"}",
+  "signature": "ed25519:3Pjq1ajc9wF72EFSeAUucpBuniUCCew2BPY2nxhUsKuRsrSxmPFNRVZFBuZfNobbV8scHFuEuuya2y6FSBotukDp"
+}

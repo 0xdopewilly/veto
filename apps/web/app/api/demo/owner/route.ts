@@ -1,6 +1,7 @@
 import { after } from "next/server";
 import { teraToGas } from "near-api-js";
 import { allow, demo, demoAccounts } from "@/lib/server/demo";
+import { quoteFor } from "@veto/core";
 import { approveAndSettle } from "@/lib/server/outlayer";
 
 export const runtime = "nodejs";
@@ -31,9 +32,17 @@ export async function POST(req: Request) {
   if (!action || !parsed) return Response.json({ error: "unknown action or bad arguments" }, { status: 400 });
   if (!allow("owner", 30, 10 * 60_000)) return Response.json({ error: "too many demo actions; try again in a few minutes" }, { status: 429 });
 
-  const { owner } = demoAccounts();
+  const { owner, reader } = demoAccounts();
   if (!owner) return Response.json({ error: "no demo owner is configured" }, { status: 404 });
   try {
+    // A cross-chain override pays through NEAR Intents, so it needs a fresh executable quote.
+    if (action === "execute_override") {
+      const p = await reader.proposal(parsed.id as string);
+      if (p && p.request.chain !== "near") {
+        const q = await quoteFor(reader, p, process.env.ONECLICK_JWT);
+        parsed.quote = { json: q.json, signature: q.signature };
+      }
+    }
     const outcome = await owner.signAndSendTransaction({
       receiverId: demo.vaultId,
       actions: [(await import("near-api-js")).actions.functionCall(action, parsed, teraToGas("100"), 0n)],
@@ -41,7 +50,6 @@ export async function POST(req: Request) {
     });
     // An override on an OutLayer payment releases it there too: the guardian votes yes.
     if (action === "execute_override") {
-      const { reader } = demoAccounts();
       after(async () => {
         const p = await reader.proposal(parsed.id as string);
         if (p?.external && p.status === "Executing") await approveAndSettle(p).catch((e) => console.error(`override vote for ${p.id} failed:`, (e as Error).message));

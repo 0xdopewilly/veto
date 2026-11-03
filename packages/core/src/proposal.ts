@@ -50,6 +50,8 @@ export interface Proposal {
   verdict: VerdictRecord | null;
   override_executes_at: string | null;
   settled_at: string | null;
+  /** Set when a cross-chain payment is sent through NEAR Intents. */
+  quote?: { deposit_address: string; amount_in: string; amount_out: string; destination_asset: string; quote_hash: string } | null;
   external?: ExternalPayment | null;
 }
 
