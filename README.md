@@ -2,6 +2,8 @@
 
 A NEAR vault where every payment an AI agent makes needs a second signer that can only say no.
 
+**Live demo (NEAR testnet):** https://veto-beta.vercel.app. Open the app and press **Try it**. Nothing to install.
+
 Each payment has to pass two gates before money moves:
 
 1. **Hard caps in the vault contract**: per-payment and per-week limits per asset.
