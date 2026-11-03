@@ -10,10 +10,12 @@ const { loadState } = await import("./dev-state.ts");
 const state = loadState("testnet");
 if (!state.outlayer) throw new Error("no OutLayer wallet in this profile; run node scripts/demo-setup.ts first");
 const root = state.root!.accountId;
+// Its own invoice numbers, so running both demo agents never looks like paying an invoice twice.
 const inbox = JSON.parse(
   readFileSync(new URL("fixtures/inbox.json", import.meta.url), "utf8")
     .replaceAll("{KANO}", `kano-cotton.${root}`)
-    .replaceAll("{LOOKALIKE}", `kano-cottom.${root}`),
+    .replaceAll("{LOOKALIKE}", `kano-cottom.${root}`)
+    .replace(/INV-(\d+)/g, (_, n: string) => `INV-${Number(n) + 100}`),
 ) as { from: string; subject: string; body: string; invoice: { number: string; amount: string; payee: string } }[];
 
 const veto = new VetoOutLayer({

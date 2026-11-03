@@ -7,7 +7,9 @@
 //
 // Config (env): VAULT_ID, NEAR_NETWORK (testnet|mainnet), GUARDIAN_ACCOUNT_ID,
 // GUARDIAN_PRIVATE_KEY, NEARAI_API_KEY, NEARAI_MODEL, PORT. On testnet, anything not set
-// is read from .veto-dev/testnet.json. VETO_SCREENER=dev uses the local dev screener.
+// is read from the dev profile (.veto-dev/$VETO_PROFILE.json, "demo2" by default, as written by
+// scripts/demo-setup.ts). VETO_SCREENER=dev uses the local dev screener with the profile's
+// test key, which the demo vault trusts until a NEAR AI key is connected.
 // OutLayer: OUTLAYER_APPROVER_ID and OUTLAYER_APPROVER_KEY (a full-access key of the
 // account named as an approver on the wallet's policy). ONECLICK_JWT lowers 1Click's fee on
 // cross-chain payouts. With EXECUTE_OVERRIDES=1 the guardian also pays out overrides once their
@@ -35,9 +37,8 @@ import { DevScreener, NearAiScreener, type Screener } from "@veto/core";
 const ROOT = new URL("../../../", import.meta.url);
 loadEnvFile(new URL(".env.local", ROOT));
 const network = (process.env.NEAR_NETWORK ?? "testnet") as Network;
-const dev = network === "testnet" && existsSync(new URL(".veto-dev/testnet.json", ROOT))
-  ? JSON.parse(readFileSync(new URL(".veto-dev/testnet.json", ROOT), "utf8"))
-  : {};
+const profile = new URL(`.veto-dev/${process.env.VETO_PROFILE ?? "demo2"}.json`, ROOT);
+const dev = network === "testnet" && existsSync(profile) ? JSON.parse(readFileSync(profile, "utf8")) : {};
 const vaultId: string = process.env.VAULT_ID ?? dev.vault?.accountId;
 const guardianId: string = process.env.GUARDIAN_ACCOUNT_ID ?? dev.guardian?.accountId;
 const guardianKey = process.env.GUARDIAN_PRIVATE_KEY ?? dev.guardianVerdictKey;
@@ -48,13 +49,13 @@ const vault = new VaultReader(vaultId, rpc);
 const guardian = new Account(guardianId, rpc, guardianKey);
 const screener: Screener =
   process.env.VETO_SCREENER === "dev"
-    ? new DevScreener(process.env.VETO_DEV_SIGNER_KEY)
+    ? new DevScreener(process.env.VETO_DEV_SIGNER_KEY ?? dev.testSignerKey)
     : new NearAiScreener(requireEnv("NEARAI_API_KEY"), process.env.NEARAI_MODEL ?? DEFAULT_MODEL);
 
 const outlayer = new OutLayer(network);
-const approver = process.env.OUTLAYER_APPROVER_ID && process.env.OUTLAYER_APPROVER_KEY
-  ? { accountId: process.env.OUTLAYER_APPROVER_ID, key: process.env.OUTLAYER_APPROVER_KEY as KeyPairString }
-  : null;
+const approverId = process.env.OUTLAYER_APPROVER_ID ?? dev.approver?.accountId;
+const approverKey = process.env.OUTLAYER_APPROVER_KEY ?? dev.approver?.key;
+const approver = approverId && approverKey ? { accountId: approverId, key: approverKey as KeyPairString } : null;
 
 const DATA = new URL(`data/${vaultId}/`, ROOT);
 mkdirSync(new URL("evidence/", DATA), { recursive: true });
