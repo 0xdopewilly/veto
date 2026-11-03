@@ -1,10 +1,8 @@
-import { after } from "next/server";
-import { actions, teraToGas } from "near-api-js";
-import { canonicalJson, payoutIfSigned, screenAndSubmit, sha256Hex } from "@veto/core";
 import { allow, demo, demoAccounts } from "@/lib/server/demo";
-import { outlayerEnabled, recordOnVault, requestPayment, screenAndVote } from "@/lib/server/outlayer";
+import { outlayerEnabled } from "@/lib/server/outlayer";
 import { buildScenarios } from "@/lib/server/scenarios";
 import { evmDemo } from "@/lib/server/evm";
+import { refusal, startPayment, units } from "@/lib/server/pay";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,14 +21,13 @@ export async function POST(req: Request) {
   if (via === "outlayer" && !outlayerEnabled()) return Response.json({ error: "the OutLayer wallet is not configured" }, { status: 404 });
   if (!allow("run", 12, 10 * 60_000)) return Response.json({ error: "too many demo runs; try again in a few minutes" }, { status: 429 });
 
-  const { reader, agent, guardian, screener } = demoAccounts();
+  const { reader } = demoAccounts();
   const history = await reader.proposals(0, 50);
   const chosen = buildScenarios(demo.root, history, await evmDemo()).find((s) => s.id === scenario);
   if (!chosen) return Response.json({ error: "unknown scenario" }, { status: 400 });
 
   try {
     const evidence = { source: chosen.from.includes("@") ? "email" : "web page", from: chosen.from, subject: chosen.subject, body: chosen.body };
-    const contextHash = sha256Hex(canonicalJson(evidence));
     const request = {
       chain: chosen.chain ?? "near",
       asset: chosen.asset ?? demo.token,
@@ -38,44 +35,8 @@ export async function POST(req: Request) {
       amount: units(chosen.amount, chosen.decimals ?? 6),
       memo: chosen.memo,
     };
-    if (via === "outlayer" && request.chain !== "near") return Response.json({ error: "the OutLayer wallet pays on NEAR only" }, { status: 400 });
-    if (via === "outlayer") {
-      const { approvalId, requestId } = await requestPayment(request);
-      const { id, tx } = await recordOnVault(approvalId, evidence);
-      after(() => screenAndVote(id, evidence, requestId).catch((e) => console.error(`demo OutLayer payment ${id} failed:`, (e as Error).message)));
-      return Response.json({ proposal_id: id, tx, approval_id: approvalId });
-    }
-    const outcome = await agent.signAndSendTransaction({
-      receiverId: demo.vaultId,
-      actions: [actions.functionCall("propose", { request, context_hash: contextHash }, teraToGas("30"), 0n)],
-      waitUntil: "FINAL",
-    });
-    const value = (outcome.status as { SuccessValue?: string }).SuccessValue;
-    if (!value) throw new Error("the vault refused the proposal");
-    const id: string = JSON.parse(Buffer.from(value, "base64").toString());
-
-    after(async () => {
-      try {
-        const proposal = await reader.proposal(id);
-        if (proposal?.status === "Screening") await screenAndSubmit({ vault: reader, guardian, screener, proposal, evidence });
-        // A Base payout from the vault's own address: broadcast what the MPC network signed.
-        const signed = await reader.proposal(id);
-        if (signed?.evm) await payoutIfSigned({ vault: reader, guardian, proposal: signed });
-      } catch (e) {
-        console.error(`demo screening for proposal ${id} failed:`, (e as Error).message);
-      }
-    });
-    return Response.json({ proposal_id: id, tx: outcome.transaction.hash });
+    return Response.json(await startPayment(request, evidence, via));
   } catch (e) {
-    const message = (e as Error).message;
-    // The vault's own refusals (caps, frozen) are the demo working, not a server error.
-    const refused = /exceeds|frozen|not allowed|not an active agent/.test(message);
-    return Response.json({ error: refused ? `The vault refused it: ${message.replace(/^.*Smart contract panicked: /, "")}` : message }, { status: refused ? 422 : 500 });
+    return refusal(e);
   }
-}
-
-/** "0.0005" with 18 decimals -> "500000000000000". */
-function units(amount: string, decimals: number) {
-  const [whole, frac = ""] = amount.split(".");
-  return (BigInt(whole) * 10n ** BigInt(decimals) + BigInt((frac + "0".repeat(decimals)).slice(0, decimals) || "0")).toString();
 }

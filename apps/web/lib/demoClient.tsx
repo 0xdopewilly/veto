@@ -64,6 +64,10 @@ interface DemoContextValue {
   setPayFrom: (via: PayFrom) => void;
   /** Asks the server's demo agent to propose this scenario's payment. */
   run: (scenario: string) => Promise<DemoRun>;
+  /** Emails the visitor wrote to the agent, newest first; each becomes a card like the examples. */
+  composed: DemoScenario[];
+  /** Sends the agent an email; a real model reads it and proposes what it asks for. */
+  compose: (email: { from: string; subject: string; body: string }) => Promise<DemoRun>;
   /** Sends an owner action through the server's testnet demo owner key. */
   owner: (action: string, args: Record<string, unknown>) => Promise<{ tx?: string }>;
   canActAsOwner: (method: string) => boolean;
@@ -83,6 +87,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const [info, setInfo] = useState<DemoInfo | null>(null);
   const [runs, setRuns] = useState<Record<string, DemoRun>>({});
   const [payFrom, setPayFrom] = useState<PayFrom>("vault");
+  const [composed, setComposed] = useState<DemoScenario[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -128,6 +133,31 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     }
   }, [payFrom]);
 
+  const compose = useCallback(
+    async (email: { from: string; subject: string; body: string }) => {
+      markTried();
+      const id = `mail-${Date.now()}`;
+      const via = payFrom;
+      const card: DemoScenario = { id, title: "Your email", from: email.from, subject: email.subject || "(no subject)", preview: email.body.slice(0, 160), amount: "…", payee: "the agent is reading it", expect: "pass" };
+      const started: DemoRun = { scenario: id, via, startedAt: Date.now() };
+      setComposed((c) => [card, ...c]);
+      setRuns((r) => ({ ...r, [id]: started }));
+      try {
+        const res = await post<{ proposal_id: string; tx: string; agent: { payee: string; amount: string; currency: string } }>("/api/demo/compose", { ...email, via });
+        setComposed((c) => c.map((x) => (x.id === id ? { ...x, amount: res.agent.amount, payee: res.agent.payee, symbol: res.agent.currency === "ETH" ? "ETH" : undefined } : x)));
+        const done = { ...started, proposalId: res.proposal_id, tx: res.tx };
+        setRuns((r) => ({ ...r, [id]: done }));
+        return done;
+      } catch (e) {
+        setComposed((c) => c.map((x) => (x.id === id ? { ...x, amount: "", payee: "nothing proposed" } : x)));
+        const failed = { ...started, error: e instanceof Error ? e.message : "The agent could not read this email." };
+        setRuns((r) => ({ ...r, [id]: failed }));
+        return failed;
+      }
+    },
+    [payFrom],
+  );
+
   const owner = useCallback((action: string, args: Record<string, unknown>) => post<{ tx?: string }>("/api/demo/owner", { action, args }), []);
 
   const canActAsOwner = useCallback(
@@ -136,8 +166,8 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ status, info, runs, payFrom, setPayFrom, run, owner, canActAsOwner }),
-    [status, info, runs, payFrom, run, owner, canActAsOwner],
+    () => ({ status, info, runs, payFrom, setPayFrom, run, composed, compose, owner, canActAsOwner }),
+    [status, info, runs, payFrom, run, composed, compose, owner, canActAsOwner],
   );
   return <DemoContext.Provider value={value}>{children}</DemoContext.Provider>;
 }

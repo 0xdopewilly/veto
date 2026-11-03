@@ -341,6 +341,7 @@ export function DocsView() {
               <li><span>Do</span> open the decision, then <strong>Proof</strong>. <span>See</span> the signer, the hashes and the on-chain check.</li>
               <li><span>Do</span> press <strong>Override</strong> (the demo owner works without a wallet). <span>See</span> a countdown; the override pays only after the delay and can be cancelled.</li>
               <li><span>Do</span> switch <strong>Pay from</strong> to <strong>OutLayer wallet</strong> and repeat. <span>See</span> the paid invoice approved by Veto on OutLayer and sent by the wallet; the scam stays held, and <strong>Keep it blocked</strong> rejects it there for good.</li>
+              <li><span>Do</span> press <strong>Write your own email</strong> and write the agent an invoice, or a scam. <span>See</span> a real AI agent on NEAR AI read it and propose whatever it asks for, then Veto screen that payment like any other.</li>
               <li><span>Do</span> let the agent pay <strong>"A supplier paid on Base"</strong>. <span>See</span> <strong>Paid</strong>, sent from the vault's own Base Sepolia address with NEAR Chain Signatures, with a Base explorer link.</li>
             </ol>
             <p className={styles.note}>

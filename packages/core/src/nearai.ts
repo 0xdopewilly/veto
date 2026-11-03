@@ -146,3 +146,37 @@ export async function modelAttestation(model: string, baseUrl = NEARAI_BASE_URL)
   if (!res.ok) throw new Error(`attestation report failed (${res.status})`);
   return { nonce, report: await res.json() };
 }
+
+/**
+ * One JSON-only completion with no signature fetch: for the agent's own reasoning (reading an
+ * invoice), which proves nothing on-chain. Screening verdicts always go through `screen`.
+ */
+export async function completeJson<T>(opts: {
+  apiKey: string;
+  system: string;
+  user: string;
+  schema: Record<string, unknown>;
+  name: string;
+  model?: string;
+  baseUrl?: string;
+}): Promise<T> {
+  const res = await fetch(`${opts.baseUrl ?? NEARAI_BASE_URL}/chat/completions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${opts.apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: opts.model ?? DEFAULT_MODEL,
+      messages: [
+        { role: "system", content: opts.system },
+        { role: "user", content: opts.user },
+      ],
+      temperature: 0,
+      max_tokens: 600,
+      response_format: { type: "json_schema", json_schema: { name: opts.name, strict: true, schema: opts.schema } },
+    }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) throw new Error(`NEAR AI completion failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
+  const content = (await res.json())?.choices?.[0]?.message?.content;
+  if (typeof content !== "string") throw new Error("completion has no text content");
+  return JSON.parse(content.replace(/^```(?:json)?\s*|\s*```$/g, "")) as T;
+}

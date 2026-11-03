@@ -59,6 +59,7 @@ Then open http://localhost:3000/app and press **Try it** (the green V on a phone
 | Let it pay **"Updated payment details for INV-…"** | **Vetoed**: a lookalike of an address you've paid before. The coral card appears on Home |
 | Open the vetoed decision → **Override** | A 3-minute countdown, then it pays (still inside the caps), unless you cancel |
 | Switch **Pay from** to **OutLayer wallet** and repeat both | Paid: Veto approved it on OutLayer and the wallet sent it. Vetoed: Veto never signs, so OutLayer keeps holding it. **Keep it blocked** then rejects it there for good |
+| Press **Write your own email** and write an invoice or a scam | A real AI agent on NEAR AI reads it and proposes what it asks for; Veto screens it like any other payment |
 | Open any decision → **Proof** | The request and response hashes, the signer, and the on-chain signature check |
 
 With `NEARAI_API_KEY` set, verdicts come from Qwen3-VL-30B inside NEAR AI's enclave. Without it, or if NEAR AI can't answer, they're signed by a local test key the demo vault was told to trust, and the app labels every such decision "test signer".

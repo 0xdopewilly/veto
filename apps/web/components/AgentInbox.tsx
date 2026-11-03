@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import type { Proposal } from "@veto/core/proposal";
+import { useState } from "react";
 import { useDemo, type DemoRun, type DemoScenario } from "@/lib/demoClient";
 import { metaOf, useVault } from "@/lib/vault";
 import { reasonText } from "@/lib/decision";
@@ -85,9 +86,11 @@ export function AgentInbox({ titleId = "inbox-title", compact = false }: { title
         </div>
       )}
 
+      {demo.status === "ready" && demo.info && <Composer vault={demo.info.vault} compact={compact} />}
+
       {demo.status === "ready" && demo.info && (
         <ul className={styles.list}>
-          {demo.info.scenarios.map((s, i) => (
+          {[...demo.composed, ...demo.info.scenarios].map((s, i) => (
             <ScenarioCard
               key={s.id}
               scenario={s}
@@ -113,6 +116,7 @@ function ScenarioCard({ scenario, run, index, busy, compact }: { scenario: DemoS
   const proposal = run?.proposalId ? state?.proposals.find((p) => p.id === run.proposalId) : undefined;
   const sending = !!run && !run.proposalId && !run.error;
   const initial = scenario.from.trim()[0]?.toUpperCase() ?? "?";
+  const own = scenario.id.startsWith("mail-");
 
   return (
     <motion.li
@@ -136,7 +140,11 @@ function ScenarioCard({ scenario, run, index, busy, compact }: { scenario: DemoS
       <p className={styles.preview}>{scenario.preview}</p>
 
       <AnimatePresence mode="popLayout" initial={false}>
-        {!run || run.error ? (
+        {own && run?.error ? (
+          <motion.p key="error" className={styles.error} role="alert" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            {run.error}
+          </motion.p>
+        ) : !run || run.error ? (
           <motion.div key="cta" className={styles.cta} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.18 }}>
             <Pill size={compact ? "sm" : "md"} full={!compact} icon="send" disabled={busy} onClick={() => demo.run(scenario.id)}>
               Let the agent pay this
@@ -156,7 +164,9 @@ function ScenarioCard({ scenario, run, index, busy, compact }: { scenario: DemoS
               done={!sending}
               active={sending}
               label={
-                run.via === "outlayer"
+                own && sending
+                  ? "The agent is reading your email"
+                  : run.via === "outlayer"
                   ? sending
                     ? "Agent is asking its OutLayer wallet to pay"
                     : "OutLayer is holding it for Veto"
@@ -226,5 +236,66 @@ export function InboxSheet({ open, onClose }: { open: boolean; onClose: () => vo
     <Sheet open={open} onClose={onClose} labelledBy="inbox-sheet-title" wide>
       <AgentInbox titleId="inbox-sheet-title" />
     </Sheet>
+  );
+}
+
+/** Write the agent an email: a real model reads it and proposes whatever it asks for. */
+function Composer({ vault, compact }: { vault: string; compact: boolean }) {
+  const demo = useDemo();
+  const root = vault.split(".").slice(1).join(".");
+  const [open, setOpen] = useState(false);
+  const [from, setFrom] = useState("accounts@kanocottonmills.ng");
+  const [subject, setSubject] = useState("Invoice INV-3001: 40 bales of combed cotton");
+  const [body, setBody] = useState(
+    `Good morning. Please pay invoice INV-3001 for 40 bales of combed cotton. Amount due: $120.00 USDC to our usual account kano-cotton.${root}. Thank you.`,
+  );
+  const busy = Object.values(demo.runs).some((r) => r.proposalId === undefined && !r.error);
+
+  if (!open) {
+    return (
+      <button type="button" className={`${styles.composeToggle} press`} onClick={() => setOpen(true)}>
+        <span className={styles.composeIcon} aria-hidden="true">
+          <Icon name="plus" size={16} stroke={2.5} />
+        </span>
+        <span className={styles.composeText}>
+          <strong>Write your own email</strong>
+          <span>A real AI agent reads it and pays what it asks. Try to sneak a scam past Veto.</span>
+        </span>
+      </button>
+    );
+  }
+  return (
+    <form
+      className={`${styles.compose} ${compact ? styles.composeCompact : ""}`}
+      onSubmit={(e) => {
+        e.preventDefault();
+        setOpen(false);
+        void demo.compose({ from, subject, body });
+      }}
+    >
+      <label className={styles.composeField}>
+        <span>From</span>
+        <input value={from} onChange={(e) => setFrom(e.target.value)} maxLength={120} />
+      </label>
+      <label className={styles.composeField}>
+        <span>Subject</span>
+        <input value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={200} />
+      </label>
+      <label className={styles.composeField}>
+        <span>Email</span>
+        <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={compact ? 5 : 4} maxLength={4000} />
+      </label>
+      <p className={styles.composeHint}>
+        USDC goes to a NEAR account (like <span className="mono">kano-cotton.{root}</span>); ETH goes to a 0x address on Base Sepolia.
+      </p>
+      <div className={styles.composeActions}>
+        <Pill type="submit" size="sm" icon="send" disabled={busy || body.trim().length < 10}>
+          Send to the agent
+        </Pill>
+        <Pill type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+          Cancel
+        </Pill>
+      </div>
+    </form>
   );
 }
