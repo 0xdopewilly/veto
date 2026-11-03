@@ -1,9 +1,10 @@
 import { after } from "next/server";
 import { actions, teraToGas } from "near-api-js";
-import { canonicalJson, screenAndSubmit, sha256Hex } from "@veto/core";
+import { canonicalJson, payoutIfSigned, screenAndSubmit, sha256Hex } from "@veto/core";
 import { allow, demo, demoAccounts } from "@/lib/server/demo";
 import { outlayerEnabled, recordOnVault, requestPayment, screenAndVote } from "@/lib/server/outlayer";
 import { buildScenarios } from "@/lib/server/scenarios";
+import { evmDemo } from "@/lib/server/evm";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,19 +25,20 @@ export async function POST(req: Request) {
 
   const { reader, agent, guardian, screener } = demoAccounts();
   const history = await reader.proposals(0, 50);
-  const chosen = buildScenarios(demo.root, history).find((s) => s.id === scenario);
+  const chosen = buildScenarios(demo.root, history, await evmDemo()).find((s) => s.id === scenario);
   if (!chosen) return Response.json({ error: "unknown scenario" }, { status: 400 });
 
   try {
     const evidence = { source: chosen.from.includes("@") ? "email" : "web page", from: chosen.from, subject: chosen.subject, body: chosen.body };
     const contextHash = sha256Hex(canonicalJson(evidence));
     const request = {
-      chain: "near",
-      asset: demo.token,
+      chain: chosen.chain ?? "near",
+      asset: chosen.asset ?? demo.token,
       payee: chosen.payee,
-      amount: String(BigInt(Math.round(Number(chosen.amount) * 100)) * 10_000n),
+      amount: units(chosen.amount, chosen.decimals ?? 6),
       memo: chosen.memo,
     };
+    if (via === "outlayer" && request.chain !== "near") return Response.json({ error: "the OutLayer wallet pays on NEAR only" }, { status: 400 });
     if (via === "outlayer") {
       const { approvalId, requestId } = await requestPayment(request);
       const { id, tx } = await recordOnVault(approvalId, evidence);
@@ -56,6 +58,9 @@ export async function POST(req: Request) {
       try {
         const proposal = await reader.proposal(id);
         if (proposal?.status === "Screening") await screenAndSubmit({ vault: reader, guardian, screener, proposal, evidence });
+        // A Base payout from the vault's own address: broadcast what the MPC network signed.
+        const signed = await reader.proposal(id);
+        if (signed?.evm) await payoutIfSigned({ vault: reader, guardian, proposal: signed });
       } catch (e) {
         console.error(`demo screening for proposal ${id} failed:`, (e as Error).message);
       }
@@ -67,4 +72,10 @@ export async function POST(req: Request) {
     const refused = /exceeds|frozen|not allowed|not an active agent/.test(message);
     return Response.json({ error: refused ? `The vault refused it: ${message.replace(/^.*Smart contract panicked: /, "")}` : message }, { status: refused ? 422 : 500 });
   }
+}
+
+/** "0.0005" with 18 decimals -> "500000000000000". */
+function units(amount: string, decimals: number) {
+  const [whole, frac = ""] = amount.split(".");
+  return (BigInt(whole) * 10n ** BigInt(decimals) + BigInt((frac + "0".repeat(decimals)).slice(0, decimals) || "0")).toString();
 }

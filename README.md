@@ -13,6 +13,8 @@ The AI can block a payment the caps would allow. It can never allow one the caps
 
 The same screen also covers agents that pay from an **OutLayer** wallet. Veto is an approver on the wallet's policy, so OutLayer holds each payment until the vault has passed it.
 
+The vault can also pay on **Base** from its own address there, through **NEAR Chain Signatures**. The vault builds each passed transfer itself, and NEAR's MPC network signs exactly that.
+
 ## Check it in five minutes (no keys, no funds)
 
 Requires Node 24+, pnpm 11, and Rust with the `wasm32-unknown-unknown` target.
@@ -22,7 +24,7 @@ pnpm install
 pnpm test
 ```
 
-You should see `ℹ pass 10` (TypeScript core) and `test result: ok. 41 passed` (contract). The contract tests include a real executable 1Click quote and a real 1Click signature. They also pin the proposal hash that the TypeScript side must reproduce.
+You should see `ℹ pass 11` (TypeScript core) and `test result: ok. 47 passed` (contract). The contract tests include a real executable 1Click quote and a real 1Click signature. They also pin the proposal hash that the TypeScript side must reproduce.
 
 ```sh
 node bench/run.ts --screener policy   # Attacks caught 33/50, normal payments blocked 8/50
@@ -43,7 +45,7 @@ pnpm demo:setup                 # creates your own vault on NEAR testnet from th
 pnpm build && pnpm start        # http://localhost:3000
 ```
 
-`demo:setup` prints `Demo vault ready: https://testnet.nearblocks.io/address/treasury.veto-….testnet`. It also writes `apps/web/.env.local` (gitignored). It builds:
+`demo:setup` prints `Demo vault ready: https://testnet.nearblocks.io/address/treasury.veto-….testnet` and the vault's own Base Sepolia address. Send that address about 0.01 Base Sepolia ETH from any faucet to turn on the Base payout. It also writes `apps/web/.env.local` (gitignored). It builds:
 
 - a test USDC token and the vault (caps $500 per payment, $3,000 a week);
 - an agent, a guardian and two payees, each holding a function-call key that can only call its own vault methods;
@@ -67,6 +69,7 @@ Until a NEAR AI key is connected, verdicts are signed by a local test key that t
 VETO_SCREENER=dev pnpm guardian      # watches the demo vault, screens, submits verdicts
 node scripts/demo-agent.ts           # an agent using @veto/sdk: one invoice PAID, one scam VETOED
 node scripts/outlayer-agent.ts       # the same agent paying from its OutLayer wallet
+node scripts/evm-agent.ts            # a Base Sepolia supplier, paid from the vault's own address via Chain Signatures
 ```
 
 Run each once on a fresh vault. Running one again re-sends an invoice that was already paid, and Veto vetoes it as `DUPLICATE_INVOICE`.
@@ -116,6 +119,7 @@ vault: ecrecover → approved model key → echoes this proposal's id and hash �
   - Agent and owner methods: `propose`, `submit_verdict`, `expire`, `override_veto` / `cancel_override` / `execute_override`, `keep_blocked`, `freeze`, and `set_policy` (raising a limit waits for a delay).
   - Payees, agents, signers and routes.
   - External wallets: `add_wallet`, `propose_external`, `settle_external`.
+  - Chain Signatures: `set_evm_route`, `settle_evm`. On a pass, the vault RLP-encodes the EIP-1559 transfer itself and asks `v1.signer-prod.testnet` to sign its hash ([evm.rs](contract/src/evm.rs)). The guardian broadcasts the signed bytes ([packages/core/src/evm.ts](packages/core/src/evm.ts)).
   - NEAR Intents payouts verify 1Click's ed25519 quote signature on-chain ([quote.rs](contract/src/quote.rs)).
 - **Guardian** ([services/guardian](services/guardian/src/main.ts)): screens open proposals with [packages/core](packages/core/src/pipeline.ts) and keeps a private audit record of what the model saw.
 - **OutLayer** ([packages/core/src/outlayer.ts](packages/core/src/outlayer.ts)), step by step:
@@ -131,7 +135,8 @@ vault: ecrecover → approved model key → echoes this proposal's id and hash �
 
 | Part | State |
 | --- | --- |
-| Vault contract, verdict check, overrides, freeze | Live on testnet, 41 tests |
+| Vault contract, verdict check, overrides, freeze | Live on testnet, 47 tests |
+| Payouts from the vault's own Base Sepolia address (NEAR Chain Signatures) | Live on testnet; the inbox shows the Base supplier once the vault's address holds test ETH |
 | OutLayer agent wallets (pass, veto, override) | Live on testnet |
 | Agent inbox, guardian, owner actions in the app | Live on testnet |
 | Private screen on NEAR AI Cloud | Built; runs when the API key is added |

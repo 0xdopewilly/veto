@@ -66,8 +66,8 @@ const CHAIN = [
 ];
 
 const NEAR = [
-  { title: "NEAR Intents", text: "Pays a supplier on another chain, in the asset they want, from one vault balance.", icon: "globe" },
-  { title: "Signed 1Click quotes", text: "The vault checks 1Click's signature on every cross-chain quote and that it pays exactly the screened payee and amount.", icon: "key" },
+  { title: "NEAR Intents", text: "Pays a supplier on another chain from one vault balance. The vault checks 1Click's signed quote pays exactly the screened payee and amount.", icon: "globe" },
+  { title: "Chain Signatures", text: "The vault has its own address on Base. It builds each passed transfer itself and NEAR's MPC network signs exactly that, nothing else.", icon: "key" },
   { title: "NEAR AI Cloud", text: "Private inference inside TEEs, with every response signed by the model's enclave key.", icon: "shield" },
   { title: "NEAR accounts", text: "The agent is a sub-account whose function-call key can only propose payments; the guardian's can only submit verdicts.", icon: "bot" },
   { title: "On-chain verdict check", text: "The vault recovers the model's enclave signature with ecrecover and checks it names this exact payment before anything moves.", icon: "check" },

@@ -73,6 +73,15 @@ export function compareAddresses(saved: string, requested: string) {
 /** True for verdicts signed by a local test key rather than a NEAR AI enclave. */
 export const isTestSigner = (modelId: string) => modelId.startsWith("veto-dev/");
 
+/** Block explorers for chains the vault pays on from its own Chain Signatures address. */
+const EVM_EXPLORER: Record<string, string> = {
+  "84532": "https://sepolia.basescan.org",
+  "8453": "https://basescan.org",
+  "11155111": "https://sepolia.etherscan.io",
+};
+export const evmTxUrl = (p: Proposal) =>
+  p.evm?.tx_hash && EVM_EXPLORER[p.evm.chain_id] ? `${EVM_EXPLORER[p.evm.chain_id]}/tx/${p.evm.tx_hash}` : null;
+
 /** Who asked for the payment: the agent's account, or the OutLayer wallet it pays from. */
 export const requesterLabel = (p: Proposal) => (p.external ? `${shortAddress(p.external.wallet)} (OutLayer wallet)` : p.agent);
 

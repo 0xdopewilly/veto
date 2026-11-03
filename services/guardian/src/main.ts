@@ -22,6 +22,8 @@ import {
   approvePassed,
   assertNoIncident,
   canonicalJson,
+  evmParamsFor,
+  payoutIfSigned,
   quoteFor,
   DEFAULT_MODEL,
   OutLayer,
@@ -66,6 +68,7 @@ mkdirSync(new URL("audit/", DATA), { recursive: true });
 
 const inFlight = new Set<string>();
 const voted = new Set<string>();
+const retryAt = new Map<string, number>();
 const log = (msg: string) => console.log(`${new Date().toISOString().slice(11, 19)}  ${msg}`);
 
 log(`guardian ${guardianId} watching ${vaultId} on ${network} with ${screener.model}`);
@@ -84,6 +87,16 @@ async function tick() {
       approvePassed({ outlayer, proposal, approver })
         .then(() => log(`proposal ${proposal.id}: approved on OutLayer (${proposal.external!.approval_id})`))
         .catch((e) => (voted.delete(proposal.id), log(`proposal ${proposal.id}: OutLayer vote failed: ${e.message}`)));
+      continue;
+    }
+    // Signed by the MPC network for the vault: broadcast it and report the hash. A payout that
+    // can't go yet (no gas on the vault's address) is retried every 30 s.
+    if (proposal.evm?.r && !proposal.evm.tx_hash && proposal.status === "Executing" && !inFlight.has(proposal.id) && (retryAt.get(proposal.id) ?? 0) < Date.now()) {
+      inFlight.add(proposal.id);
+      payoutIfSigned({ vault, guardian, proposal })
+        .then((hash) => hash && log(`proposal ${proposal.id}: paid on chain ${proposal.evm!.chain_id}, tx ${hash}`))
+        .catch((e) => (retryAt.set(proposal.id, Date.now() + 30_000), log(`proposal ${proposal.id}: EVM payout not sent yet: ${e.message}`)))
+        .finally(() => inFlight.delete(proposal.id));
       continue;
     }
     if (proposal.status === "OverridePending" && process.env.EXECUTE_OVERRIDES === "1" && !inFlight.has(proposal.id)) {
@@ -171,12 +184,13 @@ async function sweepClosed() {
 
 async function executeOverride(proposal: Proposal) {
   if (proposal.request.chain !== "near" && shieldKey) await assertNoIncident(vault, proposal, shieldKey);
-  const quote = proposal.request.chain === "near" ? null : await quoteFor(vault, proposal, process.env.ONECLICK_JWT);
+  const evm = proposal.request.chain === "near" ? null : await evmParamsFor(vault, proposal.request.chain);
+  const quote = proposal.request.chain === "near" || evm ? null : await quoteFor(vault, proposal, process.env.ONECLICK_JWT);
   await guardian.callFunction({
     contractId: vaultId,
     methodName: "execute_override",
-    args: { id: proposal.id, quote: quote && { json: quote.json, signature: quote.signature } },
-    gas: teraToGas("150"),
+    args: { id: proposal.id, quote: quote && { json: quote.json, signature: quote.signature }, evm },
+    gas: teraToGas("300"),
   });
   log(`proposal ${proposal.id}: override delay passed, paid out${quote ? ` through 1Click deposit ${quote.depositAddress}` : ""}`);
 }

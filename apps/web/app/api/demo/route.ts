@@ -1,5 +1,6 @@
 import { demo, demoAccounts } from "@/lib/server/demo";
 import { buildScenarios } from "@/lib/server/scenarios";
+import { evmDemo } from "@/lib/server/evm";
 import { vaultSnapshot } from "@/lib/server/state";
 
 export const runtime = "nodejs";
@@ -9,8 +10,10 @@ export async function GET() {
   if (!demo.enabled) return Response.json({ enabled: false });
   const { screener, owner, outlayer } = demoAccounts();
   let history;
+  let evm;
   try {
     history = (await vaultSnapshot()).state.proposals;
+    evm = await evmDemo();
   } catch (e) {
     return Response.json({ error: `Could not reach the vault: ${(e as Error).message}` }, { status: 503 });
   }
@@ -22,6 +25,7 @@ export async function GET() {
     guardian: { account: demo.guardianId, model: screener.model, test_signer: screener.model.startsWith("veto-dev/") },
     owner: owner ? { account: demo.ownerId } : null,
     outlayer: outlayer ? { wallet: outlayer.wallet, approver: outlayer.approver.accountId } : null,
-    scenarios: buildScenarios(demo.root, history).map(({ body: _body, memo: _memo, ...card }) => card),
+    evm,
+    scenarios: buildScenarios(demo.root, history, evm).map(({ body: _body, memo: _memo, ...card }) => card),
   });
 }

@@ -1,7 +1,7 @@
 import { after } from "next/server";
 import { teraToGas } from "near-api-js";
 import { allow, demo, demoAccounts } from "@/lib/server/demo";
-import { quoteFor } from "@veto/core";
+import { evmParamsFor, payoutIfSigned, quoteFor } from "@veto/core";
 import { approveAndSettle, rejectHeld } from "@/lib/server/outlayer";
 
 export const runtime = "nodejs";
@@ -38,17 +38,20 @@ export async function POST(req: Request) {
   const { owner, reader } = demoAccounts();
   if (!owner) return Response.json({ error: "no demo owner is configured" }, { status: 404 });
   try {
-    // A cross-chain override pays through NEAR Intents, so it needs a fresh executable quote.
+    // An override to another chain needs a fresh 1Click quote, or nonce and fees for the vault's EVM address.
     if (action === "execute_override") {
       const p = await reader.proposal(parsed.id as string);
       if (p && p.request.chain !== "near") {
-        const q = await quoteFor(reader, p, process.env.ONECLICK_JWT);
-        parsed.quote = { json: q.json, signature: q.signature };
+        parsed.evm = await evmParamsFor(reader, p.request.chain);
+        if (!parsed.evm) {
+          const q = await quoteFor(reader, p, process.env.ONECLICK_JWT);
+          parsed.quote = { json: q.json, signature: q.signature };
+        }
       }
     }
     const outcome = await owner.signAndSendTransaction({
       receiverId: demo.vaultId,
-      actions: [(await import("near-api-js")).actions.functionCall(action, parsed, teraToGas("100"), 0n)],
+      actions: [(await import("near-api-js")).actions.functionCall(action, parsed, teraToGas(action === "execute_override" ? "300" : "100"), 0n)],
       waitUntil: "FINAL",
     });
     // An override on an OutLayer payment releases it there too: the guardian votes yes.
@@ -56,6 +59,7 @@ export async function POST(req: Request) {
       after(async () => {
         const p = await reader.proposal(parsed.id as string);
         if (p?.external && p.status === "Executing") await approveAndSettle(p).catch((e) => console.error(`override vote for ${p.id} failed:`, (e as Error).message));
+        if (p?.evm) await payoutIfSigned({ vault: reader, guardian: demoAccounts().guardian, proposal: p }).catch((e) => console.error(`override payout for ${p.id} failed:`, (e as Error).message));
       });
     }
     if (action === "keep_blocked") {

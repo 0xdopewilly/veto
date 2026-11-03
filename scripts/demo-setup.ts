@@ -1,16 +1,18 @@
 // Builds the public testnet demo: a fresh vault on the current contract, test USDC, the
 // agent, guardian and demo-owner keys, an OutLayer agent wallet that needs Veto's approval,
-// and the env file the web app's demo API reads.
+// a Base Sepolia route paid from the vault's own Chain Signatures address, and the env file the
+// web app's demo API reads.
 // Safe to re-run; finished steps are skipped.
-//   node scripts/demo-setup.ts            (profile "demo2", state in .veto-dev/demo2.json)
+//   node scripts/demo-setup.ts            (profile "demo3", state in .veto-dev/demo3.json)
 //   node scripts/demo-setup.ts --upgrade  (also redeploys new contract code onto the existing vault;
 //                                          only for changes that keep the stored state's layout)
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { Wallet } from "ethers";
 import { actions, KeyPair, nearToYocto, PublicKey, teraToGas, yoctoToNear, type KeyPairString } from "near-api-js";
-import { DEFAULT_MODEL, modelAttestation, OutLayer } from "@veto/core";
-// "demo2": the vault with external-wallet payments. The older "demo" vault can't be upgraded in place.
-process.env.VETO_PROFILE ??= "demo2";
+import { DEFAULT_MODEL, modelAttestation, MPC_CONTRACT, OutLayer, provider, VaultReader, vaultEvmAddress } from "@veto/core";
+// "demo3": the vault with OutLayer wallets and Chain Signatures payouts. Older demo vaults
+// can't be upgraded in place.
+process.env.VETO_PROFILE ??= "demo3";
 const { account, exists, loadState, newKey, saveState } = await import("./dev-state.ts");
 
 const NETWORK = "testnet";
@@ -20,6 +22,8 @@ const TOKEN_WASM = new URL("../test-token/target/wasm32-unknown-unknown/release/
 const USD = 1_000_000n;
 const MANDATE = "Pay listed suppliers only, in USDC. No single payment over $500. Ask me before paying a new or changed address.";
 const OWNER_METHODS = ["override_veto", "cancel_override", "execute_override", "keep_blocked", "freeze", "unfreeze", "set_mandate", "add_payee", "remove_payee", "set_agent_active"];
+const EVM_CHAIN = "base-sepolia";
+const EVM_ASSET = "base-sepolia:eth";
 const SUBS = {
   treasury: { role: "vault", fund: "1" },
   usdc: { role: "token", fund: "0.5" },
@@ -49,7 +53,7 @@ async function faucetAccount() {
 }
 
 /** Folds fresh faucet accounts into the root until it holds `near`. */
-async function ensureRootBalance(near: string) {
+async function ensureRootBalance(near: `${number}`) {
   const root = account(state.root!, NETWORK);
   while ((await root.getBalance()) < nearToYocto(near)) {
     const extra = await faucetAccount();
@@ -68,7 +72,7 @@ const root = account(state.root, NETWORK);
 const vaultCode = new Uint8Array(readFileSync(VAULT_WASM));
 const tokenCode = new Uint8Array(readFileSync(TOKEN_WASM));
 const storage = (code: Uint8Array) => BigInt(code.length) * 10n ** 19n;
-if (!state.initialized) await ensureRootBalance(yoctoToNear(storage(vaultCode) + storage(tokenCode) + nearToYocto("6"), 0));
+if (!state.initialized) await ensureRootBalance(yoctoToNear(storage(vaultCode) + storage(tokenCode) + nearToYocto("6"), 0) as `${number}`);
 log(`root ${state.root.accountId} holds ${yoctoToNear(await root.getBalance(), 2)} NEAR`);
 
 // 2. Sub-accounts.
@@ -112,6 +116,8 @@ if (!state.initialized) {
       policies: [
         [tokenId, { period_limit: String(3_000n * USD), max_single: String(500n * USD) }],
         ["near", { period_limit: nearToYocto("0.5").toString(), max_single: nearToYocto("0.5").toString() }],
+        // Test ETH on Base Sepolia, paid from the vault's own Chain Signatures address.
+        [EVM_ASSET, { period_limit: String(10n ** 16n), max_single: String(10n ** 15n) }],
       ],
       period_anchor_secs: String(lastMondayWat()),
       // Short so a visitor can watch an override pay out.
@@ -186,7 +192,7 @@ if (liveModel && trustsTestSigner) {
 }
 
 // 7. Narrow keys. No allowance cap: each is limited to its methods and its account's balance.
-async function narrowKey(holder: { accountId: string; key: `ed25519:${string}` }, methods: string[]) {
+async function narrowKey(holder: { accountId: string; key: KeyPairString }, methods: string[]) {
   const key = newKey();
   await account(holder, NETWORK).signAndSendTransaction({
     receiverId: holder.accountId,
@@ -195,7 +201,9 @@ async function narrowKey(holder: { accountId: string; key: `ed25519:${string}` }
   return key.toString() as `ed25519:${string}`;
 }
 if (!state.agentProposeKey) state.agentProposeKey = await narrowKey(state.agent!, ["propose"]);
-if (!state.guardianVerdictKey) state.guardianVerdictKey = await narrowKey(state.guardian!, ["submit_verdict", "expire", "propose_external", "settle_external"]);
+const GUARDIAN_METHODS = ["submit_verdict", "expire", "propose_external", "settle_external", "settle_evm"];
+const guardianKeyMethods = state.guardianVerdictKey ? await keyMethods(state.guardian!.accountId, state.guardianVerdictKey) : [];
+if (!GUARDIAN_METHODS.every((m) => guardianKeyMethods.includes(m))) state.guardianVerdictKey = await narrowKey(state.guardian!, GUARDIAN_METHODS);
 // A key made before a new owner method existed can't call it; replace it with one that can.
 const ownerKeyMethods = state.ownerDemoKey ? await keyMethods(state.root.accountId, state.ownerDemoKey) : [];
 if (!OWNER_METHODS.every((m) => ownerKeyMethods.includes(m))) state.ownerDemoKey = await narrowKey(state.root, OWNER_METHODS);
@@ -266,7 +274,34 @@ if (!wallets.some(([id]) => id === wallet)) {
   log("registered the OutLayer wallet with the vault");
 }
 
-// 9. Env for the web app's demo API (gitignored).
+// 9. Base Sepolia from the vault's own address: NEAR's MPC network signs each passed transfer.
+const evmRoutes = await view<[string, unknown][]>(vaultId, "get_evm_routes");
+if (!evmRoutes.some(([chain]) => chain === EVM_CHAIN)) {
+  await call(vaultId, "set_evm_route", {
+    chain: EVM_CHAIN,
+    route: {
+      chain_id: "84532",
+      asset: EVM_ASSET,
+      mpc: MPC_CONTRACT.testnet,
+      path: "veto-1",
+      max_fee_per_gas: String(5n * 10n ** 9n),
+      max_priority_fee_per_gas: String(10n ** 9n),
+    },
+  });
+  log("set the Base Sepolia route: payouts signed with NEAR Chain Signatures");
+}
+if (!state.evmPayee) {
+  const w = Wallet.createRandom();
+  state.evmPayee = { address: w.address, key: w.privateKey };
+  saveState(state);
+}
+if (!(await view<{ address: string }[]>(vaultId, "get_payees")).some((p) => p.address.toLowerCase() === state.evmPayee!.address.toLowerCase())) {
+  await call(vaultId, "add_payee", { name: "Ikeja Freight", chain: EVM_CHAIN, address: state.evmPayee.address });
+  log("added payee Ikeja Freight on Base Sepolia");
+}
+const vaultEvm = await vaultEvmAddress(new VaultReader(vaultId, provider(NETWORK)), { mpc: MPC_CONTRACT.testnet, path: "veto-1" });
+
+// 10. Env for the web app's demo API (gitignored).
 const rootEnv = new URL("../.env.local", import.meta.url);
 const nearAiKey = existsSync(rootEnv) ? readFileSync(rootEnv, "utf8").match(/^NEARAI_API_KEY=(.*)$/m)?.[1]?.trim() ?? "" : "";
 const env = {
@@ -287,12 +322,14 @@ const env = {
   DEMO_OUTLAYER_WALLET_KEY: state.outlayer.apiKey,
   DEMO_OUTLAYER_APPROVER_ID: state.approver!.accountId,
   DEMO_OUTLAYER_APPROVER_KEY: state.approver!.key,
+  DEMO_EVM_PAYEE: state.evmPayee.address,
   NEARAI_API_KEY: nearAiKey,
 };
 const envFile = new URL("../apps/web/.env.local", import.meta.url);
 writeFileSync(envFile, "# Testnet demo config. Generated by scripts/demo-setup.ts. Never commit.\n" + Object.entries(env).map(([k, v]) => `${k}=${v}`).join("\n") + "\n", { mode: 0o600 });
 log(`wrote apps/web/.env.local for vault ${vaultId}`);
 console.log(`\nDemo vault ready: https://testnet.nearblocks.io/address/${vaultId}`);
+console.log(`Its own Base Sepolia address (Chain Signatures): ${vaultEvm}. Send it ~0.01 Base Sepolia ETH to turn on the Base payout.`);
 
 async function keyMethods(accountId: string, key: string): Promise<string[]> {
   try {

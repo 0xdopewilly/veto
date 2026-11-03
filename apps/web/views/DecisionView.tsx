@@ -7,7 +7,7 @@ import { metaOf, useVault, type VaultState } from "@/lib/vault";
 import { useProposal } from "@/lib/useProposal";
 import { useKeptBlocked } from "@/lib/dismissed";
 import { useNow } from "@/lib/useNow";
-import { STATUS_TEXT, imitated, isTestSigner, listedPayee, payeeHistory, payeeLabel, reasonText, requesterLabel } from "@/lib/decision";
+import { STATUS_TEXT, evmTxUrl, imitated, isTestSigner, listedPayee, payeeHistory, payeeLabel, reasonText, requesterLabel } from "@/lib/decision";
 import {
   formatAmount,
   formatDuration,
@@ -413,6 +413,22 @@ function Paid({ state, p }: { state: VaultState; p: Proposal }) {
             </div>
             <span className={styles.passBadge}>Pass</span>
           </div>
+          {p.evm && (
+            <div className={styles.checkRow}>
+              <div>
+                <span className={styles.checkName}>Chain Signatures</span>
+                <span className={styles.checkDetail}>
+                  NEAR's MPC network signed this exact transfer for the vault's own address on {p.request.chain}.{" "}
+                  {evmTxUrl(p) && (
+                    <a href={evmTxUrl(p)!} target="_blank" rel="noreferrer">
+                      View it on the explorer
+                    </a>
+                  )}
+                </span>
+              </div>
+              <span className={styles.passBadge}>Signed</span>
+            </div>
+          )}
           {p.external && (
             <div className={styles.checkRow}>
               <div>
@@ -452,7 +468,11 @@ function InFlight({ state, p }: { state: VaultState; p: Proposal }) {
             ? ", inside an enclave on NEAR AI Cloud."
             : p.external
               ? ". Both checks passed; Veto approved it on OutLayer and the wallet is sending it."
-              : ". Both checks passed; the transfer is on its way."}
+              : p.evm
+                ? p.evm.r
+                  ? ". Both checks passed; NEAR's MPC network signed it for the vault's own address, and it's being sent."
+                  : ". Both checks passed; NEAR's MPC network is signing it for the vault's own address."
+                : ". Both checks passed; the transfer is on its way."}
         </p>
         {screening && (
           <p className={styles.plainMuted}>

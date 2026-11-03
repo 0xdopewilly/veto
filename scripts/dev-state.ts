@@ -27,6 +27,8 @@ export interface DevState {
   testSignerAddress?: string;
   approver?: DevAccount;
   outlayer?: { walletId: string; apiKey: string; account: string; policyTx?: string };
+  /** A Base Sepolia supplier the vault pays from its own Chain Signatures address. */
+  evmPayee?: { address: string; key: string };
 }
 
 const DIR = new URL("../.veto-dev/", import.meta.url);

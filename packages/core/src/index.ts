@@ -8,3 +8,4 @@ export * from "./intents.ts";
 export * from "./pipeline.ts";
 export * from "./outlayer.ts";
 export * from "./shield.ts";
+export * from "./evm.ts";

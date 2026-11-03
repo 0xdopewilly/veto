@@ -105,7 +105,7 @@ fn submit(vault: &mut Vault, id: u64, verdict: &str, now: u64) -> Status {
     let (response, request_hash, signature) =
         signed_completion(&model_key(), &verdict_content(id, &hash, verdict, &["LOOKALIKE_ADDRESS"]));
     context(guardian(), now);
-    vault.submit_verdict(U64(id), MODEL.into(), "chatcmpl-test".into(), request_hash, response.into(), signature, None)
+    vault.submit_verdict(U64(id), MODEL.into(), "chatcmpl-test".into(), request_hash, response.into(), signature, None, None)
 }
 
 fn propose(vault: &mut Vault, amount_dollars: u128, now: u64) -> u64 {
@@ -180,7 +180,7 @@ fn rejects_unapproved_signer() {
     let (response, request_hash, signature) =
         signed_completion(&other, &verdict_content(id, &hash, "PASS", &[]));
     context(guardian(), HOUR + 1);
-    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, response.into(), signature, None);
+    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, response.into(), signature, None, None);
 }
 
 #[test]
@@ -192,7 +192,7 @@ fn rejects_tampered_response() {
     let (_, request_hash, signature) = signed_completion(&model_key(), &verdict_content(id, &hash, "VETO", &[]));
     let (forged, _, _) = signed_completion(&model_key(), &verdict_content(id, &hash, "PASS", &[]));
     context(guardian(), HOUR + 1);
-    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, forged.into(), signature, None);
+    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, forged.into(), signature, None, None);
 }
 
 #[test]
@@ -203,7 +203,7 @@ fn rejects_verdict_for_other_payment() {
     let (response, request_hash, signature) =
         signed_completion(&model_key(), &verdict_content(id, &"ab".repeat(32), "PASS", &[]));
     context(guardian(), HOUR + 1);
-    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, response.into(), signature, None);
+    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, response.into(), signature, None, None);
 }
 
 #[test]
@@ -215,7 +215,7 @@ fn only_guardian_submits() {
     let (response, request_hash, signature) =
         signed_completion(&model_key(), &verdict_content(id, &hash, "PASS", &[]));
     context(agent(), HOUR + 1);
-    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, response.into(), signature, None);
+    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, response.into(), signature, None, None);
 }
 
 #[test]
@@ -244,7 +244,7 @@ fn override_waits_then_pays() {
     assert_eq!(vault.get_proposal(U64(id)).unwrap().status, Status::OverridePending);
 
     context(stranger(), HOUR + 2 + 24 * HOUR);
-    vault.execute_override(U64(id), None);
+    vault.execute_override(U64(id), None, None);
     assert_eq!(vault.get_proposal(U64(id)).unwrap().status, Status::Executing);
 }
 
@@ -257,7 +257,7 @@ fn override_cannot_pay_early() {
     context(owner(), HOUR + 2);
     vault.override_veto(U64(id));
     context(stranger(), HOUR + 3);
-    vault.execute_override(U64(id), None);
+    vault.execute_override(U64(id), None, None);
 }
 
 #[test]
@@ -424,7 +424,7 @@ fn pass_with_quote(vault: &mut Vault, id: u64, q: Option<SignedQuote>) -> Status
     let (response, request_hash, signature) =
         signed_completion(&model_key(), &verdict_content(id, &hash, "PASS", &[]));
     context(guardian(), HOUR + 1);
-    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, response.into(), signature, q)
+    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, response.into(), signature, q, None)
 }
 
 fn propose_base(vault: &mut Vault, amount_dollars: u128) -> u64 {
@@ -607,7 +607,7 @@ fn external_veto_can_be_overridden_after_the_delay() {
     context(owner(), HOUR + 2);
     vault.override_veto(U64(id));
     context(stranger(), HOUR + 2 + DEFAULT_DELAY_SECS * NANOS_PER_SEC);
-    vault.execute_override(U64(id), None);
+    vault.execute_override(U64(id), None, None);
     let p = vault.get_proposal(U64(id)).unwrap();
     assert_eq!(p.status, Status::Executing);
     assert_eq!(vault.get_open_proposals().len(), 1);
@@ -673,4 +673,129 @@ fn a_kept_veto_cannot_be_overridden() {
     context(owner(), HOUR + 2);
     vault.keep_blocked(U64(id));
     vault.override_veto(U64(id));
+}
+
+// ------------------------------------------------------- EVM payouts via Chain Signatures
+
+const BASE_SEPOLIA: &str = "base-sepolia";
+const BASE_ETH: &str = "base-sepolia:eth";
+const GWEI: u128 = 1_000_000_000;
+const ETH: u128 = 1_000_000_000_000_000_000;
+
+fn setup_evm() -> Vault {
+    let mut vault = setup();
+    context(owner(), HOUR);
+    vault.set_policy(BASE_ETH.into(), AssetPolicy { period_limit: U128(ETH / 100), max_single: U128(ETH / 1000) });
+    context(owner(), HOUR + DEFAULT_DELAY_SECS * NANOS_PER_SEC);
+    vault.apply_policy(BASE_ETH.into());
+    vault.set_evm_route(
+        BASE_SEPOLIA.into(),
+        EvmRoute {
+            chain_id: U64(84532),
+            asset: BASE_ETH.into(),
+            mpc: "v1.signer-prod.testnet".parse().unwrap(),
+            path: "veto-1".into(),
+            max_fee_per_gas: U128(5 * GWEI),
+            max_priority_fee_per_gas: U128(GWEI),
+        },
+    );
+    vault
+}
+
+fn evm_request() -> PaymentRequest {
+    PaymentRequest {
+        chain: BASE_SEPOLIA.into(),
+        asset: BASE_ETH.into(),
+        payee: KANO_BASE.into(),
+        amount: U128(ETH / 2000),
+        memo: Some("INV-2301".into()),
+    }
+}
+
+fn params(max_fee: u128) -> EvmParams {
+    EvmParams { nonce: U64(7), max_fee_per_gas: U128(max_fee), max_priority_fee_per_gas: U128(1_000_000) }
+}
+
+fn pass_evm(vault: &mut Vault, max_fee: u128) -> u64 {
+    let now = HOUR + DEFAULT_DELAY_SECS * NANOS_PER_SEC;
+    context(agent(), now);
+    let id = vault.propose(evm_request(), None).0;
+    let hash = vault.get_proposal_hash(U64(id));
+    let (response, request_hash, signature) = signed_completion(&model_key(), &verdict_content(id, &hash, "PASS", &[]));
+    context(guardian(), now + 1);
+    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, response.into(), signature, None, Some(params(max_fee)));
+    id
+}
+
+#[test]
+fn evm_signing_hash_matches_ethers() {
+    // Reference from ethers v6: Transaction.from({ type: 2, chainId: 84532, nonce: 7, ... }).unsignedHash
+    let to = evm::parse_address(KANO_BASE).unwrap();
+    let tx = evm::Transfer { chain_id: 84532, nonce: 7, max_priority_fee_per_gas: 1_000_000, max_fee_per_gas: 2 * GWEI, to: &to, value: ETH / 2000 };
+    assert_eq!(
+        hex::encode(evm::unsigned_bytes(&tx)),
+        "02f083014a3407830f4240847735940082520894a11ce57b2f0c88de41a9b3c07e6d1f45a3c0d9f28701c6bf5263400080c0"
+    );
+    assert_eq!(hex::encode(evm::signing_hash(&tx)), "7ae3a6a90694a58a8cdad8a8a62b0bd681ccf3d2bf8e375d8b6f7645a775e57f");
+}
+
+#[test]
+fn evm_pass_asks_the_mpc_network_to_sign_exactly_this_transfer() {
+    let mut vault = setup_evm();
+    let id = pass_evm(&mut vault, 2 * GWEI);
+    let p = vault.get_proposal(U64(id)).unwrap();
+    assert_eq!(p.status, Status::Executing);
+    let payout = p.evm.unwrap();
+    assert_eq!(payout.signing_hash, "7ae3a6a90694a58a8cdad8a8a62b0bd681ccf3d2bf8e375d8b6f7645a775e57f");
+    assert!(payout.r.is_none());
+    assert_eq!(vault.get_spend(BASE_ETH.into()).spent.0, ETH / 2000);
+}
+
+#[test]
+fn evm_signature_is_stored_then_the_guardian_settles() {
+    let mut vault = setup_evm();
+    let id = pass_evm(&mut vault, 2 * GWEI);
+    let mpc = json!({
+        "scheme": "Secp256k1",
+        "big_r": { "affine_point": format!("02{}", "11".repeat(32)) },
+        "s": { "scalar": "22".repeat(32) },
+        "recovery_id": 1
+    });
+    let ctx = VMContextBuilder::new().current_account_id(vault_id()).predecessor_account_id(vault_id()).block_timestamp(HOUR * 200).build();
+    testing_env!(ctx, near_sdk::test_vm_config(), RuntimeFeesConfig::test(), Default::default(), vec![PromiseResult::Successful(mpc.to_string().into_bytes())]);
+    assert!(vault.on_evm_signed(U64(id)));
+    let payout = vault.get_proposal(U64(id)).unwrap().evm.unwrap();
+    assert_eq!(payout.r.as_deref(), Some("11".repeat(32).as_str()));
+    assert_eq!(payout.y_parity, Some(1));
+
+    context(guardian(), HOUR * 201);
+    let tx = format!("0x{}", "ab".repeat(32));
+    assert_eq!(vault.settle_evm(U64(id), tx.clone()), Status::Paid);
+    assert_eq!(vault.get_proposal(U64(id)).unwrap().evm.unwrap().tx_hash, Some(tx));
+}
+
+#[test]
+fn a_failed_mpc_signature_releases_the_spend() {
+    let mut vault = setup_evm();
+    let id = pass_evm(&mut vault, 2 * GWEI);
+    context_with_result(HOUR * 200, false);
+    assert!(!vault.on_evm_signed(U64(id)));
+    assert_eq!(vault.get_proposal(U64(id)).unwrap().status, Status::Failed);
+    assert_eq!(vault.get_spend(BASE_ETH.into()).spent.0, 0);
+}
+
+#[test]
+#[should_panic(expected = "gas fee is above the route's cap")]
+fn the_vault_wont_sign_an_overpriced_transaction() {
+    let mut vault = setup_evm();
+    pass_evm(&mut vault, 50 * GWEI);
+}
+
+#[test]
+#[should_panic(expected = "the payout is not signed yet")]
+fn an_unsigned_payout_cannot_be_settled() {
+    let mut vault = setup_evm();
+    let id = pass_evm(&mut vault, 2 * GWEI);
+    context(guardian(), HOUR * 201);
+    vault.settle_evm(U64(id), format!("0x{}", "ab".repeat(32)));
 }

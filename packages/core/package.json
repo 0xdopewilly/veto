@@ -13,7 +13,8 @@
     "./screener": "./src/screener.ts",
     "./pipeline": "./src/pipeline.ts",
     "./outlayer": "./src/outlayer.ts",
-    "./shield": "./src/shield.ts"
+    "./shield": "./src/shield.ts",
+    "./evm": "./src/evm.ts"
   },
   "dependencies": {
     "@noble/curves": "2.4.0",

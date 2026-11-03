@@ -56,6 +56,16 @@ export function ProofView({ id }: { id: string }) {
           },
         ]
       : []),
+    ...(p.evm
+      ? [
+          {
+            icon: "key" as IconName,
+            title: "Signed with NEAR Chain Signatures",
+            text: `The vault built this exact transfer on ${p.request.chain} and NEAR's MPC network signed it for the vault's own address. The vault never signs anything else.`,
+            value: p.evm.tx_hash ? `tx ${shortHash(p.evm.tx_hash)}` : `signing hash ${shortHash(p.evm.signing_hash)}`,
+          },
+        ]
+      : []),
     {
       icon: "shield",
       title: test ? "Screened by a test signer" : "Screened in an enclave",

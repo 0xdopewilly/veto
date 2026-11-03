@@ -1,6 +1,7 @@
 // One snapshot of the vault, shared by every visitor. It refreshes at most every couple of
 // seconds, so RPC load stays flat however many people have the app open.
 import { VaultReader } from "@veto/core/vault";
+import { EXPLORER, evmBalance, vaultEvmAddress, type EvmRoute } from "@veto/core/evm";
 import { VAULT_ID } from "@/lib/config";
 import { NATIVE, type AssetMeta } from "@/lib/format";
 import type { AgentInfo, AssetPolicy, PendingPolicy, SpendStatus, VaultState, WalletInfo } from "@/lib/vault";
@@ -18,7 +19,7 @@ async function load(): Promise<VaultState> {
   const view = <T>(contractId: string, method: string, args: Record<string, unknown> = {}) =>
     rpc.callFunction({ contractId, method, args, blockQuery: { finality: "optimistic" } }) as Promise<T>;
 
-  const [config, proposals, payees, agents, wallets, policies, pending, account] = await Promise.all([
+  const [config, proposals, payees, agents, wallets, policies, pending, account, evmRoutes] = await Promise.all([
     reader.config(),
     reader.proposals(0, 100),
     reader.payees(),
@@ -28,12 +29,15 @@ async function load(): Promise<VaultState> {
     reader.view<[string, AssetPolicy][]>("get_policies"),
     reader.view<[string, PendingPolicy][]>("get_pending_policies"),
     rpc.viewAccount({ accountId: VAULT_ID }),
+    reader.view<[string, EvmRoute][]>("get_evm_routes").catch(() => [] as [string, EvmRoute][]),
   ]);
 
   const assetIds = [...new Set(["near", ...policies.map(([asset]) => asset)])];
+  // "<chain>:<coin>" assets live on an EVM chain, paid from the vault's Chain Signatures address.
+  for (const [, route] of evmRoutes) metas.set(route.asset, { symbol: route.asset.split(":")[1].toUpperCase(), decimals: 18 });
   await Promise.all(
     assetIds
-      .filter((id) => !metas.has(id))
+      .filter((id) => !metas.has(id) && !id.includes(":"))
       .map(async (id) => {
         const m = await view<{ symbol: string; decimals: number }>(id, "ft_metadata");
         metas.set(id, { symbol: m.symbol, decimals: m.decimals });
@@ -43,16 +47,25 @@ async function load(): Promise<VaultState> {
 
   // Native balance net of the NEAR locked for contract storage (1 NEAR per 100 KB).
   const spendableNear = account.amount - BigInt(account.storage_usage) * 10n ** 19n;
-  const tokenIds = assetIds.filter((id) => id !== "near");
-  const [tokenBalances, spendList] = await Promise.all([
+  const tokenIds = assetIds.filter((id) => id !== "near" && !id.includes(":"));
+  const [tokenBalances, spendList, evm] = await Promise.all([
     Promise.all(tokenIds.map((id) => view<string>(id, "ft_balance_of", { account_id: VAULT_ID }).then(BigInt))),
     Promise.all(policies.map(([asset]) => reader.view<SpendStatus>("get_spend", { asset }))),
+    Promise.all(
+      evmRoutes.map(async ([chain, route]) => {
+        const address = await vaultEvmAddress(reader, route);
+        const balance = await evmBalance(route.chain_id, address).catch(() => 0n);
+        return { chain, asset: route.asset, chainId: route.chain_id, address, balance, explorer: EXPLORER[route.chain_id] ?? "" };
+      }),
+    ),
   ]);
   const balances: Record<string, bigint> = { near: spendableNear > 0n ? spendableNear : 0n };
   tokenIds.forEach((id, i) => (balances[id] = tokenBalances[i]));
+  for (const e of evm) balances[e.asset] = e.balance;
   const spend = Object.fromEntries(spendList.map((s) => [s.asset, s]));
 
-  return { config, proposals, payees, agents, wallets, policies, pending, spend, assets, balances, primaryAsset: tokenIds[0] ?? "near" };
+  const evmAccounts = evm.map(({ balance: _balance, ...rest }) => rest);
+  return { config, proposals, payees, agents, wallets, policies, pending, spend, assets, balances, evmAccounts, primaryAsset: tokenIds[0] ?? "near" };
 }
 
 /** The latest snapshot; a stale one (up to a minute old) if the RPCs are briefly unavailable. */

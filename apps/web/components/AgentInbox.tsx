@@ -108,7 +108,8 @@ function ScenarioCard({ scenario, run, index, busy, compact }: { scenario: DemoS
   const calm = useCalm();
   const { state } = useVault();
   const symbol = state ? metaOf(state, state.primaryAsset).symbol : "USDC";
-  const amount = /^[\d.,]+$/.test(scenario.amount) ? (symbol.toUpperCase().includes("USD") ? `$${scenario.amount}` : `${scenario.amount} ${symbol}`) : scenario.amount;
+  const coin = scenario.symbol ?? symbol;
+  const amount = /^[\d.,]+$/.test(scenario.amount) ? (coin.toUpperCase().includes("USD") ? `$${scenario.amount}` : `${scenario.amount} ${coin}`) : scenario.amount;
   const proposal = run?.proposalId ? state?.proposals.find((p) => p.id === run.proposalId) : undefined;
   const sending = !!run && !run.proposalId && !run.error;
   const initial = scenario.from.trim()[0]?.toUpperCase() ?? "?";

@@ -12,6 +12,8 @@ export interface DemoScenario {
   amount: string;
   payee: string;
   expect: "pass" | "veto";
+  /** Set when the payout is in another coin, e.g. ETH on Base Sepolia. */
+  symbol?: string;
 }
 
 export interface DemoInfo {
@@ -23,6 +25,8 @@ export interface DemoInfo {
   owner: { account: string } | null;
   /** The agent's OutLayer wallet, when the demo has one: it holds each payment for Veto's approval. */
   outlayer: { wallet: string; approver: string } | null;
+  /** The vault's own Base Sepolia address (NEAR Chain Signatures), when it has one. */
+  evm: { chain: string; address: string; explorer: string; balance: string; funded: boolean } | null;
   scenarios: DemoScenario[];
 }
 

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { blockingIncident, canonicalJson, computeSignals, lookalike, parseVerdict, paymentFromApproval, proposalHash, sha256Hex, USDC, type Approval, type Payee, type Proposal } from "../src/index.ts";
+import { Transaction, Wallet } from "ethers";
+import { blockingIncident, canonicalJson, computeSignals, lookalike, parseVerdict, paymentFromApproval, proposalHash, sha256Hex, signedPayout, USDC, type Approval, type Payee, type Proposal } from "../src/index.ts";
 
 const KANO = "0xA11cE57b2F0c88dE41a9B3c07e6D1f45a3c0D9F2";
 const POISONED = "0xA11cE5f09d3B7a21Cc04e8F5b6A0d92e71B1D9F2";
@@ -120,4 +121,29 @@ test("a Shield incident on the payout's route holds it; unrelated ones don't", (
   assert.ok(hit("address", "0xA11CE57B2F0C88DE41A9B3C07E6D1F45A3C0D9F2"));
   assert.equal(hit("chain", "eth", "withdraw"), undefined);
   assert.equal(hit("chain", "base", "deposit"), undefined);
+});
+
+test("a Chain Signatures payout rebuilds into a valid transaction, high-s or not", () => {
+  // Stand-in for the MPC network: a known key signs the hash the vault computed.
+  const vaultKey = new Wallet("0x" + "42".repeat(32));
+  const to = "0xa11ce57b2f0c88de41a9b3c07e6d1f45a3c0d9f2";
+  const unsigned = Transaction.from({ type: 2, chainId: 84532, nonce: 7, maxPriorityFeePerGas: 1000000n, maxFeePerGas: 2000000000n, gasLimit: 21000, to, value: 500000000000000n, data: "0x", accessList: [] });
+  // Pinned in contract/src/tests.rs (evm_signing_hash_matches_ethers).
+  assert.equal(unsigned.unsignedHash, "0x7ae3a6a90694a58a8cdad8a8a62b0bd681ccf3d2bf8e375d8b6f7645a775e57f");
+  const sig = vaultKey.signingKey.sign(unsigned.unsignedHash);
+  const proposal = (r: string, s: string, y: number) =>
+    ({
+      id: "0",
+      request: { chain: "base-sepolia", asset: "base-sepolia:eth", payee: to, amount: "500000000000000", memo: null },
+      status: "Executing",
+      evm: { chain_id: "84532", nonce: "7", max_fee_per_gas: "2000000000", max_priority_fee_per_gas: "1000000", signing_hash: unsigned.unsignedHash.slice(2), r, s, y_parity: y, tx_hash: null },
+    }) as unknown as Proposal;
+  const tx = signedPayout(proposal(sig.r.slice(2), sig.s.slice(2), sig.yParity), vaultKey.address);
+  assert.equal(tx.from, vaultKey.address);
+  // The same signature in its high-s form (as an MPC network may return it) is normalised.
+  const n = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+  const highS = (n - BigInt(sig.s)).toString(16).padStart(64, "0");
+  const flipped = signedPayout(proposal(sig.r.slice(2), highS, sig.yParity ^ 1), vaultKey.address);
+  assert.equal(flipped.serialized, tx.serialized);
+  assert.throws(() => signedPayout(proposal(sig.r.slice(2), sig.s.slice(2), sig.yParity), "0x000000000000000000000000000000000000dEaD"), /vault's address/);
 });

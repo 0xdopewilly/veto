@@ -30,7 +30,7 @@ type Status = "live" | "built" | "next";
 const STATUS_TEXT: Record<Status, string> = { live: "Live on testnet", built: "Built and tested", next: "Next" };
 
 const STATUS: { part: string; status: Status; note: string }[] = [
-  { part: "Vault contract: caps, verdict check, overrides, freeze", status: "live", note: "41 contract tests; deployed on NEAR testnet." },
+  { part: "Vault contract: caps, verdict check, overrides, freeze", status: "live", note: "47 contract tests; deployed on NEAR testnet." },
   { part: "OutLayer agent wallets", status: "live", note: "Veto is an approver on an OutLayer wallet's policy. Pass, veto and override all run on testnet, settled against the wallet's real transactions." },
   { part: "Agent inbox and guardian screening", status: "live", note: "Real proposals and verdicts on testnet. Verdicts come from a labelled test key until the NEAR AI key is connected." },
   { part: "Owner actions in the app", status: "live", note: "With the owner's NEAR wallet, or the limited demo-owner key on testnet." },
@@ -38,7 +38,7 @@ const STATUS: { part: string; status: Status; note: string }[] = [
   { part: "Paying suppliers on other chains (NEAR Intents)", status: "built", note: "The vault verifies 1Click's signed quote on-chain; tested against a real quote. First mainnet payout after funding." },
   { part: "Veto Bench", status: "built", note: "100 scenarios, runner and offline verifier. Rules-only baseline published; model runs need the NEAR AI key." },
   { part: "Shield incident check before cross-chain payouts", status: "built", note: "Holds a payout while a NEAR Intents Shield incident touches its chain, bridge, token or payee; fails closed if it outlasts the deadline. Runs when the Shield key is added." },
-  { part: "Contract-controlled addresses via Chain Signatures", status: "next", note: "Planned; not built yet." },
+  { part: "The vault's own Base address via Chain Signatures", status: "live", note: "The vault builds each passed transfer and NEAR's MPC network signs exactly that; 47 contract tests include byte-for-byte checks against ethers." },
 ];
 
 const METHODS: { method: string; who: string; does: string }[] = [
@@ -53,6 +53,8 @@ const METHODS: { method: string; who: string; does: string }[] = [
   { method: "set_mandate, add_payee, remove_payee, add_agent, set_agent_active", who: "Owner", does: "What the agent may do, in plain words and as lists." },
   { method: "add_signer(address, model_id)", who: "Owner", does: "Approves a model key after checking its TEE attestation." },
   { method: "set_route(chain, route)", who: "Owner", does: "Lets the vault pay suppliers on another chain through NEAR Intents." },
+  { method: "set_evm_route(chain, route)", who: "Owner", does: "Lets the vault pay on an EVM chain from its own Chain Signatures address, with a cap on gas fees." },
+  { method: "settle_evm(id, tx_hash)", who: "Guardian", does: "Records the chain's transaction once the guardian has broadcast a payout the MPC network signed." },
   { method: "add_wallet(provider, wallet, name)", who: "Owner", does: "Lets the guardian screen payments from an external agent wallet, such as an OutLayer wallet." },
   { method: "propose_external(request, context_hash, external)", who: "Guardian", does: "Records a payment the wallet is holding for approval. Same caps; then it is screened like any other." },
   { method: "settle_external(id, paid, tx_hash)", who: "Guardian", does: "Marks it paid once the wallet's transaction is final on NEAR, or releases the spend if it failed." },
@@ -257,6 +259,13 @@ export function DocsView() {
               The vault checks 1Click's ed25519 signature on the quote itself and confirms it pays the screened payee, on the screened chain,
               for the screened amount, refunds only to the vault and stays under the fee cap. The caps count what actually leaves the vault,
               fees included. Then it sends the deposit. A doctored quote is refused on-chain.
+            </p>
+            <h3 className={styles.h3}>Or from the vault's own address</h3>
+            <p>
+              The vault can also hold its own address on an EVM chain through NEAR Chain Signatures. When a payment to a Base supplier
+              passes, the vault builds the transfer itself: exactly the screened payee and amount, gas under the owner's cap. Then it asks
+              NEAR's MPC network to sign that transaction's hash. The guardian only broadcasts the signed bytes and reports the hash, so the
+              vault's Base address can never send anything that didn't pass both gates.
             </p>
           </section>
 

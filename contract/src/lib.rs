@@ -10,7 +10,12 @@
 //! Payments from agent wallets the vault doesn't hold (an OutLayer wallet, say) go through
 //! the same caps, screen and record. The guardian votes on the wallet's own approval only
 //! once the payment has passed here, and reports back when the wallet has sent it.
+//!
+//! Suppliers on EVM chains can be paid from the vault's own address there, signed with NEAR
+//! Chain Signatures: the vault builds the exact transfer and asks the MPC network to sign it,
+//! so its EVM address can only ever send what passed both gates.
 
+mod evm;
 mod quote;
 mod verdict;
 
@@ -39,6 +44,8 @@ const ONE_CLICK_MANAGER_KEY: &str = "ed25519:reYaWhvwu8Jzo3WUM3zhn6VrhuMEF4eADL1
 const STORAGE_DEPOSIT: NearToken = NearToken::from_yoctonear(1_250_000_000_000_000_000_000);
 const GAS_FT_TRANSFER: Gas = Gas::from_tgas(15);
 const GAS_CALLBACK: Gas = Gas::from_tgas(10);
+const GAS_MPC_SIGN: Gas = Gas::from_tgas(50);
+const GAS_MPC_CALLBACK: Gas = Gas::from_tgas(15);
 
 #[derive(BorshSerialize, BorshStorageKey)]
 #[borsh(crate = "near_sdk::borsh")]
@@ -53,6 +60,7 @@ enum StorageKey {
     OpenProposals,
     Routes,
     Wallets,
+    EvmRoutes,
 }
 
 #[near(serializers = [borsh, json])]
@@ -130,6 +138,47 @@ pub struct QuoteRecord {
     pub quote_hash: String,
 }
 
+/// How the vault pays a supplier on an EVM chain from its own Chain Signatures address.
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Debug)]
+pub struct EvmRoute {
+    pub chain_id: U64,
+    /// The asset id the caps use for the chain's native coin, e.g. "base-sepolia:eth".
+    pub asset: String,
+    /// The NEAR Chain Signatures contract, e.g. v1.signer-prod.testnet.
+    pub mpc: AccountId,
+    /// The derivation path of the vault's address under its own account.
+    pub path: String,
+    /// Most the vault will sign for, per unit of gas.
+    pub max_fee_per_gas: U128,
+    pub max_priority_fee_per_gas: U128,
+}
+
+/// What the guardian brings with a passing verdict for an EVM payout; the vault fixes the rest.
+#[near(serializers = [json])]
+pub struct EvmParams {
+    pub nonce: U64,
+    pub max_fee_per_gas: U128,
+    pub max_priority_fee_per_gas: U128,
+}
+
+/// The transfer the vault asked the MPC network to sign, and the signature once it came back.
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Debug)]
+pub struct EvmPayout {
+    pub chain_id: U64,
+    pub nonce: U64,
+    pub max_fee_per_gas: U128,
+    pub max_priority_fee_per_gas: U128,
+    /// keccak256 of the unsigned EIP-1559 transaction, hex.
+    pub signing_hash: String,
+    pub r: Option<String>,
+    pub s: Option<String>,
+    pub y_parity: Option<u8>,
+    /// The chain's transaction hash, once the guardian broadcast it.
+    pub tx_hash: Option<String>,
+}
+
 /// A payment waiting on another wallet's approval, recorded so the verdict can be checked here.
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Debug)]
@@ -172,6 +221,8 @@ pub struct Proposal {
     pub quote: Option<QuoteRecord>,
     /// Set when the payment comes from an external agent wallet rather than the vault.
     pub external: Option<ExternalPayment>,
+    /// Set when the payment is an EVM transfer signed with Chain Signatures.
+    pub evm: Option<EvmPayout>,
 }
 
 #[near(serializers = [borsh, json])]
@@ -268,6 +319,7 @@ pub struct Vault {
     oneclick_key: [u8; 32],
     routes: IterableMap<String, Route>,
     wallets: IterableMap<String, WalletInfo>,
+    evm_routes: IterableMap<String, EvmRoute>,
 }
 
 #[near]
@@ -314,6 +366,7 @@ impl Vault {
                 .unwrap_or_else(|| env::panic_str("oneclick_key must be a base58 ed25519 key")),
             routes: IterableMap::new(StorageKey::Routes),
             wallets: IterableMap::new(StorageKey::Wallets),
+            evm_routes: IterableMap::new(StorageKey::EvmRoutes),
         };
         for (asset, policy) in policies {
             require!(policy.max_single.0 <= policy.period_limit.0, "max_single exceeds period_limit");
@@ -357,6 +410,7 @@ impl Vault {
             settled_at: None,
             quote: None,
             external: None,
+            evm: None,
         };
         let hash = self.proposal_hash_of(&proposal);
         emit(
@@ -418,6 +472,7 @@ impl Vault {
             settled_at: None,
             quote: None,
             external: Some(external),
+            evm: None,
         };
         let hash = self.proposal_hash_of(&proposal);
         emit(
@@ -427,6 +482,26 @@ impl Vault {
         self.proposals.push(proposal);
         self.open_proposals.insert(id);
         U64(id)
+    }
+
+    /// The guardian reports the chain's transaction hash once it has broadcast a signed EVM payout.
+    pub fn settle_evm(&mut self, id: U64, tx_hash: String) -> Status {
+        require!(env::predecessor_account_id() == self.guardian, "only the guardian settles EVM payouts");
+        let mut proposal = self.proposal(id.0);
+        require!(proposal.status == Status::Executing, "payment is not waiting to be sent");
+        let payout = proposal.evm.as_mut().unwrap_or_else(|| env::panic_str("not an EVM payout"));
+        require!(payout.r.is_some(), "the payout is not signed yet");
+        require!(
+            tx_hash.len() == 66 && tx_hash.starts_with("0x") && tx_hash[2..].chars().all(|c| c.is_ascii_hexdigit()),
+            "tx_hash is not an EVM transaction hash"
+        );
+        payout.tx_hash = Some(tx_hash.to_ascii_lowercase());
+        proposal.status = Status::Paid;
+        proposal.settled_at = Some(U64(env::block_timestamp()));
+        self.open_proposals.remove(&id.0);
+        emit("payment_settled", json!({ "id": id, "paid": true, "evm": proposal.evm }));
+        self.save(proposal);
+        Status::Paid
     }
 
     /// The guardian reports what the external wallet did after its approval vote.
@@ -465,6 +540,7 @@ impl Vault {
         response: Base64VecU8,
         signature: String,
         quote: Option<SignedQuote>,
+        evm: Option<EvmParams>,
     ) -> Status {
         require!(env::predecessor_account_id() == self.guardian, "only the guardian submits verdicts");
         require!(!self.frozen, "vault is frozen");
@@ -514,7 +590,7 @@ impl Vault {
         );
 
         if pass {
-            self.execute(&mut proposal, quote);
+            self.execute(&mut proposal, quote, evm);
         } else {
             proposal.status = Status::Vetoed;
             proposal.settled_at = Some(U64(now));
@@ -577,7 +653,7 @@ impl Vault {
 
     /// Anyone may trigger an override once its delay has passed. Cross-chain payments need a
     /// fresh signed 1Click quote, since the one screened earlier has expired.
-    pub fn execute_override(&mut self, id: U64, quote: Option<SignedQuote>) {
+    pub fn execute_override(&mut self, id: U64, quote: Option<SignedQuote>, evm: Option<EvmParams>) {
         require!(!self.frozen, "vault is frozen");
         let mut proposal = self.proposal(id.0);
         require!(proposal.status == Status::OverridePending, "no override is pending");
@@ -585,7 +661,7 @@ impl Vault {
             env::block_timestamp() >= proposal.override_executes_at.map_or(u64::MAX, |t| t.0),
             "override delay has not passed"
         );
-        self.execute(&mut proposal, quote);
+        self.execute(&mut proposal, quote, evm);
         self.save(proposal);
     }
 
@@ -735,6 +811,22 @@ impl Vault {
         emit("oneclick_key_updated", json!({ "key": key }));
     }
 
+    /// Lets the vault pay suppliers on an EVM chain from its own Chain Signatures address.
+    pub fn set_evm_route(&mut self, chain: String, route: EvmRoute) {
+        self.assert_owner();
+        require!(!self.routes.contains_key(&chain), "this chain already pays through NEAR Intents");
+        require!(route.asset.starts_with(&format!("{chain}:")), "the asset id must start with the chain name");
+        require!(!route.path.is_empty() && route.path.len() <= 64, "path is not valid");
+        emit("evm_route_set", json!({ "chain": chain, "route": route }));
+        self.evm_routes.insert(chain, route);
+    }
+
+    pub fn remove_evm_route(&mut self, chain: String) {
+        self.assert_owner();
+        self.evm_routes.remove(&chain);
+        emit("evm_route_removed", json!({ "chain": chain }));
+    }
+
     /// Lets the guardian record payments from an external agent wallet, e.g. an OutLayer wallet.
     pub fn add_wallet(&mut self, provider: String, wallet: AccountId, name: String) {
         self.assert_owner();
@@ -788,6 +880,37 @@ impl Vault {
         }
         proposal.settled_at = Some(U64(env::block_timestamp()));
         emit("payment_settled", json!({ "id": id, "paid": ok }));
+        self.save(proposal);
+        ok
+    }
+
+    /// Stores the MPC network's signature for an EVM payout, or releases the spend if it failed.
+    #[private]
+    pub fn on_evm_signed(&mut self, id: U64) -> bool {
+        let mut proposal = self.proposal(id.0);
+        if proposal.status != Status::Executing {
+            return false;
+        }
+        let signed = env::promise_result_checked(0, 1024)
+            .map_err(|_| "the MPC network did not sign")
+            .and_then(|raw| evm::parse_signature(&raw));
+        match signed {
+            Ok((r, s, y)) => {
+                let payout = proposal.evm.as_mut().unwrap_or_else(|| env::panic_str("not an EVM payout"));
+                payout.r = Some(r);
+                payout.s = Some(s);
+                payout.y_parity = Some(y);
+                emit("evm_signed", json!({ "id": id, "evm": proposal.evm }));
+            }
+            Err(e) => {
+                proposal.status = Status::Failed;
+                proposal.settled_at = Some(U64(env::block_timestamp()));
+                self.release_spend(&proposal.request.asset.clone(), proposal.request.amount.0);
+                self.open_proposals.remove(&id.0);
+                emit("payment_settled", json!({ "id": id, "paid": false, "error": e }));
+            }
+        }
+        let ok = proposal.status == Status::Executing;
         self.save(proposal);
         ok
     }
@@ -878,6 +1001,10 @@ impl Vault {
         self.signers.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
     }
 
+    pub fn get_evm_routes(&self) -> Vec<(String, EvmRoute)> {
+        self.evm_routes.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
+    }
+
     pub fn get_wallets(&self) -> Vec<(String, WalletInfo)> {
         self.wallets.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
     }
@@ -912,6 +1039,9 @@ impl Vault {
             if request.asset != NATIVE {
                 require!(request.asset.parse::<AccountId>().is_ok(), "asset is not a token account");
             }
+        } else if let Some(route) = self.evm_routes.get(&request.chain) {
+            require!(request.asset == route.asset, "EVM payouts are paid in the route's native coin");
+            require!(evm::parse_address(&request.payee).is_some(), "payee is not an EVM address");
         } else {
             let route = self
                 .routes
@@ -970,7 +1100,7 @@ impl Vault {
 
     /// Re-checks freeze and caps, records the spend and sends the transfer. Payments to other
     /// chains go through NEAR Intents: the signed 1Click quote must pay exactly this payee.
-    fn execute(&mut self, proposal: &mut Proposal, quote: Option<SignedQuote>) {
+    fn execute(&mut self, proposal: &mut Proposal, quote: Option<SignedQuote>, evm: Option<EvmParams>) {
         require!(!self.frozen, "vault is frozen");
         let request = proposal.request.clone();
         if proposal.external.is_some() {
@@ -981,6 +1111,9 @@ impl Vault {
             proposal.status = Status::Executing;
             emit("external_approved", json!({ "id": proposal.id, "external": proposal.external }));
             return;
+        }
+        if self.evm_routes.contains_key(&request.chain) {
+            return self.execute_evm(proposal, evm);
         }
         if request.chain != NATIVE {
             return self.execute_cross_chain(proposal, quote);
@@ -1002,6 +1135,48 @@ impl Vault {
             Self::ext(env::current_account_id()).with_static_gas(GAS_CALLBACK).on_payment_settled(proposal.id),
         );
         emit("payment_sent", json!({ "id": proposal.id, "request": request }));
+    }
+
+    /// Builds the exact transfer, counts it against the caps and asks the MPC network to sign it.
+    /// It stays open until the guardian has broadcast it and reported the transaction.
+    fn execute_evm(&mut self, proposal: &mut Proposal, params: Option<EvmParams>) {
+        let request = proposal.request.clone();
+        let route = self.evm_routes.get(&request.chain).cloned().unwrap_or_else(|| env::panic_str("the vault has no route to this chain"));
+        let params = params.unwrap_or_else(|| env::panic_str("an EVM payout needs a nonce and gas fees"));
+        require!(params.max_fee_per_gas.0 <= route.max_fee_per_gas.0, "gas fee is above the route's cap");
+        require!(
+            params.max_priority_fee_per_gas.0 <= route.max_priority_fee_per_gas.0 && params.max_priority_fee_per_gas.0 <= params.max_fee_per_gas.0,
+            "priority fee is above the route's cap"
+        );
+        let to = evm::parse_address(&request.payee).unwrap_or_else(|| env::panic_str("payee is not an EVM address"));
+        self.check_caps(&request.asset, request.amount.0);
+        self.record_spend(&request.asset, request.amount.0);
+
+        let hash = evm::signing_hash(&evm::Transfer {
+            chain_id: route.chain_id.0,
+            nonce: params.nonce.0,
+            max_priority_fee_per_gas: params.max_priority_fee_per_gas.0,
+            max_fee_per_gas: params.max_fee_per_gas.0,
+            to: &to,
+            value: request.amount.0,
+        });
+        proposal.status = Status::Executing;
+        proposal.evm = Some(EvmPayout {
+            chain_id: route.chain_id,
+            nonce: params.nonce,
+            max_fee_per_gas: params.max_fee_per_gas,
+            max_priority_fee_per_gas: params.max_priority_fee_per_gas,
+            signing_hash: hex::encode(hash),
+            r: None,
+            s: None,
+            y_parity: None,
+            tx_hash: None,
+        });
+        let args = json!({ "request": { "path": route.path, "payload_v2": { "Ecdsa": hex::encode(hash) }, "domain_id": 0 } });
+        let _ = Promise::new(route.mpc)
+            .function_call("sign".to_string(), serde_json::to_vec(&args).unwrap_or_default(), NearToken::from_yoctonear(1), GAS_MPC_SIGN)
+            .then(Self::ext(env::current_account_id()).with_static_gas(GAS_MPC_CALLBACK).on_evm_signed(proposal.id));
+        emit("evm_sign_requested", json!({ "id": proposal.id, "evm": proposal.evm }));
     }
 
     fn execute_cross_chain(&mut self, proposal: &mut Proposal, quote: Option<SignedQuote>) {

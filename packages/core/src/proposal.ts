@@ -53,6 +53,18 @@ export interface Proposal {
   /** Set when a cross-chain payment is sent through NEAR Intents. */
   quote?: { deposit_address: string; amount_in: string; amount_out: string; destination_asset: string; quote_hash: string } | null;
   external?: ExternalPayment | null;
+  /** Set when the payment is an EVM transfer signed with NEAR Chain Signatures. */
+  evm?: {
+    chain_id: string;
+    nonce: string;
+    max_fee_per_gas: string;
+    max_priority_fee_per_gas: string;
+    signing_hash: string;
+    r: string | null;
+    s: string | null;
+    y_parity: number | null;
+    tx_hash: string | null;
+  } | null;
 }
 
 export interface Payee {

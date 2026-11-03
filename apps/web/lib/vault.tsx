@@ -44,6 +44,8 @@ export interface VaultState {
   payees: Payee[];
   agents: [string, AgentInfo][];
   wallets: [string, WalletInfo][];
+  /** The vault's own addresses on EVM chains (NEAR Chain Signatures), when it has routes there. */
+  evmAccounts?: { chain: string; asset: string; chainId: string; address: string; explorer: string }[];
   policies: [string, AssetPolicy][];
   pending: [string, PendingPolicy][];
   spend: Record<string, SpendStatus>;
@@ -111,7 +113,8 @@ async function loadDirect(): Promise<VaultState> {
     rpc.viewAccount({ accountId: VAULT_ID }),
   ]);
 
-  const assetIds = [...new Set(["near", ...policies.map(([asset]) => asset)])];
+  // EVM-chain assets ("<chain>:<coin>") need the server's snapshot; the direct read skips them.
+  const assetIds = [...new Set(["near", ...policies.map(([asset]) => asset)])].filter((id) => !id.includes(":"));
   const metas = await Promise.all(assetIds.map(assetMeta));
   const assets = Object.fromEntries(assetIds.map((id, i) => [id, metas[i]]));
 

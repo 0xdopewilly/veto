@@ -1,4 +1,5 @@
 import { actions, teraToGas, type Account } from "near-api-js";
+import { evmParams, evmRouteFor, vaultEvmAddress } from "./evm.ts";
 import { payoutQuote, type Route } from "./intents.ts";
 import { blockingIncident, ShieldHold, shieldIncidents } from "./shield.ts";
 import type { SignedScreening } from "./nearai.ts";
@@ -61,11 +62,12 @@ export async function screenAndSubmit(opts: {
     throw new Error("the model did not echo this proposal's id and hash; leaving it to expire");
   }
 
-  // A cross-chain pass pays through NEAR Intents, so it needs an executable quote now.
-  const quote =
-    result.verdict.verdict === "PASS" && proposal.request.chain !== "near"
-      ? await quoteFor(vault, proposal, opts.oneClickJwt)
-      : null;
+  // A pass to another chain needs what the vault can't know itself: an executable 1Click quote
+  // (NEAR Intents routes) or the nonce and gas fees for its own address (Chain Signatures routes).
+  const evmRoute = proposal.request.chain === "near" ? undefined : await evmRouteFor(vault, proposal.request.chain);
+  const pass = result.verdict.verdict === "PASS" && proposal.request.chain !== "near";
+  const quote = pass && !evmRoute ? await quoteFor(vault, proposal, opts.oneClickJwt) : null;
+  const evm = pass && evmRoute ? await evmParams(evmRoute, await vaultEvmAddress(vault, evmRoute)) : null;
 
   const outcome = await guardian.signAndSendTransaction({
     receiverId: vault.vaultId,
@@ -80,8 +82,10 @@ export async function screenAndSubmit(opts: {
           response: Buffer.from(result.responseBytes).toString("base64"),
           signature: result.signature,
           quote: quote && { json: quote.json, signature: quote.signature },
+          evm,
         },
-        teraToGas("100"),
+        // Chain Signatures: the MPC sign call and its callback run inside this transaction.
+        teraToGas(evm ? "300" : "100"),
         0n,
       ),
     ],
