@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { canonicalJson, computeSignals, lookalike, parseVerdict, paymentFromApproval, proposalHash, sha256Hex, type Approval, type Payee, type Proposal } from "../src/index.ts";
+import { blockingIncident, canonicalJson, computeSignals, lookalike, parseVerdict, paymentFromApproval, proposalHash, sha256Hex, USDC, type Approval, type Payee, type Proposal } from "../src/index.ts";
 
 const KANO = "0xA11cE57b2F0c88dE41a9B3c07e6D1f45a3c0D9F2";
 const POISONED = "0xA11cE5f09d3B7a21Cc04e8F5b6A0d92e71B1D9F2";
@@ -108,4 +108,16 @@ test("an OutLayer native transfer decodes, and a doctored operation is refused",
   assert.throws(() => paymentFromApproval(doctored), /does not match/);
   const other = approvalFor({ kind: "call", to: "usdc.testnet", method: "ft_transfer_call", args_base64: "e30=", deposit: "1" });
   assert.throws(() => paymentFromApproval(other), /unsupported/);
+});
+
+test("a Shield incident on the payout's route holds it; unrelated ones don't", () => {
+  const route = { token: "usdc.near", origin_asset: USDC.near, destination_asset: USDC.base, max_fee_bps: 100 };
+  const payout = { chain: "base", asset: "usdc.near", payee: "0xa11ce57b2f0c88de41a9b3c07e6d1f45a3c0d9f2", amount: "5000000", memo: null };
+  const hit = (scopeType: string, scopeValue: string, direction?: string) => blockingIncident([{ scopeType, scopeValue, direction }], route, payout);
+  assert.ok(hit("chain", "base", "withdraw"));
+  assert.ok(hit("token", USDC.base));
+  assert.ok(hit("bridge", "poa"));
+  assert.ok(hit("address", "0xA11CE57B2F0C88DE41A9B3C07E6D1F45A3C0D9F2"));
+  assert.equal(hit("chain", "eth", "withdraw"), undefined);
+  assert.equal(hit("chain", "base", "deposit"), undefined);
 });

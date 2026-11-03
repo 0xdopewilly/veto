@@ -1,5 +1,6 @@
 import { actions, teraToGas, type Account } from "near-api-js";
 import { payoutQuote, type Route } from "./intents.ts";
+import { blockingIncident, ShieldHold, shieldIncidents } from "./shield.ts";
 import type { SignedScreening } from "./nearai.ts";
 import { proposalHash, type Proposal } from "./proposal.ts";
 import { SYSTEM_PROMPT, userMessage } from "./prompt.ts";
@@ -38,9 +39,12 @@ export async function screenAndSubmit(opts: {
   evidence: unknown;
   /** 1Click API key; optional, it only lowers 1Click's fee. */
   oneClickJwt?: string;
+  /** NEAR Intents Shield key: holds cross-chain payouts while an incident touches their route. */
+  shieldKey?: string;
 }): Promise<Screened> {
   const { vault, guardian, screener, proposal } = opts;
   const started = Date.now();
+  if (proposal.request.chain !== "near" && opts.shieldKey) await assertNoIncident(vault, proposal, opts.shieldKey);
   const [config, payees, recent] = await Promise.all([vault.config(), vault.payees(), vault.proposals(0, 30)]);
   const history = recent.filter((p) => p.id !== proposal.id);
 
@@ -86,10 +90,21 @@ export async function screenAndSubmit(opts: {
   return { result, signals, proposalHash: hash, tx: outcome.transaction.hash, ms: Date.now() - started };
 }
 
-/** A fresh executable 1Click quote for a cross-chain proposal, on the vault's route for its chain. */
-export async function quoteFor(vault: VaultReader, proposal: Proposal, jwt?: string) {
+async function routeFor(vault: VaultReader, proposal: Proposal) {
   const routes = await vault.view<[string, Route][]>("get_routes");
   const route = routes.find(([chain]) => chain === proposal.request.chain)?.[1];
   if (!route) throw new Error(`the vault has no route to ${proposal.request.chain}`);
+  return route;
+}
+
+/** A fresh executable 1Click quote for a cross-chain proposal, on the vault's route for its chain. */
+export async function quoteFor(vault: VaultReader, proposal: Proposal, jwt?: string) {
+  const route = await routeFor(vault, proposal);
   return payoutQuote({ vaultId: vault.vaultId, route, payee: proposal.request.payee, amount: proposal.request.amount, jwt });
+}
+
+/** Throws ShieldHold while an active Shield incident touches this payout's route. */
+export async function assertNoIncident(vault: VaultReader, proposal: Proposal, shieldKey: string) {
+  const incident = blockingIncident(await shieldIncidents(shieldKey), await routeFor(vault, proposal), proposal.request);
+  if (incident) throw new ShieldHold(incident);
 }

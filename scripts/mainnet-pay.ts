@@ -56,6 +56,7 @@ const screened = await screenAndSubmit({
   proposal: (await vault.proposal(id))!,
   evidence,
   oneClickJwt: process.env.ONECLICK_JWT,
+  shieldKey: process.env.SHIELD_API_KEY,
 });
 console.log(`• ${screened.result.verdict.verdict} from ${screened.result.model} in ${screened.ms} ms, checked on-chain  https://nearblocks.io/txns/${screened.tx}`);
 

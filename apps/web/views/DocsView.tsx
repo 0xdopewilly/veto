@@ -37,7 +37,7 @@ const STATUS: { part: string; status: Status; note: string }[] = [
   { part: "Private AI screen on NEAR AI Cloud", status: "built", note: "Client, prompt and on-chain signature check are done; the vault already trusts the model's attested key. Live calls start when the API key is added." },
   { part: "Paying suppliers on other chains (NEAR Intents)", status: "built", note: "The vault verifies 1Click's signed quote on-chain; tested against a real quote. First mainnet payout after funding." },
   { part: "Veto Bench", status: "built", note: "100 scenarios, runner and offline verifier. Rules-only baseline published; model runs need the NEAR AI key." },
-  { part: "SHIELD incident check before cross-chain payouts", status: "next", note: "Waiting on the Shield key from NEAR Intents." },
+  { part: "Shield incident check before cross-chain payouts", status: "built", note: "Holds a payout while a NEAR Intents Shield incident touches its chain, bridge, token or payee; fails closed if it outlasts the deadline. Runs when the Shield key is added." },
   { part: "Contract-controlled addresses via Chain Signatures", status: "next", note: "Planned; not built yet." },
 ];
 

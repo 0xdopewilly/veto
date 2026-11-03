@@ -12,13 +12,15 @@
 // test key, which the demo vault trusts until a NEAR AI key is connected.
 // OutLayer: OUTLAYER_APPROVER_ID and OUTLAYER_APPROVER_KEY (a full-access key of the
 // account named as an approver on the wallet's policy). ONECLICK_JWT lowers 1Click's fee on
-// cross-chain payouts. With EXECUTE_OVERRIDES=1 the guardian also pays out overrides once their
+// cross-chain payouts. SHIELD_API_KEY holds cross-chain payouts while a NEAR Intents Shield
+// incident touches their route. With EXECUTE_OVERRIDES=1 the guardian also pays out overrides once their
 // delay has passed (its key must allow execute_override), with a fresh quote when cross-chain.
 import { createServer } from "node:http";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { Account, teraToGas, type KeyPairString } from "near-api-js";
 import {
   approvePassed,
+  assertNoIncident,
   canonicalJson,
   quoteFor,
   DEFAULT_MODEL,
@@ -113,7 +115,15 @@ async function handle(proposal: Proposal) {
     log(`proposal ${proposal.id}: waiting for the agent's evidence`);
     return;
   }
-  const { result, signals, proposalHash: hash, tx, ms } = await screenAndSubmit({ vault, guardian, screener, proposal, evidence, oneClickJwt: process.env.ONECLICK_JWT });
+  const { result, signals, proposalHash: hash, tx, ms } = await screenAndSubmit({
+    vault,
+    guardian,
+    screener,
+    proposal,
+    evidence,
+    oneClickJwt: process.env.ONECLICK_JWT,
+    shieldKey: process.env.SHIELD_API_KEY,
+  });
   writeFileSync(
     new URL(`audit/${proposal.id}.json`, DATA),
     JSON.stringify(
@@ -159,6 +169,7 @@ async function sweepClosed() {
 }
 
 async function executeOverride(proposal: Proposal) {
+  if (proposal.request.chain !== "near" && process.env.SHIELD_API_KEY) await assertNoIncident(vault, proposal, process.env.SHIELD_API_KEY);
   const quote = proposal.request.chain === "near" ? null : await quoteFor(vault, proposal, process.env.ONECLICK_JWT);
   await guardian.callFunction({
     contractId: vaultId,
