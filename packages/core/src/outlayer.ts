@@ -130,7 +130,15 @@ export async function approvePassed(opts: { outlayer: OutLayer; proposal: Propos
   const approval = await opts.outlayer.approval(ext.approval_id);
   if (approval.request_hash !== ext.op_hash || walletAccount(approval) !== ext.wallet) throw new Error("approval no longer matches the recorded payment");
   if (approval.status === "approved") return approval;
-  return opts.outlayer.vote("approve", approval, opts.approver);
+  try {
+    return await opts.outlayer.vote("approve", approval, opts.approver);
+  } catch (e) {
+    // Another guardian (or the owner) got there first: an approval that is now approved is a success.
+    if (!(e instanceof OutLayerError) || e.status !== 409) throw e;
+    const now = await opts.outlayer.approval(ext.approval_id);
+    if (now.status !== "approved") throw e;
+    return now;
+  }
 }
 
 /**
