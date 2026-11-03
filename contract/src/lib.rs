@@ -555,6 +555,18 @@ impl Vault {
         self.save(proposal);
     }
 
+    /// Closes a veto for good. For an external wallet this is the guardian's cue to reject the
+    /// held payment there, so the wallet drops it rather than waiting for an override.
+    pub fn keep_blocked(&mut self, id: U64) {
+        self.assert_owner();
+        let mut proposal = self.proposal(id.0);
+        require!(proposal.status == Status::Vetoed, "only a vetoed payment can be kept blocked");
+        proposal.status = Status::Cancelled;
+        proposal.settled_at = Some(U64(env::block_timestamp()));
+        emit("veto_kept", json!({ "id": id, "external": proposal.external }));
+        self.save(proposal);
+    }
+
     pub fn cancel_override(&mut self, id: U64) {
         self.assert_owner();
         let mut proposal = self.proposal(id.0);

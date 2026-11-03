@@ -30,7 +30,7 @@ type Status = "live" | "built" | "next";
 const STATUS_TEXT: Record<Status, string> = { live: "Live on testnet", built: "Built and tested", next: "Next" };
 
 const STATUS: { part: string; status: Status; note: string }[] = [
-  { part: "Vault contract: caps, verdict check, overrides, freeze", status: "live", note: "38 contract tests; deployed on NEAR testnet." },
+  { part: "Vault contract: caps, verdict check, overrides, freeze", status: "live", note: "41 contract tests; deployed on NEAR testnet." },
   { part: "OutLayer agent wallets", status: "live", note: "Veto is an approver on an OutLayer wallet's policy. Pass, veto and override all run on testnet, settled against the wallet's real transactions." },
   { part: "Agent inbox and guardian screening", status: "live", note: "Real proposals and verdicts on testnet. Verdicts come from a labelled test key until the NEAR AI key is connected." },
   { part: "Owner actions in the app", status: "live", note: "With the owner's NEAR wallet, or the limited demo-owner key on testnet." },
@@ -46,6 +46,7 @@ const METHODS: { method: string; who: string; does: string }[] = [
   { method: "submit_verdict(id, model_id, chat_id, request_hash, response, signature, quote?)", who: "Guardian", does: "Records the signed verdict. PASS pays if the caps still allow it; VETO blocks." },
   { method: "expire(id)", who: "Anyone", does: "Ends a screening with no verdict after the deadline. No verdict means no payment." },
   { method: "override_veto(id) / cancel_override(id)", who: "Owner", does: "Schedules a vetoed payment to pay after the delay, or cancels that." },
+  { method: "keep_blocked(id)", who: "Owner", does: "Closes a veto for good. For an OutLayer wallet, Veto then rejects the held payment there." },
   { method: "execute_override(id, quote?)", who: "Anyone", does: "Pays an override once its delay has passed. Still inside the caps." },
   { method: "freeze() / unfreeze()", who: "Owner", does: "Stops every payment and cancels pending overrides." },
   { method: "set_policy(asset, policy)", who: "Owner", does: "Lowering a limit applies now; raising one waits for the raise delay." },
@@ -286,7 +287,8 @@ export function DocsView() {
             </ol>
             <p className={styles.note}>
               The owner is a second approver on the wallet. An override on the vault waits out the same delay, then Veto votes yes; the owner
-              can also approve on OutLayer directly. OutLayer drops an approval nobody signs within 24 hours.
+              can also approve on OutLayer directly. Keeping the veto rejects it on OutLayer right away; an approval nobody signs
+              expires after 24 hours.
             </p>
           </section>
 

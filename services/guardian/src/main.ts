@@ -71,6 +71,7 @@ if (screener instanceof DevScreener) log(`dev screener signing as ${screener.wal
 
 setInterval(() => void tick().catch((e) => log(`watch error: ${e.message}`)), 2000);
 void tick();
+if (approver) setInterval(() => void sweepClosed().catch((e) => log(`OutLayer sweep error: ${e.message}`)), 20_000);
 
 async function tick() {
   for (const proposal of await vault.openProposals()) {
@@ -139,6 +140,22 @@ async function handle(proposal: Proposal) {
     ),
   );
   log(`proposal ${proposal.id}: ${result.verdict.verdict}${result.verdict.reasons.length ? ` (${result.verdict.reasons.join(", ")})` : ""} in ${ms} ms, tx ${tx}`);
+}
+
+/**
+ * External payments the vault closed without paying (the owner kept the veto, or the screen
+ * timed out): reject them on OutLayer so the wallet drops them instead of holding them for a day.
+ */
+const rejected = new Set<string>();
+async function sweepClosed() {
+  for (const p of await vault.proposals(0, 50)) {
+    if (!p.external || rejected.has(p.id) || !["Cancelled", "Expired"].includes(p.status)) continue;
+    const approval = await outlayer.approval(p.external.approval_id);
+    rejected.add(p.id);
+    if (approval.status !== "pending" || approval.request_hash !== p.external.op_hash) continue;
+    await outlayer.vote("reject", approval, approver!, p.status === "Expired" ? "No verdict in time; Veto fails closed." : "The owner kept Veto's veto.");
+    log(`proposal ${p.id}: rejected on OutLayer (${p.status.toLowerCase()} on the vault)`);
+  }
 }
 
 async function executeOverride(proposal: Proposal) {

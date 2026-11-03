@@ -90,4 +90,13 @@ export async function approveAndSettle(proposal: Proposal, requestId?: string) {
   throw new Error(`OutLayer request ${rid} did not finish`);
 }
 
+/** The owner kept a veto: Veto's approver rejects the held payment, so OutLayer drops it for good. */
+export async function rejectHeld(proposal: Proposal) {
+  const { outlayer } = demoAccounts();
+  if (!outlayer || !proposal.external) return;
+  const approval = await outlayer.client.approval(proposal.external.approval_id);
+  if (approval.status !== "pending" || approval.request_hash !== proposal.external.op_hash) return;
+  await outlayer.client.vote("reject", approval, outlayer.approver, "The owner kept Veto's veto.");
+}
+
 export const outlayerEnabled = () => Boolean(demo.enabled && demo.outlayerWallet && demoAccounts().outlayer);

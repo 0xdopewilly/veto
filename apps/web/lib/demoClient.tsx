@@ -42,6 +42,7 @@ export const OWNER_ACTIONS = [
   "override_veto",
   "cancel_override",
   "execute_override",
+  "keep_blocked",
   "freeze",
   "unfreeze",
   "set_mandate",

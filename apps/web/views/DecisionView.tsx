@@ -117,16 +117,34 @@ function Vetoed({ state, p }: { state: VaultState; p: Proposal }) {
 
   const actions = (
     <div className={styles.actions}>
-      <Pill
-        variant="ink"
-        full
-        onClick={() => {
-          keep(p.id);
-          router.push("/app");
-        }}
-      >
-        Keep it blocked
-      </Pill>
+      {p.external ? (
+        // The wallet is still holding it: record the decision so Veto rejects it there for good.
+        <OwnerButton
+          method="keep_blocked"
+          args={{ id: p.id }}
+          variant="ink"
+          full
+          success="Kept blocked"
+          confirmTone="ink"
+          onDone={() => {
+            keep(p.id);
+            router.push("/app");
+          }}
+        >
+          Keep it blocked
+        </OwnerButton>
+      ) : (
+        <Pill
+          variant="ink"
+          full
+          onClick={() => {
+            keep(p.id);
+            router.push("/app");
+          }}
+        >
+          Keep it blocked
+        </Pill>
+      )}
       <OwnerButton method="override_veto" args={{ id: p.id }} variant="inkOutline" size="md" icon="clock" full success="Override scheduled" confirmTone="ink">
         {`Override, pays in ${formatDuration(delaySecs)}`}
       </OwnerButton>
@@ -453,7 +471,7 @@ function InFlight({ state, p }: { state: VaultState; p: Proposal }) {
 
 const CLOSED: Record<string, { title: string; text: string }> = {
   Expired: { title: "Expired", text: "No verdict arrived before the deadline, so the payment failed closed. Nothing was paid." },
-  Cancelled: { title: "Cancelled", text: "The override was cancelled before it paid. Nothing was paid." },
+  Cancelled: { title: "Kept blocked", text: "The owner closed this payment before it paid: the veto was kept, or the override cancelled. Nothing was paid." },
   Failed: { title: "Transfer failed", text: "Both checks passed but the transfer didn't go through. The amount was released back to this period's limit." },
 };
 

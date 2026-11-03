@@ -2,7 +2,7 @@ import { after } from "next/server";
 import { teraToGas } from "near-api-js";
 import { allow, demo, demoAccounts } from "@/lib/server/demo";
 import { quoteFor } from "@veto/core";
-import { approveAndSettle } from "@/lib/server/outlayer";
+import { approveAndSettle, rejectHeld } from "@/lib/server/outlayer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +16,7 @@ const ACTIONS: Record<string, (a: Args) => Args | null> = {
   override_veto: (a) => (id(a) ? { id: a.id } : null),
   cancel_override: (a) => (id(a) ? { id: a.id } : null),
   execute_override: (a) => (id(a) ? { id: a.id, quote: null } : null),
+  keep_blocked: (a) => (id(a) ? { id: a.id } : null),
   freeze: () => ({}),
   unfreeze: () => ({}),
   set_mandate: (a) => (text(a.mandate, 2000) ? { mandate: a.mandate } : null),
@@ -53,6 +54,12 @@ export async function POST(req: Request) {
       after(async () => {
         const p = await reader.proposal(parsed.id as string);
         if (p?.external && p.status === "Executing") await approveAndSettle(p).catch((e) => console.error(`override vote for ${p.id} failed:`, (e as Error).message));
+      });
+    }
+    if (action === "keep_blocked") {
+      after(async () => {
+        const p = await reader.proposal(parsed.id as string);
+        if (p?.external) await rejectHeld(p).catch((e) => console.error(`OutLayer reject for ${p.id} failed:`, (e as Error).message));
       });
     }
     return Response.json({ tx: outcome.transaction.hash });

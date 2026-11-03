@@ -653,3 +653,24 @@ fn external_hash_binds_the_approval() {
     // Mirrored in packages/core/test/core.test.ts.
     assert_eq!(ha, "4206ccce7c38c2caeefafb2ea0073b28234f19eefc61243f48bfbe4ec2cf12af");
 }
+
+#[test]
+fn keeping_a_veto_closes_it_for_good() {
+    let mut vault = setup_external();
+    let id = propose_ext(&mut vault, 300, "appr-1");
+    submit(&mut vault, id, "VETO", HOUR + 1);
+    context(owner(), HOUR + 2);
+    vault.keep_blocked(U64(id));
+    assert_eq!(vault.get_proposal(U64(id)).unwrap().status, Status::Cancelled);
+}
+
+#[test]
+#[should_panic(expected = "only a vetoed payment can be overridden")]
+fn a_kept_veto_cannot_be_overridden() {
+    let mut vault = setup_external();
+    let id = propose_ext(&mut vault, 300, "appr-1");
+    submit(&mut vault, id, "VETO", HOUR + 1);
+    context(owner(), HOUR + 2);
+    vault.keep_blocked(U64(id));
+    vault.override_veto(U64(id));
+}

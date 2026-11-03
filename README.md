@@ -20,7 +20,7 @@ pnpm install
 pnpm test
 ```
 
-You should see `ℹ pass 9` (TypeScript core) and `test result: ok. 39 passed` (contract). The contract tests include a real executable 1Click quote and a real 1Click signature. They also pin the proposal hash that the TypeScript side must reproduce.
+You should see `ℹ pass 9` (TypeScript core) and `test result: ok. 41 passed` (contract). The contract tests include a real executable 1Click quote and a real 1Click signature. They also pin the proposal hash that the TypeScript side must reproduce.
 
 ```sh
 node bench/run.ts --screener policy   # Attacks caught 33/50, normal payments blocked 8/50
@@ -54,7 +54,7 @@ Then open http://localhost:3000/app and press **Try it** (the green V on a phone
 | Let the agent pay **"Invoice INV-…: 72 bales of combed cotton"** | Agent proposed → Screening privately → **Paid**, with testnet tx links |
 | Let it pay **"Updated payment details for INV-…"** | **Vetoed**: a lookalike of an address you've paid before. The coral card appears on Home |
 | Open the vetoed decision → **Override** | A 3-minute countdown, then it pays (still inside the caps), unless you cancel |
-| Switch **Pay from** to **OutLayer wallet** and repeat both | Paid: Veto approved it on OutLayer and the wallet sent it. Vetoed: Veto never signs, so OutLayer keeps holding it |
+| Switch **Pay from** to **OutLayer wallet** and repeat both | Paid: Veto approved it on OutLayer and the wallet sent it. Vetoed: Veto never signs, so OutLayer keeps holding it. **Keep it blocked** then rejects it there for good |
 | Open any decision → **Proof** | The request and response hashes, the signer, and the on-chain signature check |
 
 Until a NEAR AI key is connected, verdicts are signed by a local test key that the demo vault was told to trust. The app labels every such decision "test signer".
@@ -111,7 +111,7 @@ vault: ecrecover → approved model key → echoes this proposal's id and hash �
 ```
 
 - **Contract** ([contract/src/lib.rs](contract/src/lib.rs)):
-  - Agent and owner methods: `propose`, `submit_verdict`, `expire`, `override_veto` / `cancel_override` / `execute_override`, `freeze`, and `set_policy` (raising a limit waits for a delay).
+  - Agent and owner methods: `propose`, `submit_verdict`, `expire`, `override_veto` / `cancel_override` / `execute_override`, `keep_blocked`, `freeze`, and `set_policy` (raising a limit waits for a delay).
   - Payees, agents, signers and routes.
   - External wallets: `add_wallet`, `propose_external`, `settle_external`.
   - NEAR Intents payouts verify 1Click's ed25519 quote signature on-chain ([quote.rs](contract/src/quote.rs)).
@@ -129,7 +129,7 @@ vault: ecrecover → approved model key → echoes this proposal's id and hash �
 
 | Part | State |
 | --- | --- |
-| Vault contract, verdict check, overrides, freeze | Live on testnet, 39 tests |
+| Vault contract, verdict check, overrides, freeze | Live on testnet, 41 tests |
 | OutLayer agent wallets (pass, veto, override) | Live on testnet |
 | Agent inbox, guardian, owner actions in the app | Live on testnet |
 | Private screen on NEAR AI Cloud | Built; runs when the API key is added |
