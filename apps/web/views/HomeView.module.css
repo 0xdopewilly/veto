@@ -948,3 +948,45 @@
 .inbox {
   grid-area: inbox;
 }
+
+.inbox {
+  position: relative;
+}
+
+.inbox[data-hint] {
+  animation: hintGlow 2.8s ease-in-out 1.4s infinite;
+}
+
+.hintChip {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 1;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--green);
+  color: var(--green-ink);
+  font-size: 12px;
+  font-weight: 700;
+  animation: hintChipIn 0.6s var(--ease-pop) 1.2s both;
+}
+
+@keyframes hintGlow {
+  50% {
+    box-shadow: 0 0 0 1px rgba(0, 236, 151, 0.45), 0 0 42px -8px rgba(0, 236, 151, 0.35);
+  }
+}
+
+@keyframes hintChipIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.9);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inbox[data-hint],
+  .hintChip {
+    animation: none;
+  }
+}

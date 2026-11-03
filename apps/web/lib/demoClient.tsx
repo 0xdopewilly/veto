@@ -1,5 +1,6 @@
 "use client";
 
+import { markTried } from "./hint";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 /** One email in the demo agent's inbox. */
@@ -111,6 +112,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const run = useCallback(async (scenario: string) => {
+    markTried();
     const via = payFrom;
     const started: DemoRun = { scenario, via, startedAt: Date.now() };
     setRuns((r) => ({ ...r, [scenario]: started }));

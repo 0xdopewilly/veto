@@ -22,3 +22,21 @@
 .purple {
   background: var(--purple);
 }
+
+.enter .seg {
+  animation: segIn 0.42s var(--ease-pop) both;
+  animation-delay: calc(var(--d, 0s) + var(--i) * 25ms);
+}
+
+@keyframes segIn {
+  from {
+    opacity: 0;
+    transform: scaleY(0.3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enter .seg {
+    animation: none;
+  }
+}

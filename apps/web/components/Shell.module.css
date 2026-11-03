@@ -646,3 +646,76 @@
     animation: none;
   }
 }
+
+/* First visit: a slow ring breathes out of the V and a small bubble says where to start. */
+.tryIt {
+  position: relative;
+}
+
+.tryIt[data-hint]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(0, 236, 151, 0.7);
+  pointer-events: none;
+  animation: hintRing 2.4s var(--ease-out-expo) 1.2s infinite;
+}
+
+.hintBubble {
+  position: absolute;
+  bottom: calc(100% + 14px);
+  left: 50%;
+  translate: -50% 0;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: var(--sand);
+  color: var(--black);
+  font-size: 12.5px;
+  font-weight: 650;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: hintIn 0.6s var(--ease-pop) 1s both, hintFloat 3s ease-in-out 1.6s infinite;
+}
+
+.hintBubble::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -6px;
+  border: 6px solid transparent;
+  border-top-color: var(--sand);
+}
+
+@keyframes hintRing {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  70%,
+  to {
+    opacity: 0;
+    transform: scale(1.65);
+  }
+}
+
+@keyframes hintIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.9);
+  }
+}
+
+@keyframes hintFloat {
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tryIt[data-hint]::after,
+  .hintBubble {
+    animation: none;
+  }
+}

@@ -23,6 +23,7 @@ import { SpendRing } from "@/components/SpendRing";
 import { Orb } from "@/components/Orb";
 import { DecisionBars } from "@/components/DecisionBars";
 import { AgentInbox } from "@/components/AgentInbox";
+import { useStartHint } from "@/lib/hint";
 import { CORAL, DecisionCard, PURPLE, useDecisionCopy, useOpenDecision, usePrefetchDecision } from "@/components/DecisionCard";
 import { ActivityList, filterOptions, filterProposals, type Filter } from "@/components/ActivityList";
 import { useShell } from "@/components/Shell";
@@ -251,6 +252,7 @@ function Legend({ o }: { o: Overview }) {
 /* ---------------------------------------------------------------- desktop */
 
 function DesktopHome({ state }: { state: VaultState }) {
+  const hint = useStartHint();
   const { kept } = useKeptBlocked();
   const o = useOverview(state, kept);
   const [filter, setFilter] = useState<Filter>("all");
@@ -388,7 +390,8 @@ function DesktopHome({ state }: { state: VaultState }) {
           />
         </section>
 
-        <section className={`${styles.panel} ${styles.inbox} rise`} style={step(5)} aria-label="Agent inbox">
+        <section className={`${styles.panel} ${styles.inbox} rise`} style={step(5)} aria-label="Agent inbox" data-hint={hint.show || undefined}>
+          {hint.show && <span className={styles.hintChip}>Start here</span>}
           <AgentInbox titleId="home-inbox-title" compact />
         </section>
       </div>

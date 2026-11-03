@@ -33,6 +33,7 @@ import { Icon } from "@/components/Icon";
 import { Pill } from "@/components/Pill";
 import { OwnerButton } from "@/components/OwnerButton";
 import { VLoader } from "@/components/VLoader";
+import { Deferred } from "@/components/Deferred";
 import styles from "./DecisionView.module.css";
 
 const periodName = (secs: string) => (secs === "604800" ? "weekly" : secs === "86400" ? "daily" : "period");
@@ -177,17 +178,18 @@ function Vetoed({ state, p }: { state: VaultState; p: Proposal }) {
         <div className={`${styles.bandActions} rise`} style={delay(600)}>{actions}</div>
       </section>
 
+      <Deferred>
       <div className={styles.columns}>
         <div className={styles.colMain}>
-          <section className={`${styles.circuitCard} rise`} style={delay(560)} aria-label="Checks">
-            <Circuit ai="veto" paid={false} delay={450} play={play} />
+          <section className={`${styles.circuitCard} rise`} style={delay(300)} aria-label="Checks">
+            <Circuit ai="veto" paid={false} delay={190} play={play} />
             <p className={styles.caption}>{capCaption(state, p)}</p>
           </section>
 
-          <h2 className={`${styles.h2} rise`} style={delay(700)}>Why it was stopped</h2>
+          <h2 className={`${styles.h2} rise`} style={delay(440)}>Why it was stopped</h2>
           <ol className={styles.reasons}>
             {reasons.map((code, i) => (
-              <li key={code} className={`${styles.reason} rise`} style={delay(760 + i * 80)}>
+              <li key={code} className={`${styles.reason} rise`} style={delay(500 + i * 80)}>
                 <span className={styles.reasonNumber} aria-hidden="true">{i + 1}</span>
                 <div className={styles.reasonBody}>
                   {code === "LOOKALIKE_ADDRESS" && look ? (
@@ -201,10 +203,11 @@ function Vetoed({ state, p }: { state: VaultState; p: Proposal }) {
           </ol>
         </div>
 
-        <aside className={`${styles.colSide} rise`} style={delay(820)} aria-label="Proof">
+        <aside className={`${styles.colSide} rise`} style={delay(560)} aria-label="Proof">
           <ProofSummary p={p} />
         </aside>
       </div>
+      </Deferred>
 
       <div className={styles.mobileActions}>{actions}</div>
     </Screen>
@@ -396,7 +399,8 @@ function Paid({ state, p }: { state: VaultState; p: Proposal }) {
           <div className={`${styles.paidLine} draw`} style={delay(600)} aria-hidden="true" />
         </section>
 
-        <section className={`${styles.checks} ${styles.panel} rise`} style={delay(420)} aria-label="Checks">
+        <Deferred>
+        <section className={`${styles.checks} ${styles.panel} rise`} style={delay(160)} aria-label="Checks">
           <h2 className={styles.h2Small}>Checks</h2>
           <div className={styles.checkRow}>
             <div>
@@ -439,12 +443,13 @@ function Paid({ state, p }: { state: VaultState; p: Proposal }) {
               <span className={styles.passBadge}>Sent</span>
             </div>
           )}
-          <Circuit ai="pass" paid delay={500} play={play} />
+          <Circuit ai="pass" paid delay={240} play={play} />
         </section>
 
-        <aside className={`${styles.colSideDark} ${styles.panel} rise`} style={delay(480)}>
+        <aside className={`${styles.colSideDark} ${styles.panel} rise`} style={delay(220)}>
           <ProofSummary p={p} />
         </aside>
+        </Deferred>
       </div>
     </Screen>
   );

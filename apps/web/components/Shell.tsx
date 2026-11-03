@@ -15,6 +15,7 @@ import { formatShort, chainLabel } from "@/lib/format";
 import { SPRING_BOUNCE, SPRING_SURFACE, SPRING_UI, useCalm } from "@/lib/motion";
 import { Lockup, Mark } from "./Logo";
 import { useDecisionPulse } from "@/lib/pulse";
+import { useStartHint } from "@/lib/hint";
 import { Icon, type IconName } from "./Icon";
 import { RouteStage, levelOf } from "./RouteStage";
 import { FreezeSheet } from "./FreezeSheet";
@@ -313,6 +314,7 @@ const TABS = VAULT_NAV.filter((n) => n.tab);
 
 function TabBar({ visible, onInbox }: { visible: boolean; onInbox: () => void }) {
   const pulse = useDecisionPulse();
+  const hint = useStartHint();
   const pathname = usePathname();
   const active = activeHref(pathname);
   const calm = useCalm();
@@ -350,7 +352,20 @@ function TabBar({ visible, onInbox }: { visible: boolean; onInbox: () => void })
           transition={calm ? { duration: 0.2 } : SPRING_SURFACE}
         >
           {left.map(tab)}
-          <button className={styles.tryIt} onClick={onInbox} aria-label="Try it: open the agent inbox">
+          <button
+            className={styles.tryIt}
+            data-hint={hint.show || undefined}
+            onClick={() => {
+              hint.done();
+              onInbox();
+            }}
+            aria-label="Try it: open the agent inbox"
+          >
+            {hint.show && (
+              <span className={styles.hintBubble} aria-hidden="true">
+                Start here
+              </span>
+            )}
             <span key={pulse?.key ?? "still"} className={styles.tryMark} data-pulse={pulse?.tone}>
               <Mark size={30} tone="mono" />
             </span>
