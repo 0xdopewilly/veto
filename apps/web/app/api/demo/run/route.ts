@@ -2,6 +2,7 @@ import { after } from "next/server";
 import { actions, teraToGas } from "near-api-js";
 import { canonicalJson, screenAndSubmit, sha256Hex } from "@veto/core";
 import { allow, demo, demoAccounts } from "@/lib/server/demo";
+import { outlayerEnabled, recordOnVault, requestPayment, screenAndVote } from "@/lib/server/outlayer";
 import { buildScenarios } from "@/lib/server/scenarios";
 
 export const runtime = "nodejs";
@@ -12,10 +13,13 @@ export const maxDuration = 60;
 /**
  * The agent reads one inbox message and proposes the payment it asks for, exactly as a
  * naive agent would. The guardian then screens it and the vault decides on-chain.
+ * With `via: "outlayer"` the agent pays from its OutLayer wallet instead, which holds the
+ * payment until the guardian votes on it.
  */
 export async function POST(req: Request) {
   if (!demo.enabled) return Response.json({ error: "the testnet demo is not configured" }, { status: 404 });
-  const { scenario } = (await req.json().catch(() => ({}))) as { scenario?: string };
+  const { scenario, via } = (await req.json().catch(() => ({}))) as { scenario?: string; via?: string };
+  if (via === "outlayer" && !outlayerEnabled()) return Response.json({ error: "the OutLayer wallet is not configured" }, { status: 404 });
   if (!allow("run", 12, 10 * 60_000)) return Response.json({ error: "too many demo runs; try again in a few minutes" }, { status: 429 });
 
   const { reader, agent, guardian, screener } = demoAccounts();
@@ -33,6 +37,12 @@ export async function POST(req: Request) {
       amount: String(BigInt(Math.round(Number(chosen.amount) * 100)) * 10_000n),
       memo: chosen.memo,
     };
+    if (via === "outlayer") {
+      const { approvalId, requestId } = await requestPayment(request);
+      const { id, tx } = await recordOnVault(approvalId, evidence);
+      after(() => screenAndVote(id, evidence, requestId).catch((e) => console.error(`demo OutLayer payment ${id} failed:`, (e as Error).message)));
+      return Response.json({ proposal_id: id, tx, approval_id: approvalId });
+    }
     const outcome = await agent.signAndSendTransaction({
       receiverId: demo.vaultId,
       actions: [actions.functionCall("propose", { request, context_hash: contextHash }, teraToGas("30"), 0n)],

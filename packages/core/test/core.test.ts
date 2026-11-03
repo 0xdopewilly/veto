@@ -14,6 +14,20 @@ test("proposal hash matches the contract (contract/src/tests.rs proposal_hash_is
   );
 });
 
+test("external payment hash matches the contract (contract/src/tests.rs external_hash_binds_the_approval)", () => {
+  const external = {
+    provider: "outlayer",
+    wallet: "9717ac438a948ce5a42f766ea07352892f76fefc9346adfde3ff57d407350988",
+    approval_id: "appr-1",
+    op_hash: "87427b8b0c1f3a5e9d2b4c6a8e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f",
+    tx_hash: null,
+  };
+  assert.equal(
+    proposalHash("vault.testnet", { id: "0", request, context_hash: null, external }),
+    "4206ccce7c38c2caeefafb2ea0073b28234f19eefc61243f48bfbe4ec2cf12af",
+  );
+});
+
 test("address poisoning is flagged as a lookalike", () => {
   assert.match(lookalike(POISONED.toLowerCase(), KANO.toLowerCase()) ?? "", /first 6 and last 4/);
   assert.equal(lookalike(KANO.toLowerCase(), KANO.toLowerCase()), null);

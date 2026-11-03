@@ -2,7 +2,7 @@
 
 import { metaOf, useVault } from "@/lib/vault";
 import { useProposal } from "@/lib/useProposal";
-import { isTestSigner } from "@/lib/decision";
+import { isTestSigner, requesterLabel } from "@/lib/decision";
 import { explorerAddress, verifierUrl, VAULT_ID } from "@/lib/config";
 import { formatAmount, formatWhen, shortAddress, shortHash } from "@/lib/format";
 import { Screen, BackLink, delay } from "@/components/Screen";
@@ -43,9 +43,19 @@ export function ProofView({ id }: { id: string }) {
     {
       icon: "file",
       title: "Payment request",
-      text: `${p.agent} asked to send ${formatAmount(p.request.amount, meta)} to ${shortAddress(p.request.payee)}.`,
+      text: `${requesterLabel(p)} asked to send ${formatAmount(p.request.amount, meta)} to ${shortAddress(p.request.payee)}.`,
       value: `request hash ${shortHash(v.request_hash)}`,
     },
+    ...(p.external
+      ? [
+          {
+            icon: "lock" as IconName,
+            title: "Held by OutLayer",
+            text: "The agent's OutLayer wallet held the payment for approval. Its operation hash is part of what the model screened, and Veto votes on it only after your vault's verdict.",
+            value: `approval ${shortHash(p.external.approval_id)}`,
+          },
+        ]
+      : []),
     {
       icon: "shield",
       title: test ? "Screened by a test signer" : "Screened in an enclave",
@@ -71,7 +81,13 @@ export function ProofView({ id }: { id: string }) {
     {
       icon: v.pass ? "check" : "x",
       title: v.pass ? "Verdict: Pass" : "Verdict: Veto",
-      text: v.pass ? "Both checks passed, so the vault sent the payment." : "The payment was refused. The funds never left the vault.",
+      text: p.external
+        ? v.pass
+          ? "Both checks passed, so Veto approved it on OutLayer and the wallet sent it."
+          : "Veto never approved it, so the OutLayer wallet kept holding it. Nothing was paid."
+        : v.pass
+          ? "Both checks passed, so the vault sent the payment."
+          : "The payment was refused. The funds never left the vault.",
       value: formatWhen(v.recorded_at),
       tone: v.pass ? "pass" : "veto",
     },

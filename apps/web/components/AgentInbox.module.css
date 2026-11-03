@@ -75,6 +75,19 @@
   background: var(--purple);
 }
 
+.payFrom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.payFromLabel {
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .state {
   display: flex;
   align-items: center;

@@ -1,7 +1,8 @@
 // Server-only: the testnet demo's accounts. Each key can only call its own vault methods
-// (agent: propose; guardian: submit_verdict/expire; demo owner: the owner methods).
+// (agent: propose; guardian: verdicts and external payments; demo owner: the owner methods).
+// The OutLayer wallet's API key and the approver's key are for the OutLayer path.
 import { Account, type KeyPairString } from "near-api-js";
-import { DEFAULT_MODEL, DevScreener, NearAiScreener, VaultReader, type Screener } from "@veto/core";
+import { DEFAULT_MODEL, DevScreener, NearAiScreener, OutLayer, VaultReader, type Screener } from "@veto/core";
 import { serverRpc } from "./rpc";
 
 const env = (key: string) => process.env[key]?.trim() ?? "";
@@ -14,9 +15,18 @@ export const demo = {
   agentId: env("DEMO_AGENT_ACCOUNT_ID"),
   guardianId: env("DEMO_GUARDIAN_ACCOUNT_ID"),
   ownerId: env("DEMO_OWNER_ACCOUNT_ID"),
+  outlayerWallet: env("DEMO_OUTLAYER_WALLET"),
 };
 
-let cached: { reader: VaultReader; agent: Account; guardian: Account; owner: Account | null; screener: Screener } | null = null;
+interface OutLayerDemo {
+  client: OutLayer;
+  wallet: string;
+  /** The wallet's own API key: what the agent holds. */
+  walletKey: string;
+  approver: { accountId: string; key: KeyPairString };
+}
+
+let cached: { reader: VaultReader; agent: Account; guardian: Account; owner: Account | null; screener: Screener; outlayer: OutLayerDemo | null } | null = null;
 
 export function demoAccounts() {
   if (!demo.enabled) throw new Error("the testnet demo is not configured");
@@ -31,6 +41,15 @@ export function demoAccounts() {
       // The real model when a NEAR AI key is set; otherwise a test key the demo vault was told
       // to trust, which the app labels as a test signer on every decision it signs.
       screener: nearAiKey ? new NearAiScreener(nearAiKey, env("NEARAI_MODEL") || DEFAULT_MODEL) : new DevScreener(env("DEMO_TEST_SIGNER_KEY")),
+      outlayer:
+        demo.outlayerWallet && env("DEMO_OUTLAYER_WALLET_KEY") && env("DEMO_OUTLAYER_APPROVER_KEY")
+          ? {
+              client: new OutLayer("testnet"),
+              wallet: demo.outlayerWallet,
+              walletKey: env("DEMO_OUTLAYER_WALLET_KEY"),
+              approver: { accountId: env("DEMO_OUTLAYER_APPROVER_ID"), key: env("DEMO_OUTLAYER_APPROVER_KEY") as KeyPairString },
+            }
+          : null,
     };
   }
   return cached;

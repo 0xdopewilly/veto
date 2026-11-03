@@ -6,6 +6,10 @@
 //!      verdict is signed inside its TEE and checked here with `ecrecover`.
 //! The AI can only say no: a PASS never lets a payment exceed the caps, and a VETO can
 //! only be overridden by the owner after a delay.
+//!
+//! Payments from agent wallets the vault doesn't hold (an OutLayer wallet, say) go through
+//! the same caps, screen and record. The guardian votes on the wallet's own approval only
+//! once the payment has passed here, and reports back when the wallet has sent it.
 
 mod quote;
 mod verdict;
@@ -48,6 +52,7 @@ enum StorageKey {
     Proposals,
     OpenProposals,
     Routes,
+    Wallets,
 }
 
 #[near(serializers = [borsh, json])]
@@ -125,6 +130,30 @@ pub struct QuoteRecord {
     pub quote_hash: String,
 }
 
+/// A payment waiting on another wallet's approval, recorded so the verdict can be checked here.
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Debug)]
+pub struct ExternalPayment {
+    /// The wallet service, e.g. "outlayer".
+    pub provider: String,
+    /// The wallet's NEAR account.
+    pub wallet: String,
+    /// The service's id for the approval the payment is waiting on.
+    pub approval_id: String,
+    /// The service's sha256 of the exact operation awaiting approval.
+    pub op_hash: String,
+    /// The wallet's transaction, once the service has sent it.
+    pub tx_hash: Option<String>,
+}
+
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Debug)]
+pub struct WalletInfo {
+    pub provider: String,
+    pub name: String,
+    pub added_at: U64,
+}
+
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Debug)]
 pub struct Proposal {
@@ -141,6 +170,8 @@ pub struct Proposal {
     pub settled_at: Option<U64>,
     /// Set when a cross-chain payment is sent through NEAR Intents.
     pub quote: Option<QuoteRecord>,
+    /// Set when the payment comes from an external agent wallet rather than the vault.
+    pub external: Option<ExternalPayment>,
 }
 
 #[near(serializers = [borsh, json])]
@@ -236,6 +267,7 @@ pub struct Vault {
     open_proposals: IterableSet<u64>,
     oneclick_key: [u8; 32],
     routes: IterableMap<String, Route>,
+    wallets: IterableMap<String, WalletInfo>,
 }
 
 #[near]
@@ -281,6 +313,7 @@ impl Vault {
             oneclick_key: quote::decode_key(oneclick_key.as_deref().unwrap_or(ONE_CLICK_MANAGER_KEY))
                 .unwrap_or_else(|| env::panic_str("oneclick_key must be a base58 ed25519 key")),
             routes: IterableMap::new(StorageKey::Routes),
+            wallets: IterableMap::new(StorageKey::Wallets),
         };
         for (asset, policy) in policies {
             require!(policy.max_single.0 <= policy.period_limit.0, "max_single exceeds period_limit");
@@ -323,6 +356,7 @@ impl Vault {
             override_executes_at: None,
             settled_at: None,
             quote: None,
+            external: None,
         };
         let hash = self.proposal_hash_of(&proposal);
         emit(
@@ -335,6 +369,89 @@ impl Vault {
     }
 
     // ------------------------------------------------------------- guardian
+
+    /// Records a payment an external wallet is holding for approval. Only the guardian may
+    /// call it, for a wallet the owner registered, and the same caps apply as for the vault.
+    pub fn propose_external(&mut self, request: PaymentRequest, context_hash: Option<String>, external: ExternalPayment) -> U64 {
+        require!(env::predecessor_account_id() == self.guardian, "only the guardian records external payments");
+        require!(!self.frozen, "vault is frozen");
+        require!(self.open_proposals.len() < MAX_OPEN_PROPOSALS, "too many open proposals");
+        require!(request.chain == NATIVE, "external wallets pay on NEAR");
+        self.validate_request(&request);
+        if let Some(hash) = &context_hash {
+            require!(verdict::is_hex_32(hash), "context_hash must be 64 lowercase hex chars");
+        }
+        let wallet = self
+            .wallets
+            .get(&external.wallet)
+            .unwrap_or_else(|| env::panic_str("wallet is not registered"));
+        require!(wallet.provider == external.provider, "wallet is registered with a different provider");
+        require!(verdict::is_hex_32(&external.op_hash), "op_hash must be 64 lowercase hex chars");
+        require!(
+            !external.approval_id.is_empty() && external.approval_id.len() <= 64 && external.approval_id.is_ascii(),
+            "approval_id is not valid"
+        );
+        require!(external.tx_hash.is_none(), "a new external payment has no transaction yet");
+        require!(
+            !self.open_proposals.iter().any(|id| self
+                .proposals
+                .get(*id as u32)
+                .and_then(|p| p.external.as_ref())
+                .is_some_and(|e| e.approval_id == external.approval_id)),
+            "this approval is already recorded"
+        );
+        self.check_caps(&request.asset, request.amount.0);
+
+        let now = env::block_timestamp();
+        let id = self.proposals.len() as u64;
+        let agent: AccountId = external.wallet.parse().unwrap_or_else(|_| env::panic_str("wallet is not a NEAR account"));
+        let proposal = Proposal {
+            id: U64(id),
+            agent: agent.clone(),
+            request,
+            context_hash,
+            status: Status::Screening,
+            created_at: U64(now),
+            screen_deadline: U64(now + self.screen_timeout_secs * NANOS_PER_SEC),
+            verdict: None,
+            override_executes_at: None,
+            settled_at: None,
+            quote: None,
+            external: Some(external),
+        };
+        let hash = self.proposal_hash_of(&proposal);
+        emit(
+            "proposal_created",
+            json!({ "id": U64(id), "agent": agent, "request": proposal.request, "external": proposal.external, "proposal_hash": hash }),
+        );
+        self.proposals.push(proposal);
+        self.open_proposals.insert(id);
+        U64(id)
+    }
+
+    /// The guardian reports what the external wallet did after its approval vote.
+    pub fn settle_external(&mut self, id: U64, paid: bool, tx_hash: Option<String>) -> Status {
+        require!(env::predecessor_account_id() == self.guardian, "only the guardian settles external payments");
+        let mut proposal = self.proposal(id.0);
+        require!(proposal.external.is_some(), "not an external payment");
+        require!(proposal.status == Status::Executing, "payment is not waiting on its wallet");
+        require!(tx_hash.as_ref().map_or(true, |t| !t.is_empty() && t.len() <= 64 && t.is_ascii()), "tx_hash is not valid");
+        if paid {
+            proposal.status = Status::Paid;
+        } else {
+            proposal.status = Status::Failed;
+            self.release_spend(&proposal.request.asset.clone(), proposal.request.amount.0);
+        }
+        if let Some(external) = proposal.external.as_mut() {
+            external.tx_hash = tx_hash;
+        }
+        proposal.settled_at = Some(U64(env::block_timestamp()));
+        self.open_proposals.remove(&id.0);
+        emit("payment_settled", json!({ "id": id, "paid": paid, "external": proposal.external }));
+        let status = proposal.status.clone();
+        self.save(proposal);
+        status
+    }
 
     /// Records the AI screen's verdict. Only the guardian may submit, and the response
     /// must carry a valid enclave signature from an approved model key and echo this
@@ -606,6 +723,22 @@ impl Vault {
         emit("oneclick_key_updated", json!({ "key": key }));
     }
 
+    /// Lets the guardian record payments from an external agent wallet, e.g. an OutLayer wallet.
+    pub fn add_wallet(&mut self, provider: String, wallet: AccountId, name: String) {
+        self.assert_owner();
+        require!(!provider.is_empty() && provider.len() <= 32, "provider is not valid");
+        require!(name.len() <= 64, "name is too long");
+        let info = WalletInfo { provider, name, added_at: U64(env::block_timestamp()) };
+        emit("wallet_added", json!({ "wallet": wallet, "info": info }));
+        self.wallets.insert(wallet.to_string(), info);
+    }
+
+    pub fn remove_wallet(&mut self, wallet: AccountId) {
+        self.assert_owner();
+        self.wallets.remove(wallet.as_str());
+        emit("wallet_removed", json!({ "wallet": wallet }));
+    }
+
     pub fn set_guardian(&mut self, guardian: AccountId) {
         self.assert_owner();
         self.guardian = guardian.clone();
@@ -732,6 +865,10 @@ impl Vault {
     pub fn get_signers(&self) -> Vec<(String, SignerInfo)> {
         self.signers.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
     }
+
+    pub fn get_wallets(&self) -> Vec<(String, WalletInfo)> {
+        self.wallets.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
+    }
 }
 
 // ------------------------------------------------------------------- internals
@@ -824,6 +961,15 @@ impl Vault {
     fn execute(&mut self, proposal: &mut Proposal, quote: Option<SignedQuote>) {
         require!(!self.frozen, "vault is frozen");
         let request = proposal.request.clone();
+        if proposal.external.is_some() {
+            // The wallet holds the money; the guardian now votes yes and settles it later.
+            // It stays open until then so the guardian can find it.
+            self.check_caps(&request.asset, request.amount.0);
+            self.record_spend(&request.asset, request.amount.0);
+            proposal.status = Status::Executing;
+            emit("external_approved", json!({ "id": proposal.id, "external": proposal.external }));
+            return;
+        }
         if request.chain != NATIVE {
             return self.execute_cross_chain(proposal, quote);
         }
@@ -903,7 +1049,7 @@ impl Vault {
     /// sha256 over a fixed text form of the proposal. The guardian computes the same string.
     fn proposal_hash_of(&self, proposal: &Proposal) -> String {
         let r = &proposal.request;
-        let text = format!(
+        let mut text = format!(
             "veto:v1:{}:{}:{}:{}:{}:{}:{}:{}",
             env::current_account_id(),
             proposal.id.0,
@@ -914,6 +1060,9 @@ impl Vault {
             r.memo.as_deref().unwrap_or(""),
             proposal.context_hash.as_deref().unwrap_or(""),
         );
+        if let Some(e) = &proposal.external {
+            text.push_str(&format!(":{}:{}:{}:{}", e.provider, e.wallet, e.approval_id, e.op_hash));
+        }
         hex::encode(env::sha256_array(text.as_bytes()))
     }
 }

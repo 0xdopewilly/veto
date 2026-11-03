@@ -30,6 +30,15 @@ export interface VerdictRecord {
   recorded_at: string;
 }
 
+/** A payment held by an external agent wallet (e.g. OutLayer) until the guardian votes. */
+export interface ExternalPayment {
+  provider: string;
+  wallet: string;
+  approval_id: string;
+  op_hash: string;
+  tx_hash: string | null;
+}
+
 export interface Proposal {
   id: string;
   agent: string;
@@ -41,6 +50,7 @@ export interface Proposal {
   verdict: VerdictRecord | null;
   override_executes_at: string | null;
   settled_at: string | null;
+  external?: ExternalPayment | null;
 }
 
 export interface Payee {
@@ -69,9 +79,10 @@ export const sha256Hex = (data: string | Uint8Array): string =>
   bytesToHex(sha256(typeof data === "string" ? utf8ToBytes(data) : data));
 
 /** Must match `proposal_hash_of` in contract/src/lib.rs exactly. */
-export function proposalHash(vaultId: string, proposal: Pick<Proposal, "id" | "request" | "context_hash">): string {
+export function proposalHash(vaultId: string, proposal: Pick<Proposal, "id" | "request" | "context_hash" | "external">): string {
   const r = proposal.request;
-  const text = [
+  const e = proposal.external;
+  const parts = [
     "veto",
     "v1",
     vaultId,
@@ -82,8 +93,9 @@ export function proposalHash(vaultId: string, proposal: Pick<Proposal, "id" | "r
     r.amount,
     r.memo ?? "",
     proposal.context_hash ?? "",
-  ].join(":");
-  return sha256Hex(text);
+    ...(e ? [e.provider, e.wallet, e.approval_id, e.op_hash] : []),
+  ];
+  return sha256Hex(parts.join(":"));
 }
 
 /** Canonical bytes of the private evidence an agent attaches to a proposal. */

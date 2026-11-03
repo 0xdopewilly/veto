@@ -1,5 +1,7 @@
+import { after } from "next/server";
 import { teraToGas } from "near-api-js";
 import { allow, demo, demoAccounts } from "@/lib/server/demo";
+import { approveAndSettle } from "@/lib/server/outlayer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,6 +39,14 @@ export async function POST(req: Request) {
       actions: [(await import("near-api-js")).actions.functionCall(action, parsed, teraToGas("100"), 0n)],
       waitUntil: "FINAL",
     });
+    // An override on an OutLayer payment releases it there too: the guardian votes yes.
+    if (action === "execute_override") {
+      const { reader } = demoAccounts();
+      after(async () => {
+        const p = await reader.proposal(parsed.id as string);
+        if (p?.external && p.status === "Executing") await approveAndSettle(p).catch((e) => console.error(`override vote for ${p.id} failed:`, (e as Error).message));
+      });
+    }
     return Response.json({ tx: outcome.transaction.hash });
   } catch (e) {
     const message = (e as Error).message.replace(/^.*Smart contract panicked: /, "");

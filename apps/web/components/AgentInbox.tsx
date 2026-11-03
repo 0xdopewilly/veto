@@ -11,6 +11,7 @@ import { shortAddress } from "@/lib/format";
 import { CORAL, useOpenDecision } from "./DecisionCard";
 import { Icon } from "./Icon";
 import { Pill } from "./Pill";
+import { Segmented } from "./Segmented";
 import { Sheet } from "./Sheet";
 import { VLoader } from "./VLoader";
 import styles from "./AgentInbox.module.css";
@@ -28,7 +29,11 @@ export function AgentInbox({ titleId = "inbox-title", compact = false }: { title
         <div className={styles.headText}>
           <h2 id={titleId} className={styles.title}>Agent inbox</h2>
           <p className={styles.sub}>
-            {demo.info ? (
+            {demo.info && demo.payFrom === "outlayer" && demo.info.outlayer ? (
+              <>
+                The agent pays from its OutLayer wallet <span className="mono">{shortAddress(demo.info.outlayer.wallet)}</span>. The wallet holds each payment until Veto approves it.
+              </>
+            ) : demo.info ? (
               <>
                 <span className="mono">{demo.info.agent.account}</span> pays what these emails ask. Veto screens each payment first.
               </>
@@ -46,6 +51,21 @@ export function AgentInbox({ titleId = "inbox-title", compact = false }: { title
             {demo.info.guardian.test_signer ? "Screened by a local test signer" : `Screened by ${demo.info.guardian.model}`}
           </span>
           <span className={styles.metaChip}>Testnet</span>
+        </div>
+      )}
+
+      {demo.info?.outlayer && (
+        <div className={styles.payFrom}>
+          <span className={styles.payFromLabel}>Pay from</span>
+          <Segmented
+            label="Pay from"
+            value={demo.payFrom}
+            onChange={demo.setPayFrom}
+            options={[
+              { value: "vault", label: "Veto vault" },
+              { value: "outlayer", label: "OutLayer wallet" },
+            ]}
+          />
         </div>
       )}
 
@@ -129,7 +149,19 @@ function ScenarioCard({ scenario, run, index, busy, compact }: { scenario: DemoS
             transition={SPRING_UI}
             aria-live="polite"
           >
-            <Stage done={!sending} active={sending} label={sending ? "Agent is proposing the payment" : "Agent proposed the payment"}>
+            <Stage
+              done={!sending}
+              active={sending}
+              label={
+                run.via === "outlayer"
+                  ? sending
+                    ? "Agent is asking its OutLayer wallet to pay"
+                    : "OutLayer is holding it for Veto"
+                  : sending
+                    ? "Agent is proposing the payment"
+                    : "Agent proposed the payment"
+              }
+            >
               {run.tx && (
                 <a className={styles.tx} href={`${EXPLORER}/txns/${run.tx}`} target="_blank" rel="noreferrer">
                   tx <Icon name="external" size={11} stroke={2.25} />
@@ -171,7 +203,9 @@ function Verdict({ proposal }: { proposal: Proposal }) {
         <Icon name={vetoed ? "x" : paid ? "check" : "clock"} size={13} stroke={3} />
         {label}
       </span>
-      <span className={styles.verdictText}>{vetoed && reason ? reasonText(reason) : paid ? "Both checks passed." : ""}</span>
+      <span className={styles.verdictText}>
+        {vetoed && reason ? reasonText(reason) : paid ? (proposal.external ? "Both checks passed. Veto approved it on OutLayer." : "Both checks passed.") : ""}
+      </span>
       <a
         href={href}
         className={styles.open}

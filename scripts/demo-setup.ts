@@ -1,12 +1,14 @@
 // Builds the public testnet demo: a fresh vault on the current contract, test USDC, the
-// agent, guardian and demo-owner keys, and the env file the web app's demo API reads.
+// agent, guardian and demo-owner keys, an OutLayer agent wallet that needs Veto's approval,
+// and the env file the web app's demo API reads.
 // Safe to re-run; finished steps are skipped.
-//   node scripts/demo-setup.ts            (profile "demo", state in .veto-dev/demo.json)
+//   node scripts/demo-setup.ts            (profile "demo2", state in .veto-dev/demo2.json)
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { Wallet } from "ethers";
-import { actions, nearToYocto, PublicKey, teraToGas, yoctoToNear } from "near-api-js";
-import { DEFAULT_MODEL, modelAttestation } from "@veto/core";
-process.env.VETO_PROFILE ??= "demo";
+import { actions, KeyPair, nearToYocto, PublicKey, teraToGas, yoctoToNear, type KeyPairString } from "near-api-js";
+import { DEFAULT_MODEL, modelAttestation, OutLayer } from "@veto/core";
+// "demo2": the vault with external-wallet payments. The older "demo" vault can't be upgraded in place.
+process.env.VETO_PROFILE ??= "demo2";
 const { account, exists, loadState, newKey, saveState } = await import("./dev-state.ts");
 
 const NETWORK = "testnet";
@@ -24,6 +26,8 @@ const SUBS = {
   "kano-cotton": { role: "payee", fund: "0.05" },
   "ibadan-dye": { role: "payee", fund: "0.05" },
   "kano-cottom": { role: "payee", fund: "0.05" },
+  // Votes on the OutLayer wallet's approvals. OutLayer needs a full-access key; the account holds no funds.
+  approver: { role: "approver", fund: "0.05" },
 } as const;
 
 const state = loadState(NETWORK);
@@ -177,12 +181,76 @@ async function narrowKey(holder: { accountId: string; key: `ed25519:${string}` }
   return key.toString() as `ed25519:${string}`;
 }
 if (!state.agentProposeKey) state.agentProposeKey = await narrowKey(state.agent!, ["propose"]);
-if (!state.guardianVerdictKey) state.guardianVerdictKey = await narrowKey(state.guardian!, ["submit_verdict", "expire"]);
+if (!state.guardianVerdictKey) state.guardianVerdictKey = await narrowKey(state.guardian!, ["submit_verdict", "expire", "propose_external", "settle_external"]);
 if (!state.ownerDemoKey) state.ownerDemoKey = await narrowKey(state.root, OWNER_METHODS);
 saveState(state);
 log("agent, guardian and demo-owner keys are limited to their vault methods");
 
-// 8. Env for the web app's demo API (gitignored).
+// 8. An OutLayer agent wallet whose policy needs an approval for every payment: Veto's
+// approver or the owner. The root is the wallet's owner, as it is the vault's.
+const outlayer = new OutLayer("testnet");
+if (!state.outlayer) {
+  const r = await outlayer.call<{ wallet_id: string; api_key: string; near_account_id: string }>("POST", "/register");
+  state.outlayer = { walletId: r.wallet_id, apiKey: r.api_key, account: r.near_account_id };
+  saveState(state);
+  log(`registered OutLayer wallet ${r.near_account_id}`);
+}
+const wallet = state.outlayer.account;
+if (!(await exists(wallet, NETWORK))) {
+  await root.transfer({ receiverId: wallet, amount: nearToYocto("0.5") });
+  log("funded the OutLayer wallet with 0.5 NEAR for gas");
+}
+if (!(await view(tokenId, "storage_balance_of", { account_id: wallet }))) {
+  await call(tokenId, "storage_deposit", { account_id: wallet, registration_only: true }, nearToYocto("0.00125"));
+  await call(tokenId, "mint", { account_id: wallet, amount: String(3_000n * USD) });
+  log("minted $3,000.00 test USDC to the OutLayer wallet");
+}
+if (!state.outlayer.policyTx) {
+  const approverKey = KeyPair.fromString(state.approver!.key as KeyPairString).getPublicKey();
+  const policy = {
+    wallet_id: state.outlayer.walletId,
+    rules: { transaction_types: ["transfer", "call"] },
+    approval: {
+      threshold: { required: 1 },
+      approvers: [
+        { id: state.approver!.accountId, role: "signer", pubkey: approverKey.toString() },
+        { id: state.root.accountId, role: "admin", pubkey: KeyPair.fromString(state.root.key as KeyPairString).getPublicKey().toString() },
+      ],
+    },
+  };
+  const wk = state.outlayer.apiKey;
+  const enc = await outlayer.call<{ encrypted_base64: string }>("POST", "/wallet/v1/encrypt-policy", { key: wk, body: policy });
+  const sig = await outlayer.call<{ signature_hex: string; public_key_hex: string }>("POST", "/wallet/v1/sign-policy", {
+    key: wk,
+    body: { encrypted_data: enc.encrypted_base64, caller: state.root.accountId },
+  });
+  // encrypt-policy's own wallet_pubkey field holds the wallet id; the contract wants the key.
+  const walletPubkey = `ed25519:${sig.public_key_hex}`;
+  const cost = await view<string>(outlayer.contract, "estimate_wallet_policy_cost", { wallet_pubkey: walletPubkey, encrypted_data: enc.encrypted_base64 });
+  const out = await root.signAndSendTransaction({
+    receiverId: outlayer.contract,
+    actions: [
+      actions.functionCall(
+        "store_wallet_policy",
+        { wallet_pubkey: walletPubkey, encrypted_data: enc.encrypted_base64, wallet_signature: sig.signature_hex },
+        teraToGas("100"),
+        BigInt(cost) + nearToYocto("0.01"),
+      ),
+    ],
+    waitUntil: "FINAL",
+  });
+  await outlayer.call("POST", "/wallet/v1/invalidate-cache", { body: { wallet_id: state.outlayer.walletId } });
+  state.outlayer.policyTx = out.transaction.hash;
+  saveState(state);
+  log(`stored the OutLayer wallet policy: every payment needs Veto's approver or the owner (tx ${out.transaction.hash})`);
+}
+const wallets = await view<[string, unknown][]>(vaultId, "get_wallets");
+if (!wallets.some(([id]) => id === wallet)) {
+  await call(vaultId, "add_wallet", { provider: "outlayer", wallet, name: "Buyer agent's OutLayer wallet" });
+  log("registered the OutLayer wallet with the vault");
+}
+
+// 9. Env for the web app's demo API (gitignored).
 const rootEnv = new URL("../.env.local", import.meta.url);
 const nearAiKey = existsSync(rootEnv) ? readFileSync(rootEnv, "utf8").match(/^NEARAI_API_KEY=(.*)$/m)?.[1]?.trim() ?? "" : "";
 const env = {
@@ -199,6 +267,10 @@ const env = {
   DEMO_OWNER_ACCOUNT_ID: state.root.accountId,
   DEMO_OWNER_KEY: state.ownerDemoKey,
   DEMO_TEST_SIGNER_KEY: state.testSignerKey,
+  DEMO_OUTLAYER_WALLET: wallet,
+  DEMO_OUTLAYER_WALLET_KEY: state.outlayer.apiKey,
+  DEMO_OUTLAYER_APPROVER_ID: state.approver!.accountId,
+  DEMO_OUTLAYER_APPROVER_KEY: state.approver!.key,
   NEARAI_API_KEY: nearAiKey,
 };
 const envFile = new URL("../apps/web/.env.local", import.meta.url);

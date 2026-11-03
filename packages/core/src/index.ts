@@ -6,3 +6,4 @@ export * from "./vault.ts";
 export * from "./screener.ts";
 export * from "./intents.ts";
 export * from "./pipeline.ts";
+export * from "./outlayer.ts";

@@ -514,3 +514,114 @@ fn unknown_chains_are_refused_at_proposal() {
     let mut vault = setup();
     propose_base(&mut vault, 100);
 }
+
+// ------------------------------------------------------------- external agent wallets
+
+const WALLET: &str = "9717ac438a948ce5a42f766ea07352892f76fefc9346adfde3ff57d407350988";
+const OP_HASH: &str = "87427b8b0c1f3a5e9d2b4c6a8e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f";
+
+fn external(approval: &str) -> ExternalPayment {
+    ExternalPayment {
+        provider: "outlayer".into(),
+        wallet: WALLET.into(),
+        approval_id: approval.into(),
+        op_hash: OP_HASH.into(),
+        tx_hash: None,
+    }
+}
+
+fn setup_external() -> Vault {
+    let mut vault = setup();
+    context(owner(), HOUR);
+    vault.add_wallet("outlayer".into(), WALLET.parse().unwrap(), "Buyer agent (OutLayer)".into());
+    vault
+}
+
+fn propose_ext(vault: &mut Vault, amount_dollars: u128, approval: &str) -> u64 {
+    context(guardian(), HOUR);
+    vault.propose_external(request(amount_dollars), None, external(approval)).0
+}
+
+#[test]
+fn external_pass_waits_for_the_wallet_then_settles() {
+    let mut vault = setup_external();
+    let id = propose_ext(&mut vault, 300, "appr-1");
+    assert_eq!(vault.get_proposal(U64(id)).unwrap().agent.as_str(), WALLET);
+    assert_eq!(submit(&mut vault, id, "PASS", HOUR + 1), Status::Executing);
+    // Approved here, so the spend counts and the guardian can still find it to vote.
+    assert_eq!(vault.get_spend(USDC.into()).spent.0, 300 * DOLLAR);
+    assert_eq!(vault.get_open_proposals().len(), 1);
+
+    context(guardian(), HOUR + 2);
+    assert_eq!(vault.settle_external(U64(id), true, Some("H9gwYcjFFpVF".into())), Status::Paid);
+    let p = vault.get_proposal(U64(id)).unwrap();
+    assert_eq!(p.external.unwrap().tx_hash.as_deref(), Some("H9gwYcjFFpVF"));
+    assert!(vault.get_open_proposals().is_empty());
+}
+
+#[test]
+fn external_failure_releases_spend() {
+    let mut vault = setup_external();
+    let id = propose_ext(&mut vault, 300, "appr-1");
+    submit(&mut vault, id, "PASS", HOUR + 1);
+    context(guardian(), HOUR + 2);
+    assert_eq!(vault.settle_external(U64(id), false, None), Status::Failed);
+    assert_eq!(vault.get_spend(USDC.into()).spent.0, 0);
+}
+
+#[test]
+fn external_veto_can_be_overridden_after_the_delay() {
+    let mut vault = setup_external();
+    let id = propose_ext(&mut vault, 300, "appr-1");
+    assert_eq!(submit(&mut vault, id, "VETO", HOUR + 1), Status::Vetoed);
+    assert!(vault.get_open_proposals().is_empty());
+
+    context(owner(), HOUR + 2);
+    vault.override_veto(U64(id));
+    context(stranger(), HOUR + 2 + DEFAULT_DELAY_SECS * NANOS_PER_SEC);
+    vault.execute_override(U64(id), None);
+    let p = vault.get_proposal(U64(id)).unwrap();
+    assert_eq!(p.status, Status::Executing);
+    assert_eq!(vault.get_open_proposals().len(), 1);
+}
+
+#[test]
+#[should_panic(expected = "only the guardian records external payments")]
+fn only_the_guardian_records_external_payments() {
+    let mut vault = setup_external();
+    context(agent(), HOUR);
+    vault.propose_external(request(100), None, external("appr-1"));
+}
+
+#[test]
+#[should_panic(expected = "wallet is not registered")]
+fn unregistered_wallets_are_refused() {
+    let mut vault = setup();
+    propose_ext(&mut vault, 100, "appr-1");
+}
+
+#[test]
+#[should_panic(expected = "this approval is already recorded")]
+fn an_approval_is_recorded_once() {
+    let mut vault = setup_external();
+    propose_ext(&mut vault, 100, "appr-1");
+    propose_ext(&mut vault, 100, "appr-1");
+}
+
+#[test]
+#[should_panic(expected = "amount exceeds the single-payment limit")]
+fn external_payments_meet_the_same_caps() {
+    let mut vault = setup_external();
+    propose_ext(&mut vault, 600, "appr-1");
+}
+
+#[test]
+fn external_hash_binds_the_approval() {
+    let mut vault = setup_external();
+    let a = propose_ext(&mut vault, 300, "appr-1");
+    let b = propose_ext(&mut vault, 300, "appr-2");
+    let (ha, hb) = (vault.get_proposal_hash(U64(a)), vault.get_proposal_hash(U64(b)));
+    assert_ne!(ha, hb);
+    // Mirrored in packages/core/test/core.test.ts.
+    assert_eq!(ha, "4206ccce7c38c2caeefafb2ea0073b28234f19eefc61243f48bfbe4ec2cf12af");
+}

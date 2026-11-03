@@ -1,19 +1,27 @@
 // Veto guardian: watches a vault, screens each proposed payment privately and submits
-// the signed verdict on-chain.
+// the signed verdict on-chain. It also approves for OutLayer agent wallets: an agent hands
+// over a pending approval, the guardian records and screens it on the vault, and votes yes
+// on OutLayer only once the vault has passed it.
 //
 //   NEARAI_API_KEY=... node services/guardian/src/main.ts
 //
 // Config (env): VAULT_ID, NEAR_NETWORK (testnet|mainnet), GUARDIAN_ACCOUNT_ID,
 // GUARDIAN_PRIVATE_KEY, NEARAI_API_KEY, NEARAI_MODEL, PORT. On testnet, anything not set
 // is read from .veto-dev/testnet.json. VETO_SCREENER=dev uses the local dev screener.
+// OutLayer: OUTLAYER_APPROVER_ID and OUTLAYER_APPROVER_KEY (a full-access key of the
+// account named as an approver on the wallet's policy).
 import { createServer } from "node:http";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { Account, teraToGas } from "near-api-js";
+import { Account, teraToGas, type KeyPairString } from "near-api-js";
 import {
+  approvePassed,
   canonicalJson,
   DEFAULT_MODEL,
+  OutLayer,
   provider,
+  recordApproval,
   screenAndSubmit,
+  settleFromTx,
   sha256Hex,
   VaultReader,
   type Network,
@@ -40,14 +48,21 @@ const screener: Screener =
     ? new DevScreener(process.env.VETO_DEV_SIGNER_KEY)
     : new NearAiScreener(requireEnv("NEARAI_API_KEY"), process.env.NEARAI_MODEL ?? DEFAULT_MODEL);
 
+const outlayer = new OutLayer(network);
+const approver = process.env.OUTLAYER_APPROVER_ID && process.env.OUTLAYER_APPROVER_KEY
+  ? { accountId: process.env.OUTLAYER_APPROVER_ID, key: process.env.OUTLAYER_APPROVER_KEY as KeyPairString }
+  : null;
+
 const DATA = new URL(`data/${vaultId}/`, ROOT);
 mkdirSync(new URL("evidence/", DATA), { recursive: true });
 mkdirSync(new URL("audit/", DATA), { recursive: true });
 
 const inFlight = new Set<string>();
+const voted = new Set<string>();
 const log = (msg: string) => console.log(`${new Date().toISOString().slice(11, 19)}  ${msg}`);
 
 log(`guardian ${guardianId} watching ${vaultId} on ${network} with ${screener.model}`);
+if (approver) log(`approving for OutLayer wallets as ${approver.accountId}`);
 if (screener instanceof DevScreener) log(`dev screener signing as ${screener.wallet.address} (local testing only)`);
 
 setInterval(() => void tick().catch((e) => log(`watch error: ${e.message}`)), 2000);
@@ -55,6 +70,14 @@ void tick();
 
 async function tick() {
   for (const proposal of await vault.openProposals()) {
+    // Passed here (or an override that came due): release it on the wallet.
+    if (proposal.external && proposal.status === "Executing" && approver && !voted.has(proposal.id)) {
+      voted.add(proposal.id);
+      approvePassed({ outlayer, proposal, approver })
+        .then(() => log(`proposal ${proposal.id}: approved on OutLayer (${proposal.external!.approval_id})`))
+        .catch((e) => (voted.delete(proposal.id), log(`proposal ${proposal.id}: OutLayer vote failed: ${e.message}`)));
+      continue;
+    }
     if (proposal.status !== "Screening" || inFlight.has(proposal.id)) continue;
     inFlight.add(proposal.id);
     handle(proposal)
@@ -124,6 +147,24 @@ createServer(async (req, res) => {
       if (sha256Hex(canonicalJson(evidence)) !== context_hash) return json(res, 400, { error: "evidence does not match context_hash" });
       writeFileSync(new URL(`evidence/${context_hash}.json`, DATA), JSON.stringify(evidence));
       return json(res, 200, { ok: true });
+    }
+    // An agent with an OutLayer wallet hands over the approval its payment is waiting on.
+    if (req.method === "POST" && url.pathname === "/outlayer/approvals") {
+      const { approval_id, evidence } = JSON.parse(await body(req));
+      if (typeof approval_id !== "string") return json(res, 400, { error: "approval_id is required" });
+      if (evidence !== undefined) writeFileSync(new URL(`evidence/${sha256Hex(canonicalJson(evidence))}.json`, DATA), JSON.stringify(evidence));
+      const proposal = await recordApproval({ vault, guardian, approval: await outlayer.approval(approval_id), evidence });
+      log(`proposal ${proposal.id}: recorded OutLayer approval ${approval_id}`);
+      return json(res, 200, { proposal_id: proposal.id });
+    }
+    // ...and reports the wallet's transaction once OutLayer sent it. Checked on NEAR before it counts.
+    if (req.method === "POST" && url.pathname === "/outlayer/settled") {
+      const { proposal_id, tx_hash } = JSON.parse(await body(req));
+      const proposal = await vault.proposal(String(proposal_id));
+      if (!proposal?.external) return json(res, 404, { error: "no such external payment" });
+      const status = await settleFromTx({ vault, guardian, proposal, txHash: String(tx_hash) });
+      log(`proposal ${proposal.id}: ${status} (tx ${tx_hash})`);
+      return json(res, 200, { status });
     }
     const audit = url.pathname.match(/^\/proposals\/(\d+)\/audit$/);
     if (req.method === "GET" && audit) {

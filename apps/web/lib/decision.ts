@@ -73,6 +73,9 @@ export function compareAddresses(saved: string, requested: string) {
 /** True for verdicts signed by a local test key rather than a NEAR AI enclave. */
 export const isTestSigner = (modelId: string) => modelId.startsWith("veto-dev/");
 
+/** Who asked for the payment: the agent's account, or the OutLayer wallet it pays from. */
+export const requesterLabel = (p: Proposal) => (p.external ? `${shortAddress(p.external.wallet)} (OutLayer wallet)` : p.agent);
+
 const SIGNAL_WEIGHT: Record<string, number> = { NEW_PAYEE: 3, LOOKALIKE_ADDRESS: 4, DUPLICATE_INVOICE: 4, AMOUNT_ANOMALY: 3 };
 
 /** How loudly a payment's risk signals fired, as 0–10 segments for the signal bar. */

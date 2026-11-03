@@ -7,7 +7,7 @@ import { metaOf, useVault, type VaultState } from "@/lib/vault";
 import { useProposal } from "@/lib/useProposal";
 import { useKeptBlocked } from "@/lib/dismissed";
 import { useNow } from "@/lib/useNow";
-import { STATUS_TEXT, imitated, isTestSigner, listedPayee, payeeHistory, payeeLabel, reasonText } from "@/lib/decision";
+import { STATUS_TEXT, imitated, isTestSigner, listedPayee, payeeHistory, payeeLabel, reasonText, requesterLabel } from "@/lib/decision";
 import {
   formatAmount,
   formatDuration,
@@ -152,7 +152,7 @@ function Vetoed({ state, p }: { state: VaultState; p: Proposal }) {
             to {shortAddress(p.request.payee)} on {p.request.chain.toUpperCase()}
           </span>
           <p className={`${styles.request} rise`} style={delay(540)}>
-            <span className="mono">{p.agent}</span> tried to pay {what}.
+            <span className="mono">{requesterLabel(p)}</span> tried to pay {what}.{p.external ? " OutLayer is holding it; Veto never approved it." : ""}
           </p>
         </div>
         <div className={`${styles.bandActions} rise`} style={delay(600)}>{actions}</div>
@@ -395,6 +395,15 @@ function Paid({ state, p }: { state: VaultState; p: Proposal }) {
             </div>
             <span className={styles.passBadge}>Pass</span>
           </div>
+          {p.external && (
+            <div className={styles.checkRow}>
+              <div>
+                <span className={styles.checkName}>OutLayer wallet</span>
+                <span className={styles.checkDetail}>Held the payment until both checks passed, then sent it on Veto's approval.</span>
+              </div>
+              <span className={styles.passBadge}>Sent</span>
+            </div>
+          )}
           <Circuit ai="pass" paid delay={500} play={play} />
         </section>
 
@@ -421,7 +430,11 @@ function InFlight({ state, p }: { state: VaultState; p: Proposal }) {
         <LineReveal as="h1" className={styles.plainTitle} text={screening ? "Screening privately" : "Sending"} />
         <p className={`${styles.plainText} rise`} style={delay(80)}>
           {formatAmount(p.request.amount, meta)} to <span className="mono">{shortAddress(p.request.payee)}</span>
-          {screening ? ", inside an enclave on NEAR AI Cloud." : ". Both checks passed; the transfer is on its way."}
+          {screening
+            ? ", inside an enclave on NEAR AI Cloud."
+            : p.external
+              ? ". Both checks passed; Veto approved it on OutLayer and the wallet is sending it."
+              : ". Both checks passed; the transfer is on its way."}
         </p>
         {screening && (
           <p className={styles.plainMuted}>
@@ -440,7 +453,7 @@ function InFlight({ state, p }: { state: VaultState; p: Proposal }) {
 
 const CLOSED: Record<string, { title: string; text: string }> = {
   Expired: { title: "Expired", text: "No verdict arrived before the deadline, so the payment failed closed. Nothing was paid." },
-  Cancelled: { title: "Cancelled", text: "The override was cancelled before it paid. Nothing left the vault." },
+  Cancelled: { title: "Cancelled", text: "The override was cancelled before it paid. Nothing was paid." },
   Failed: { title: "Transfer failed", text: "Both checks passed but the transfer didn't go through. The amount was released back to this period's limit." },
 };
 
@@ -458,7 +471,7 @@ function Closed({ state, p }: { state: VaultState; p: Proposal }) {
         <p className={`${styles.plainText} rise`} style={delay(80)}>{copy.text}</p>
         <p className={`${styles.plainMuted} rise`} style={delay(140)}>
           {formatAmount(p.request.amount, meta)} to <span className="mono">{shortAddress(p.request.payee)}</span>, proposed by{" "}
-          <span className="mono">{p.agent}</span>, {formatWhen(p.created_at)}.
+          <span className="mono">{requesterLabel(p)}</span>, {formatWhen(p.created_at)}.
         </p>
         {p.verdict && (
           <div className={`${styles.closedProof} ${styles.panel} rise`} style={delay(200)}>

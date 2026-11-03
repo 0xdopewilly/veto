@@ -21,11 +21,17 @@ export interface DemoInfo {
   agent: { account: string };
   guardian: { account: string; model: string; test_signer: boolean };
   owner: { account: string } | null;
+  /** The agent's OutLayer wallet, when the demo has one: it holds each payment for Veto's approval. */
+  outlayer: { wallet: string; approver: string } | null;
   scenarios: DemoScenario[];
 }
 
+/** Where the demo agent pays from. */
+export type PayFrom = "vault" | "outlayer";
+
 export interface DemoRun {
   scenario: string;
+  via: PayFrom;
   proposalId?: string;
   tx?: string;
   error?: string;
@@ -48,6 +54,8 @@ interface DemoContextValue {
   status: "loading" | "ready" | "unavailable";
   info: DemoInfo | null;
   runs: Record<string, DemoRun>;
+  payFrom: PayFrom;
+  setPayFrom: (via: PayFrom) => void;
   /** Asks the server's demo agent to propose this scenario's payment. */
   run: (scenario: string) => Promise<DemoRun>;
   /** Sends an owner action through the server's testnet demo owner key. */
@@ -68,6 +76,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<DemoContextValue["status"]>("loading");
   const [info, setInfo] = useState<DemoInfo | null>(null);
   const [runs, setRuns] = useState<Record<string, DemoRun>>({});
+  const [payFrom, setPayFrom] = useState<PayFrom>("vault");
 
   useEffect(() => {
     let cancelled = false;
@@ -97,10 +106,11 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const run = useCallback(async (scenario: string) => {
-    const started: DemoRun = { scenario, startedAt: Date.now() };
+    const via = payFrom;
+    const started: DemoRun = { scenario, via, startedAt: Date.now() };
     setRuns((r) => ({ ...r, [scenario]: started }));
     try {
-      const res = await post<{ proposal_id: string; tx: string }>("/api/demo/run", { scenario });
+      const res = await post<{ proposal_id: string; tx: string }>("/api/demo/run", { scenario, via });
       const done = { ...started, proposalId: res.proposal_id, tx: res.tx };
       setRuns((r) => ({ ...r, [scenario]: done }));
       return done;
@@ -109,7 +119,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       setRuns((r) => ({ ...r, [scenario]: failed }));
       return failed;
     }
-  }, []);
+  }, [payFrom]);
 
   const owner = useCallback((action: string, args: Record<string, unknown>) => post<{ tx?: string }>("/api/demo/owner", { action, args }), []);
 
@@ -118,7 +128,10 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     [status, info],
   );
 
-  const value = useMemo(() => ({ status, info, runs, run, owner, canActAsOwner }), [status, info, runs, run, owner, canActAsOwner]);
+  const value = useMemo(
+    () => ({ status, info, runs, payFrom, setPayFrom, run, owner, canActAsOwner }),
+    [status, info, runs, payFrom, run, owner, canActAsOwner],
+  );
   return <DemoContext.Provider value={value}>{children}</DemoContext.Provider>;
 }
 

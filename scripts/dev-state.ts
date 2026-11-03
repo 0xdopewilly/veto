@@ -25,6 +25,8 @@ export interface DevState {
   ownerDemoKey?: KeyPairString;
   testSignerKey?: string;
   testSignerAddress?: string;
+  approver?: DevAccount;
+  outlayer?: { walletId: string; apiKey: string; account: string; policyTx?: string };
 }
 
 const DIR = new URL("../.veto-dev/", import.meta.url);
