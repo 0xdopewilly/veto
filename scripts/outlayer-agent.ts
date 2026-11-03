@@ -4,7 +4,7 @@
 //   node scripts/outlayer-agent.ts      (needs `node scripts/demo-setup.ts` and a running guardian)
 import { readFileSync } from "node:fs";
 import { toUnits, VetoOutLayer } from "@veto/sdk";
-process.env.VETO_PROFILE ??= "demo2";
+process.env.VETO_PROFILE ??= "demo3";
 const { loadState } = await import("./dev-state.ts");
 
 const state = loadState("testnet");

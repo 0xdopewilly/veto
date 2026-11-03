@@ -20,6 +20,8 @@ export interface Screened {
 const decimalsCache = new Map<string, number>([["near", 24]]);
 
 async function decimalsOf(vault: VaultReader, asset: string) {
+  // "<chain>:<coin>" is a native EVM coin, paid from the vault's Chain Signatures address.
+  if (asset.includes(":")) return 18;
   if (!decimalsCache.has(asset)) {
     const meta = (await vault.rpc.callFunction({ contractId: asset, method: "ft_metadata", args: {} })) as { decimals: number };
     decimalsCache.set(asset, meta.decimals);

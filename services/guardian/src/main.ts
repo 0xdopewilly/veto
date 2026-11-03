@@ -7,7 +7,7 @@
 //
 // Config (env): VAULT_ID, NEAR_NETWORK (testnet|mainnet), GUARDIAN_ACCOUNT_ID,
 // GUARDIAN_PRIVATE_KEY, NEARAI_API_KEY, NEARAI_MODEL, PORT. On testnet, anything not set
-// is read from the dev profile (.veto-dev/$VETO_PROFILE.json, "demo2" by default, as written by
+// is read from the dev profile (.veto-dev/$VETO_PROFILE.json, "demo3" by default, as written by
 // scripts/demo-setup.ts). VETO_SCREENER=dev uses the local dev screener with the profile's
 // test key, which the demo vault trusts until a NEAR AI key is connected.
 // OutLayer: OUTLAYER_APPROVER_ID and OUTLAYER_APPROVER_KEY (a full-access key of the
@@ -41,7 +41,7 @@ import { DevScreener, NearAiScreener, type Screener } from "@veto/core";
 const ROOT = new URL("../../../", import.meta.url);
 loadEnvFile(new URL(".env.local", ROOT));
 const network = (process.env.NEAR_NETWORK ?? "testnet") as Network;
-const profile = new URL(`.veto-dev/${process.env.VETO_PROFILE ?? "demo2"}.json`, ROOT);
+const profile = new URL(`.veto-dev/${process.env.VETO_PROFILE ?? "demo3"}.json`, ROOT);
 const dev = network === "testnet" && existsSync(profile) ? JSON.parse(readFileSync(profile, "utf8")) : {};
 const vaultId: string = process.env.VAULT_ID ?? dev.vault?.accountId;
 const guardianId: string = process.env.GUARDIAN_ACCOUNT_ID ?? dev.guardian?.accountId;

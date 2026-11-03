@@ -3,7 +3,7 @@
 // Veto is there to catch.   node scripts/demo-agent.ts   (guardian must be running)
 import { readFileSync } from "node:fs";
 import { Veto, toUnits } from "@veto/sdk";
-process.env.VETO_PROFILE ??= "demo2";
+process.env.VETO_PROFILE ??= "demo3";
 const { loadState } = await import("./dev-state.ts");
 
 const state = loadState("testnet") as ReturnType<typeof loadState> & { token?: { accountId: string } };
