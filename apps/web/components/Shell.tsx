@@ -21,6 +21,8 @@ import { RouteStage, levelOf } from "./RouteStage";
 import { FreezeSheet } from "./FreezeSheet";
 import { VaultSwitcher } from "./VaultSwitcher";
 import { InboxSheet } from "./AgentInbox";
+import { NotificationsSheet } from "./NotificationsSheet";
+import { WalletSheet } from "./WalletSheet";
 import { MorphOverlay } from "./MorphOverlay";
 import { Spotlight } from "./Spotlight";
 import { ToastProvider, useToast } from "./Toaster";
@@ -30,8 +32,13 @@ interface ShellApi {
   openFreeze: () => void;
   openInbox: () => void;
   openVaults: () => void;
+  /** The bell: what needs a decision, then recent payments. */
+  openNotes: () => void;
+  /** The connected wallet's sheet; connects one first if there's none. */
+  openWallet: () => void;
 }
-const ShellContext = createContext<ShellApi>({ openFreeze: () => {}, openInbox: () => {}, openVaults: () => {} });
+const noop = () => {};
+const ShellContext = createContext<ShellApi>({ openFreeze: noop, openInbox: noop, openVaults: noop, openNotes: noop, openWallet: noop });
 export const useShell = () => useContext(ShellContext);
 
 interface NavItem {
@@ -106,10 +113,20 @@ function ShellFrame({ children }: { children: ReactNode }) {
   // The inbox belongs to the page it was opened on, so following a link out of it closes it.
   const [inboxAt, setInboxAt] = useState<string | null>(null);
   const inboxOpen = inboxAt === pathname;
+  // Same for notifications: opening a payment from the list closes it.
+  const [notesAt, setNotesAt] = useState<string | null>(null);
+  const [walletOpen, setWalletOpen] = useState(false);
+  const { accountId, connect } = useWallet();
   const showTabs = levelOf(pathname) === 0;
   const api = useMemo(
-    () => ({ openFreeze: () => setFreezeOpen(true), openInbox: () => setInboxAt(pathname), openVaults: () => setVaultsOpen(true) }),
-    [pathname],
+    () => ({
+      openFreeze: () => setFreezeOpen(true),
+      openInbox: () => setInboxAt(pathname),
+      openVaults: () => setVaultsOpen(true),
+      openNotes: () => setNotesAt(pathname),
+      openWallet: () => (accountId ? setWalletOpen(true) : void connect()),
+    }),
+    [pathname, accountId, connect],
   );
 
   return (
@@ -125,6 +142,8 @@ function ShellFrame({ children }: { children: ReactNode }) {
       <FreezeSheet open={freezeOpen} onClose={() => setFreezeOpen(false)} />
       <VaultSwitcher open={vaultsOpen} onClose={() => setVaultsOpen(false)} />
       <InboxSheet open={inboxOpen} onClose={() => setInboxAt(null)} />
+      <NotificationsSheet open={notesAt === pathname} onClose={() => setNotesAt(null)} />
+      <WalletSheet open={walletOpen} onClose={() => setWalletOpen(false)} onVaults={api.openVaults} />
       <MorphOverlay />
       <Spotlight />
     </ShellContext.Provider>
@@ -207,10 +226,10 @@ function Sidebar({ onFreeze, onVaults }: { onFreeze: () => void; onVaults: () =>
 /* ---------------------------------------------------------------- top bar */
 
 function TopBar() {
-  const router = useRouter();
   const { state, vaultName } = useVault();
   const { kept } = useKeptBlocked();
-  const { accountId, isOwner, connect } = useWallet();
+  const { accountId, isOwner } = useWallet();
+  const { openNotes, openWallet } = useShell();
   const attention = state ? needsDecision(state.proposals, kept) : [];
 
   return (
@@ -223,13 +242,13 @@ function TopBar() {
         </span>
         <button
           className={`${styles.circle} press`}
-          aria-label={attention.length ? `${attention.length} payment${attention.length === 1 ? "" : "s"} need your decision` : "No new notifications"}
-          onClick={() => attention[0] && router.push(`/app/decisions/${attention[0].id}`)}
+          aria-label={attention.length ? `Notifications: ${attention.length} payment${attention.length === 1 ? "" : "s"} need your decision` : "Notifications"}
+          onClick={openNotes}
         >
           <Icon name="bell" size={18} stroke={1.8} />
           {attention.length > 0 && <span className={styles.bellDot} aria-hidden="true" />}
         </button>
-        <button className={`${styles.account} press`} onClick={connect}>
+        <button className={`${styles.account} press`} onClick={openWallet}>
           <span className={styles.avatar} aria-hidden="true">
             {(accountId ?? vaultName)[0].toUpperCase()}
           </span>

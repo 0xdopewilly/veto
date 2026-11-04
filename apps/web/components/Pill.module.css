@@ -62,6 +62,15 @@
   background: var(--control-hover);
 }
 
+/* Quiet green, for an action repeated down a list. */
+.soft {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.soft:hover {
+  background: rgba(0, 236, 151, 0.22);
+}
+
 .danger {
   background: var(--coral);
   color: var(--black);

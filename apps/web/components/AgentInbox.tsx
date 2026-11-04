@@ -13,46 +13,59 @@ import { CORAL, useOpenDecision } from "./DecisionCard";
 import { Icon } from "./Icon";
 import { Pill } from "./Pill";
 import { Segmented } from "./Segmented";
-import { Sheet } from "./Sheet";
+import { Sheet, SheetHeader } from "./Sheet";
 import { VLoader } from "./VLoader";
 import styles from "./AgentInbox.module.css";
 
+/** "Qwen/Qwen3-VL-30B-A3B-Instruct" → "Qwen3-VL-30B". */
+const shortModel = (model: string) => (model.split("/").pop() ?? model).replace(/-Instruct$/i, "").replace(/-A\d+B$/i, "");
+
+/** Who pays these emails, in a line. */
+function InboxSub() {
+  const demo = useDemo();
+  if (demo.info && demo.payFrom === "outlayer" && demo.info.outlayer) {
+    return (
+      <>
+        The agent pays from its OutLayer wallet <span className="mono">{shortAddress(demo.info.outlayer.wallet)}</span>, which holds each payment until Veto approves it.
+      </>
+    );
+  }
+  return (
+    <>
+      Emails your agent{demo.info && <> (<span className="mono">{shortAddress(demo.info.agent.account)}</span>)</>} will pay. Veto screens each payment first.
+    </>
+  );
+}
+
+function InboxMeta() {
+  const demo = useDemo();
+  if (!demo.info) return null;
+  const { guardian } = demo.info;
+  return (
+    <div className={styles.meta}>
+      <span className={styles.metaChip} title={guardian.test_signer ? undefined : guardian.model}>
+        <span className={styles.metaDot} data-test={guardian.test_signer || undefined} />
+        {guardian.test_signer ? "Screened by a local test signer" : `Screened by ${shortModel(guardian.model)} in an enclave`}
+      </span>
+      <span className={styles.metaChip}>Testnet</span>
+    </div>
+  );
+}
+
 /** The demo agent's inbox: emails it will pay if you let it. Veto screens each payment. */
-export function AgentInbox({ titleId = "inbox-title", compact = false }: { titleId?: string; compact?: boolean }) {
+export function AgentInbox({ titleId = "inbox-title", compact = false, head = true }: { titleId?: string; compact?: boolean; head?: boolean }) {
   const demo = useDemo();
 
   return (
-    <div className={`${styles.inbox} ${compact ? styles.compact : ""}`}>
-      <header className={styles.head}>
-        <span className={styles.headIcon} aria-hidden="true">
-          <Icon name="mail" size={18} />
-        </span>
-        <div className={styles.headText}>
+    <div className={`${styles.inbox} ${compact ? styles.compact : ""} ${head ? "" : styles.headless}`}>
+      {head && (
+        <header className={styles.head}>
           <h2 id={titleId} className={styles.title}>Agent inbox</h2>
           <p className={styles.sub}>
-            {demo.info && demo.payFrom === "outlayer" && demo.info.outlayer ? (
-              <>
-                The agent pays from its OutLayer wallet <span className="mono">{shortAddress(demo.info.outlayer.wallet)}</span>. The wallet holds each payment until Veto approves it.
-              </>
-            ) : demo.info ? (
-              <>
-                <span className="mono">{demo.info.agent.account}</span> pays what these emails ask. Veto screens each payment first.
-              </>
-            ) : (
-              "Your agent pays what these emails ask. Veto screens each payment first."
-            )}
+            <InboxSub />
           </p>
-        </div>
-      </header>
-
-      {demo.info && (
-        <div className={styles.meta}>
-          <span className={styles.metaChip}>
-            <span className={styles.metaDot} data-test={demo.info.guardian.test_signer || undefined} />
-            {demo.info.guardian.test_signer ? "Screened by a local test signer" : `Screened by ${demo.info.guardian.model}`}
-          </span>
-          <span className={styles.metaChip}>Testnet</span>
-        </div>
+          <InboxMeta />
+        </header>
       )}
 
       {demo.info?.outlayer && (
@@ -96,7 +109,6 @@ export function AgentInbox({ titleId = "inbox-title", compact = false }: { title
               scenario={s}
               run={demo.runs[s.id]}
               index={i}
-              compact={compact}
               busy={Object.values(demo.runs).some((r) => r.proposalId === undefined && !r.error)}
             />
           ))}
@@ -106,7 +118,7 @@ export function AgentInbox({ titleId = "inbox-title", compact = false }: { title
   );
 }
 
-function ScenarioCard({ scenario, run, index, busy, compact }: { scenario: DemoScenario; run?: DemoRun; index: number; busy: boolean; compact: boolean }) {
+function ScenarioCard({ scenario, run, index, busy }: { scenario: DemoScenario; run?: DemoRun; index: number; busy: boolean }) {
   const demo = useDemo();
   const calm = useCalm();
   const { state } = useVault();
@@ -130,28 +142,34 @@ function ScenarioCard({ scenario, run, index, busy, compact }: { scenario: DemoS
     >
       <div className={styles.mailTop}>
         <span className={styles.avatar} aria-hidden="true">{initial}</span>
-        <span className={styles.mailFrom}>
-          <span className={styles.from}>{scenario.from}</span>
-          <span className={styles.payee}>to {shortAddress(scenario.payee)}</span>
-        </span>
+        <span className={styles.from}>{scenario.from}</span>
         <span className={styles.amount}>{amount}</span>
       </div>
       <p className={styles.subject}>{scenario.subject}</p>
       <p className={styles.preview}>{scenario.preview}</p>
 
-      <AnimatePresence mode="popLayout" initial={false}>
-        {own && run?.error ? (
-          <motion.p key="error" className={styles.error} role="alert" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            {run.error}
-          </motion.p>
-        ) : !run || run.error ? (
-          <motion.div key="cta" className={styles.cta} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.18 }}>
-            <Pill size={compact ? "sm" : "md"} full={!compact} icon="send" disabled={busy} onClick={() => demo.run(scenario.id)}>
-              Let the agent pay this
-            </Pill>
-            {run?.error && <p className={styles.error} role="alert">{run.error}</p>}
-          </motion.div>
-        ) : (
+      <div className={styles.foot}>
+        <span className={styles.payee}>
+          Pays <span className="mono">{shortAddress(scenario.payee)}</span>
+        </span>
+        <AnimatePresence initial={false}>
+          {(!run || (run.error && !own)) && (
+            <motion.span key="cta" className={styles.cta} exit={{ opacity: 0, scale: 0.94 }} transition={{ duration: 0.16 }}>
+              <Pill size="sm" variant="soft" icon="send" disabled={busy} onClick={() => demo.run(scenario.id)}>
+                Let the agent pay
+              </Pill>
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </div>
+      {run?.error && (
+        <motion.p className={styles.error} role="alert" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          {run.error}
+        </motion.p>
+      )}
+
+      <AnimatePresence initial={false}>
+        {run && !run.error && (
           <motion.ol
             key="stages"
             className={styles.stages}
@@ -230,11 +248,21 @@ function Verdict({ proposal }: { proposal: Proposal }) {
   );
 }
 
-/** The inbox as a bottom sheet on phones. */
+/** The inbox as a sheet: its title and who pays stay put while the emails scroll. */
 export function InboxSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
-    <Sheet open={open} onClose={onClose} labelledBy="inbox-sheet-title" wide>
-      <AgentInbox titleId="inbox-sheet-title" />
+    <Sheet
+      open={open}
+      onClose={onClose}
+      labelledBy="inbox-sheet-title"
+      wide
+      header={
+        <SheetHeader id="inbox-sheet-title" title="Agent inbox" sub={<InboxSub />} onClose={onClose}>
+          <InboxMeta />
+        </SheetHeader>
+      }
+    >
+      <AgentInbox head={false} />
     </Sheet>
   );
 }
@@ -261,6 +289,7 @@ function Composer({ vault, compact }: { vault: string; compact: boolean }) {
           <strong>Write your own email</strong>
           <span>A real AI agent reads it and pays what it asks. Try to sneak a scam past Veto.</span>
         </span>
+        <Icon name="arrowRight" size={16} className={styles.composeChevron} />
       </button>
     );
   }

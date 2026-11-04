@@ -6,11 +6,12 @@ import { Icon, type IconName } from "./Icon";
 import { VLoader } from "./VLoader";
 import styles from "./Pill.module.css";
 
-export type PillVariant = "primary" | "secondary" | "danger" | "ink" | "inkOutline" | "ghost";
+export type PillVariant = "primary" | "secondary" | "soft" | "danger" | "ink" | "inkOutline" | "ghost";
 
 const LOADER_TONE: Record<PillVariant, "dark" | "light" | "mono"> = {
   primary: "light",
   secondary: "dark",
+  soft: "dark",
   danger: "mono",
   ink: "dark",
   inkOutline: "mono",

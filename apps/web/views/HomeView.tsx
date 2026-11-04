@@ -75,9 +75,9 @@ export function HomeView() {
 
 function PhoneHome({ state }: { state: VaultState }) {
   const router = useRouter();
-  const { accountId, connect } = useWallet();
+  const { accountId } = useWallet();
   const { kept } = useKeptBlocked();
-  const { openFreeze, openInbox, openVaults } = useShell();
+  const { openFreeze, openInbox, openVaults, openNotes, openWallet } = useShell();
   const { vaultName } = useVault();
   const kind = useVaultKind();
   const o = useOverview(state, kept);
@@ -112,13 +112,13 @@ function PhoneHome({ state }: { state: VaultState }) {
             <div className={styles.circles}>
               <button
                 className={`${styles.circle} press`}
-                aria-label={o.attention.length ? `${o.attention.length} payment${o.attention.length === 1 ? "" : "s"} need your decision` : "No new notifications"}
-                onClick={() => lead && router.push(`/app/decisions/${lead.id}`)}
+                aria-label={o.attention.length ? `Notifications: ${o.attention.length} payment${o.attention.length === 1 ? "" : "s"} need your decision` : "Notifications"}
+                onClick={openNotes}
               >
                 <Icon name="bell" size={19} stroke={1.8} />
                 {o.attention.length > 0 && <span className={styles.alertDot} aria-hidden="true" />}
               </button>
-              <button className={`${styles.circle} press`} onClick={connect} aria-label={accountId ? `Signed in as ${accountId}` : "Connect wallet"}>
+              <button className={`${styles.circle} press`} onClick={openWallet} aria-label={accountId ? `Wallet: ${accountId}` : "Connect wallet"}>
                 <Icon name="wallet" size={19} stroke={1.75} />
                 {accountId && <span className={styles.liveDot} aria-hidden="true" />}
               </button>
