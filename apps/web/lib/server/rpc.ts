@@ -18,3 +18,26 @@ export function serverRpc(): JsonRpcProvider {
   // FailoverRpcProvider implements the same calls the app uses (callFunction, viewAccount).
   return shared as unknown as JsonRpcProvider;
 }
+
+/**
+ * An account's NEAR balance in yocto from the first RPC that answers: null if the account doesn't
+ * exist, undefined if no RPC answered. Raw JSON-RPC, because the failover provider wraps every
+ * error, including "no such account", in its own.
+ */
+export async function accountBalance(accountId: string): Promise<bigint | null | undefined> {
+  for (const url of RPC_ENDPOINTS) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: "veto", method: "query", params: { request_type: "view_account", finality: "optimistic", account_id: accountId } }),
+      });
+      const body = (await res.json()) as { result?: { amount?: string }; error?: { cause?: { name?: string } } };
+      if (body.result?.amount !== undefined) return BigInt(body.result.amount);
+      if (body.error?.cause?.name === "UNKNOWN_ACCOUNT") return null;
+    } catch {
+      // try the next RPC
+    }
+  }
+  return undefined;
+}

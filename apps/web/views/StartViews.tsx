@@ -100,7 +100,7 @@ type Phase = { step: "form" } | { step: "signing" } | { step: "creating"; tx?: s
 export function VaultSetupView() {
   const router = useRouter();
   const calm = useCalm();
-  const { accountId, ready, connect, callContract } = useWallet();
+  const { accountId, ready, connect, callContract, gas } = useWallet();
   const [reload, setReload] = useState(0);
   const mine = useMyVaults(accountId, reload);
   const [label, setLabel] = useState("");
@@ -117,6 +117,7 @@ export function VaultSetupView() {
   const nameValid = slug.length >= 2 && slug.length <= 24 && NAME_OK.test(slug);
   const atLimit = (mine?.length ?? 0) >= MAX_VAULTS;
   const busy = phase.step === "signing" || phase.step === "creating";
+  const fueling = gas.state === "sending";
 
   // Is the name free? Checked a moment after typing stops.
   useEffect(() => {
@@ -142,6 +143,7 @@ export function VaultSetupView() {
     if (!label.trim()) return setError("Give your vault a name.");
     if (!nameValid) return setError("The account name needs 2-24 lowercase letters, digits or single dashes.");
     if (taken) return setError("That account name is taken. Try another.");
+    if (fueling) return;
     setPhase({ step: "signing" });
     try {
       const result = await callContract(FACTORY_ID, "create_vault", { name: slug, label: label.trim(), mandate: mandate.trim() === DEFAULT_MANDATE ? null : mandate.trim() }, 200);
@@ -161,7 +163,7 @@ export function VaultSetupView() {
       throw new Error("The vault wasn't created. The name may have just been taken; try another.");
     } catch (e) {
       const message = e instanceof Error ? e.message.replace(/^.*Smart contract panicked: /, "") : "The wallet didn't send the transaction.";
-      setError(/reject|cancel|denied|closed/i.test(message) ? "You closed the wallet before signing. Nothing was sent." : message);
+      setError(gas.state === "failed" && /enough test NEAR/.test(message) ? `${message} ${gas.reason}` : message);
       setPhase({ step: "form" });
     }
   };
@@ -214,10 +216,43 @@ export function VaultSetupView() {
         <div className={`${styles.field} rise`} style={delay(140)}>
           <span>Owner</span>
           {accountId ? (
-            <span className={styles.owner}>
-              <span className={styles.ownerDot} aria-hidden="true" />
-              <span className="mono">{accountId}</span>
-            </span>
+            <>
+              <span className={styles.owner}>
+                <span className={styles.ownerDot} aria-hidden="true" />
+                <span className="mono">{accountId}</span>
+              </span>
+              <AnimatePresence initial={false}>
+                {(gas.state === "sending" || gas.state === "sent" || gas.state === "failed") && (
+                  <motion.span
+                    key={gas.state}
+                    className={styles.gasNote}
+                    data-tone={gas.state}
+                    role="status"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={SPRING_UI}
+                  >
+                    {gas.state === "sending" ? (
+                      <>
+                        <VLoader size={16} />
+                        Your wallet has no test NEAR yet. Sending it 0.2 for gas, free.
+                      </>
+                    ) : gas.state === "sent" ? (
+                      <>
+                        <Icon name="check" size={15} stroke={2.2} />
+                        Sent your wallet {gas.amount} test NEAR for gas, free.
+                      </>
+                    ) : (
+                      <>
+                        <Icon name="shield" size={15} />
+                        {gas.reason}
+                      </>
+                    )}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </>
           ) : (
             <button type="button" className={`${styles.connectRow} press`} onClick={connect} disabled={!ready}>
               <Icon name="wallet" size={17} />
@@ -324,8 +359,8 @@ export function VaultSetupView() {
       </AnimatePresence>
 
       <div className={`${styles.buttons} rise`} style={delay(400)}>
-        <Pill full icon={accountId ? "plus" : "wallet"} onClick={create} loading={busy} disabled={phase.step === "done" || (!!accountId && atLimit)}>
-          {!accountId ? "Connect a wallet" : atLimit ? `You have ${MAX_VAULTS} vaults, the testnet limit` : phase.step === "signing" ? "Confirm in your wallet" : phase.step === "creating" ? "Creating your vault" : "Create vault"}
+        <Pill full icon={accountId ? "plus" : "wallet"} onClick={create} loading={busy || fueling} disabled={phase.step === "done" || (!!accountId && atLimit)}>
+          {!accountId ? "Connect a wallet" : atLimit ? `You have ${MAX_VAULTS} vaults, the testnet limit` : fueling ? "Getting your wallet gas" : phase.step === "signing" ? "Confirm in your wallet" : phase.step === "creating" ? "Creating your vault" : "Create vault"}
         </Pill>
         <Pill
           variant="secondary"

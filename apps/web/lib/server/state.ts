@@ -4,7 +4,7 @@ import { VaultReader } from "@veto/core/vault";
 import { EXPLORER, evmBalance, vaultEvmAddress, type EvmRoute } from "@veto/core/evm";
 import { NATIVE, type AssetMeta } from "@/lib/format";
 import type { AgentInfo, AssetPolicy, PendingPolicy, SpendStatus, VaultState, WalletInfo } from "@/lib/vault";
-import { RPC_ENDPOINTS, serverRpc } from "./rpc";
+import { accountBalance, serverRpc } from "./rpc";
 
 const FRESH_MS = 3000;
 const STALE_OK_MS = 60_000;
@@ -96,19 +96,5 @@ export async function vaultSnapshot(vaultId: string): Promise<{ state: VaultStat
 
 /** Asks one RPC directly: the failover provider reports a missing account as a failed request. */
 async function missing(accountId: string): Promise<boolean> {
-  for (const url of RPC_ENDPOINTS) {
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jsonrpc: "2.0", id: "veto", method: "query", params: { request_type: "view_account", finality: "optimistic", account_id: accountId } }),
-      });
-      const body = (await res.json()) as { result?: unknown; error?: { cause?: { name?: string } } };
-      if (body.result) return false;
-      if (body.error?.cause?.name === "UNKNOWN_ACCOUNT") return true;
-    } catch {
-      // try the next RPC
-    }
-  }
-  return false;
+  return (await accountBalance(accountId)) === null;
 }

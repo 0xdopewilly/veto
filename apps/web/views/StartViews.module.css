@@ -249,6 +249,29 @@
   overflow-wrap: anywhere;
 }
 
+.gasNote {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.gasNote[data-tone="sent"] {
+  color: var(--green);
+}
+
+.gasNote[data-tone="failed"] {
+  color: var(--coral);
+}
+
+.gasNote > svg {
+  flex: none;
+}
+
 .ownerDot {
   flex: none;
   width: 8px;

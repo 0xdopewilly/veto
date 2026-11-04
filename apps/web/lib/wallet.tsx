@@ -3,7 +3,30 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { NearConnector } from "@hot-labs/near-connect";
 import { NETWORK } from "./config";
-import { useVault } from "./vault";
+import { nearBalance, useVault } from "./vault";
+
+/**
+ * Test NEAR for the connected wallet's gas. New testnet wallets often start empty, so on connect
+ * an empty wallet is sent 0.2 test NEAR once (see /api/gas) before it has to sign anything.
+ */
+export type GasStatus =
+  | { state: "idle" }
+  | { state: "sending" }
+  | { state: "sent"; amount: string }
+  | { state: "ok" }
+  | { state: "failed"; reason: string };
+
+/** Below this a wallet can't reserve the gas for creating a vault. */
+const GAS_LOW = 50_000_000_000_000_000_000_000n; // 0.05 NEAR
+
+/** What a wallet's error means, in words; wallets wrap the chain's reason in their own codes. */
+export function walletMessage(e: unknown): string {
+  const raw = e instanceof Error ? e.message : typeof e === "string" ? e : "";
+  if (/not enough balance|NotEnoughBalance|insufficient/i.test(raw)) return "Your wallet doesn't have enough test NEAR to pay the gas.";
+  if (/reject|cancel|denied|closed/i.test(raw)) return "You closed the wallet before signing. Nothing was sent.";
+  const reason = raw.replace(/^.*?during casting:\s*/i, "").replace(/^.*Smart contract panicked: /, "").trim();
+  return reason || "The wallet didn't send the transaction.";
+}
 
 interface WalletContextValue {
   accountId: string | null;
@@ -15,6 +38,8 @@ interface WalletContextValue {
   callVault: (methodName: string, args: Record<string, unknown>, gasTgas?: number) => Promise<unknown>;
   /** Calls a method on any contract from the connected wallet (e.g. the factory). */
   callContract: (receiverId: string, methodName: string, args: Record<string, unknown>, gasTgas?: number) => Promise<unknown>;
+  /** Whether the connected wallet has test NEAR for gas, or is being sent some. */
+  gas: GasStatus;
 }
 
 const WalletContext = createContext<WalletContextValue | null>(null);
@@ -24,6 +49,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const connector = useRef<NearConnector | null>(null);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [gas, setGas] = useState<GasStatus>({ state: "idle" });
 
   useEffect(() => {
     let cancelled = false;
@@ -53,6 +79,33 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // An empty testnet wallet gets test NEAR for gas as soon as it connects, before any signing.
+  useEffect(() => {
+    setGas({ state: "idle" });
+    if (!accountId || NETWORK !== "testnet") return;
+    let cancelled = false;
+    (async () => {
+      const balance = await nearBalance(accountId).catch(() => null);
+      if (cancelled) return;
+      if (balance === null || balance >= GAS_LOW) return setGas({ state: "ok" });
+      setGas({ state: "sending" });
+      const res = await fetch("/api/gas", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accountId }) }).catch(() => null);
+      const body = ((await res?.json().catch(() => null)) ?? {}) as { sent?: boolean; enough?: boolean; amount?: string; error?: string };
+      if (cancelled) return;
+      if (body.enough) return setGas({ state: "ok" });
+      if (!res?.ok || !body.sent) return setGas({ state: "failed", reason: body.error ?? "Couldn't send your wallet test NEAR for gas." });
+      // Wait until the wallet can see it, so its own balance check passes.
+      for (let i = 0; i < 15 && !cancelled; i++) {
+        if (((await nearBalance(accountId).catch(() => 0n)) ?? 0n) >= GAS_LOW) break;
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+      if (!cancelled) setGas({ state: "sent", amount: body.amount ?? "0.2" });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId]);
+
   const connect = useCallback(async () => {
     await connector.current?.connect();
   }, []);
@@ -66,15 +119,19 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const instance = connector.current;
     if (!instance) throw new Error("The wallet is still loading. Try again in a moment.");
     const wallet = await instance.wallet();
-    return wallet.signAndSendTransaction({
-      receiverId,
-      actions: [
-        {
-          type: "FunctionCall",
-          params: { methodName, args, gas: (BigInt(gasTgas) * 10n ** 12n).toString(), deposit: "0" },
-        },
-      ],
-    });
+    try {
+      return await wallet.signAndSendTransaction({
+        receiverId,
+        actions: [
+          {
+            type: "FunctionCall",
+            params: { methodName, args, gas: (BigInt(gasTgas) * 10n ** 12n).toString(), deposit: "0" },
+          },
+        ],
+      });
+    } catch (e) {
+      throw new Error(walletMessage(e));
+    }
   }, []);
 
   const callVault = useCallback(
@@ -87,8 +144,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const isOwner = !!accountId && accountId === state?.config.owner;
   const value = useMemo(
-    () => ({ accountId, ready, isOwner, connect, disconnect, callVault, callContract }),
-    [accountId, ready, isOwner, connect, disconnect, callVault, callContract],
+    () => ({ accountId, ready, isOwner, connect, disconnect, callVault, callContract, gas }),
+    [accountId, ready, isOwner, connect, disconnect, callVault, callContract, gas],
   );
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
 }

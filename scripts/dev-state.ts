@@ -38,6 +38,8 @@ export interface DevState {
   /** The keys each factory vault's own agent and guardian accounts get; they can only call that vault. */
   ownedAgentKey?: string;
   ownedGuardianKey?: string;
+  /** A key on the factory account that can only call send_gas: the web app's once-per-wallet gas gift. */
+  factoryGasKey?: string;
 }
 
 const DIR = new URL("../.veto-dev/", import.meta.url);

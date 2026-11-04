@@ -152,6 +152,16 @@ export async function accountExists(accountId: string): Promise<boolean> {
   }
 }
 
+/** A wallet's NEAR balance in yocto; 0 if the account doesn't exist yet. */
+export async function nearBalance(accountId: string): Promise<bigint> {
+  try {
+    return BigInt((await rpc.viewAccount({ accountId, blockQuery: { finality: "optimistic" } })).amount);
+  } catch (e) {
+    if (/does not exist|doesn't exist|UNKNOWN_ACCOUNT/i.test((e as Error).message)) return 0n;
+    throw e;
+  }
+}
+
 export async function accessKeys(accountId: string) {
   return rpc.viewAccessKeyList({ accountId, finalityQuery: { finality: "optimistic" } });
 }

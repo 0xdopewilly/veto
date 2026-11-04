@@ -23,7 +23,7 @@ import { VaultSwitcher } from "./VaultSwitcher";
 import { InboxSheet } from "./AgentInbox";
 import { MorphOverlay } from "./MorphOverlay";
 import { Spotlight } from "./Spotlight";
-import { ToastProvider } from "./Toaster";
+import { ToastProvider, useToast } from "./Toaster";
 import styles from "./Shell.module.css";
 
 interface ShellApi {
@@ -66,12 +66,37 @@ export function Shell({ children }: { children: ReactNode }) {
       <WalletProvider>
         <DemoProvider>
           <ToastProvider>
+            <GasToast />
             <ShellFrame>{children}</ShellFrame>
           </ToastProvider>
         </DemoProvider>
       </WalletProvider>
     </VaultProvider>
   );
+}
+
+/** Shows the free gas an empty wallet is sent on connect (see GasStatus in lib/wallet). */
+function GasToast() {
+  const { gas } = useWallet();
+  const { track } = useToast();
+  const pending = useRef<{ resolve: () => void; reject: (e: Error) => void } | null>(null);
+
+  useEffect(() => {
+    if (gas.state === "sending" && !pending.current) {
+      void track({
+        pending: "Your wallet has no test NEAR yet. Sending it some for gas",
+        success: "Sent your wallet 0.2 test NEAR for gas, free",
+        run: () => new Promise<void>((resolve, reject) => (pending.current = { resolve, reject })),
+      });
+    } else if (gas.state === "sent") {
+      pending.current?.resolve();
+      pending.current = null;
+    } else if (gas.state === "failed") {
+      pending.current?.reject(new Error(gas.reason));
+      pending.current = null;
+    }
+  }, [gas, track]);
+  return null;
 }
 
 function ShellFrame({ children }: { children: ReactNode }) {

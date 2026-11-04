@@ -8,6 +8,10 @@
 //! that can do anything else. The factory sponsors all three accounts, registers the vault with
 //! the test USDC token and sends it starter funds. Every owner action on the new vault is then
 //! signed by its owner's own wallet.
+//!
+//! New testnet wallets often start with no NEAR at all, so the factory can also send a wallet a
+//! little test NEAR for gas, once (`send_gas`). Only the factory's own function-call key, held by
+//! the web app, can ask for that.
 
 use near_sdk::json_types::{Base58CryptoHash, U128, U64};
 use near_sdk::serde_json::{self, json};
@@ -31,6 +35,10 @@ const GAS_INIT: Gas = Gas::from_tgas(40);
 const GAS_CALLBACK: Gas = Gas::from_tgas(60);
 const GAS_FT: Gas = Gas::from_tgas(15);
 const MAX_VAULTS_PER_OWNER: usize = 3;
+/// Test NEAR sent once to a wallet for its own gas: dozens of owner actions at testnet prices.
+const GAS_GIFT: NearToken = NearToken::from_millinear(200);
+/// Kept back from gas gifts so the factory can still sponsor vaults.
+const GAS_RESERVE: NearToken = NearToken::from_near(2);
 const MAX_NAME_LEN: usize = 24;
 
 #[derive(BorshStorageKey)]
@@ -199,6 +207,28 @@ impl Factory {
     pub fn count(&self) -> u32 {
         self.vaults.len()
     }
+
+    /// Sends `account_id` test NEAR for gas, once per account. Only a key on the factory's own
+    /// account can call it, and the web app holds just a function-call key for this method.
+    /// The record lives under its own storage key, outside the contract struct, so adding this
+    /// didn't change the state layout.
+    pub fn send_gas(&mut self, account_id: AccountId) -> Promise {
+        require!(env::predecessor_account_id() == env::current_account_id(), "only the factory's own key sends gas");
+        let key = Self::gas_key(&account_id);
+        require!(!env::storage_has_key(&key), "this wallet already got its test NEAR");
+        let free = env::account_balance().saturating_sub(env::storage_byte_cost().saturating_mul(env::storage_usage().into()));
+        require!(free >= GAS_GIFT.saturating_add(GAS_RESERVE), "the factory is out of test NEAR for gas");
+        env::storage_write(&key, &[1]);
+        Promise::new(account_id).transfer(GAS_GIFT)
+    }
+
+    pub fn got_gas(&self, account_id: AccountId) -> bool {
+        env::storage_has_key(&Self::gas_key(&account_id))
+    }
+
+    fn gas_key(account_id: &AccountId) -> Vec<u8> {
+        [b"gas:".as_slice(), account_id.as_bytes()].concat()
+    }
 }
 
 #[cfg(test)]
@@ -257,6 +287,41 @@ mod tests {
         let (agent, guardian) = Factory::helpers("alice-goods");
         assert_eq!(agent.as_str(), "alice-goods_agent.factory.testnet");
         assert_eq!(guardian.as_str(), "alice-goods_guard.factory.testnet");
+    }
+
+    #[test]
+    fn a_wallet_gets_gas_once() {
+        let mut f = factory("factory.testnet");
+        assert!(!f.got_gas("bob.testnet".parse().unwrap()));
+        let _ = f.send_gas("bob.testnet".parse().unwrap());
+        assert!(f.got_gas("bob.testnet".parse().unwrap()));
+    }
+
+    #[test]
+    #[should_panic(expected = "this wallet already got its test NEAR")]
+    fn gas_is_sent_only_once() {
+        let mut f = factory("factory.testnet");
+        let _ = f.send_gas("bob.testnet".parse().unwrap());
+        let _ = f.send_gas("bob.testnet".parse().unwrap());
+    }
+
+    #[test]
+    #[should_panic(expected = "only the factory's own key sends gas")]
+    fn only_the_factory_sends_gas() {
+        let mut f = factory("alice.testnet");
+        let _ = f.send_gas("alice.testnet".parse().unwrap());
+    }
+
+    #[test]
+    #[should_panic(expected = "the factory is out of test NEAR for gas")]
+    fn gas_gifts_leave_the_vault_budget() {
+        let mut f = factory("factory.testnet");
+        testing_env!(VMContextBuilder::new()
+            .current_account_id("factory.testnet".parse().unwrap())
+            .predecessor_account_id("factory.testnet".parse().unwrap())
+            .account_balance(NearToken::from_millinear(2100))
+            .build());
+        let _ = f.send_gas("bob.testnet".parse().unwrap());
     }
 
     #[test]

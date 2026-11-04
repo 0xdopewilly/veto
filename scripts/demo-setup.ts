@@ -351,6 +351,20 @@ if ((await view<string>(factoryId, "get_code_hash")) !== codeHash) {
 await call(factoryId, "set_template", { template });
 state.factory = factoryId;
 saveState(state);
+// New testnet wallets often hold no NEAR, and every owner action costs gas. The web app gets a
+// key on the factory account that can only call send_gas, which sends a wallet 0.2 test NEAR
+// once. Its allowance caps what the key itself can burn on gas.
+if (state.factoryKey) {
+  state.factoryGasKey ??= newKey().toString();
+  saveState(state);
+  if (!(await keyMethods(factoryId, state.factoryGasKey)).includes("send_gas")) {
+    await account({ accountId: factoryId, key: state.factoryKey as KeyPairString }, NETWORK).signAndSendTransaction({
+      receiverId: factoryId,
+      actions: [actions.addFunctionCallAccessKey(PublicKey.from(KeyPair.fromString(state.factoryGasKey as KeyPairString).getPublicKey().toString()), factoryId, ["send_gas"], nearToYocto("1"))],
+    });
+    log("gave the web app a key on the factory that can only send gas gifts");
+  }
+}
 if (!(await view(tokenId, "storage_balance_of", { account_id: factoryId }))) {
   await call(tokenId, "storage_deposit", { account_id: factoryId, registration_only: true }, nearToYocto("0.00125"));
 }
@@ -385,6 +399,8 @@ const env = {
   // Function-call keys on each factory vault's own agent and guardian accounts, limited to that vault.
   DEMO_OWNED_AGENT_KEY: state.ownedAgentKey,
   DEMO_OWNED_GUARDIAN_KEY: state.ownedGuardianKey,
+  // Function-call key on the factory account, limited to send_gas (0.2 test NEAR, once per wallet).
+  DEMO_FACTORY_GAS_KEY: state.factoryGasKey ?? "",
   NEARAI_API_KEY: nearAiKey,
 };
 const envFile = new URL("../apps/web/.env.local", import.meta.url);
