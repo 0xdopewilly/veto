@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     };
     if (via === "agentapi") {
       if (request.chain !== "near") return Response.json({ error: "The Agent API wallet pays USDC on NEAR. ETH on Base Sepolia goes from the vault." }, { status: 422 });
-      return Response.json({ agentapi: await runViaAgentApi({ payee: request.payee, amount: request.amount, memo: request.memo ?? null, evidence, scaled: true }) });
+      return Response.json({ agentapi: await runViaAgentApi({ payee: request.payee, amount: request.amount, memo: request.memo ?? null, evidence, scaled: true, books: history }) });
     }
     return Response.json(await startPayment(accounts, request, evidence, via));
   } catch (e) {

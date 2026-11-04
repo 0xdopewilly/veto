@@ -135,7 +135,7 @@ vault: ecrecover → approved model key → echoes this proposal's id and hash �
   4. Only after a pass does the guardian sign a NEP-413 approval.
   5. It marks the payment paid once the wallet's own transaction is final on NEAR.
 - **NEAR Intents Agent API** ([packages/core/src/agentapi.ts](packages/core/src/agentapi.ts), [apps/web/lib/server/agentapi.ts](apps/web/lib/server/agentapi.ts)), plain HTTP, with the grant credential and EIP-712 owner signing checked against the API's official test vectors:
-  1. `scripts/agentapi-setup.ts` creates an agent account on mainnet with one owner signature over its policy: USDC only, at most $5 a payment and $20 a day, to two listed suppliers.
+  1. `scripts/agentapi-setup.ts` creates an agent account on mainnet with one owner signature over its policy: USDC only, at most $25 a payment, $150 a day and $500 a week, to two listed suppliers. Rerunning it keeps the policy in force equal to the one in the script. `scripts/agentapi-fund.ts [chain]` prints a deposit address for USDC on any chain the API supports.
   2. The owner issues one grant, and Veto holds it. The AI agent holds none, so it can't spend.
   3. The agent asks; Veto screens the request with the same enclave model, against the business's mandate and payment history, and requires a signer the vault approves.
   4. Only a pass becomes a `transfer` with Veto's grant, under an idempotency key tied to that screening, so a retry can never send twice. The owner's policy still refuses anything outside it.

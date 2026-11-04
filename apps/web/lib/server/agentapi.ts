@@ -97,6 +97,8 @@ export async function runViaAgentApi(input: {
   memo: string | null;
   evidence: { source: string; from: string; subject: string; body: string };
   scaled: boolean;
+  /** The sandbox vault's recent proposals, when the caller already read them (the same snapshot its scenario was built from). */
+  books?: Proposal[];
 }): Promise<AgentApiOutcome> {
   const demo = agentApiDemo();
   if (!demo) throw new Error("the Agent API wallet is not configured");
@@ -134,7 +136,7 @@ export async function runViaAgentApi(input: {
     sandbox.reader.config(),
     sandbox.reader.view<[string, unknown][]>("get_signers"),
     demo.api.request<{ data: StatusResponse[] }>("GET", `/v1/agents/${demo.agentId}/history?limit=20`).catch(() => ({ data: [] })),
-    sandbox.reader.proposals(0, 30),
+    input.books ?? sandbox.reader.proposals(0, 30),
   ]);
   const own: Proposal[] = recent.data
     .filter((s) => s.type === "transfer" && s.status === "SUCCESS")
@@ -143,6 +145,7 @@ export async function runViaAgentApi(input: {
       return { ...proposal, id: `aa-past-${i}`, status: "Paid", request: { chain: "near", asset: USDC_CONTRACT, payee: r.recipient ?? "", amount: r.amount ?? "0", memo: null } };
     });
   const vaultBooks: Proposal[] = books
+    .slice(0, 30)
     .filter((p) => p.request.chain === "near" && p.request.asset === sandboxDemo.token)
     .map((p) => ({
       ...p,

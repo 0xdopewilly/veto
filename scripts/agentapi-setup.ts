@@ -59,6 +59,27 @@ if (!state.payees) {
 save();
 const owner = evmOwner(state.ownerKey);
 
+/**
+ * The owner's policy, the hard limit even for Veto: USDC only, to the two listed suppliers, at most
+ * $25 a payment and $150 a day, $500 a week across everything. The inbox's examples are scaled 1:100
+ * (at most $3), so a day of judging fits; an email someone writes for more than $25 meets the limit.
+ */
+function desiredPolicy(): AgentPolicy {
+  return {
+    frozen: false,
+    actions: ["transfer"],
+    confidential: false,
+    // Veto is the gate: it holds the only grant and screens before it calls.
+    owner_approval: false,
+    assets: [USDC],
+    limits: { per_transaction: { [USDC]: String(25n * USD) }, daily: { [USDC]: String(150n * USD) } },
+    max_actions_per_hour: 60,
+    destinations: { mode: "only", list: Object.values(state.payees!).map((p) => ({ action: "transfer" as const, address: p.account, confidential: false })) },
+    budget: { daily_usd: "150", weekly_usd: "500", monthly_usd: null },
+    timelock_ms: 0,
+  };
+}
+
 /** Signs an owner intent, submits it and waits for it to settle. */
 async function ownerSigns(generated: GeneratedIntent): Promise<StatusResponse> {
   const signed = await signEvmIntent(state.ownerKey!, generated);
@@ -68,20 +89,7 @@ async function ownerSigns(generated: GeneratedIntent): Promise<StatusResponse> {
 
 // 1. The agent account, created by one owner signature over its whole policy.
 if (!state.agentId) {
-  const policy: AgentPolicy = {
-    frozen: false,
-    actions: ["transfer"],
-    confidential: false,
-    // Veto is the gate: it holds the only grant and screens before it calls. The owner's policy
-    // below stays the hard limit even for Veto.
-    owner_approval: false,
-    assets: [USDC],
-    limits: { per_transaction: { [USDC]: String(5n * USD) }, daily: { [USDC]: String(20n * USD) } },
-    max_actions_per_hour: 30,
-    destinations: { mode: "only", list: Object.values(state.payees).map((p) => ({ action: "transfer" as const, address: p.account, confidential: false })) },
-    budget: { daily_usd: "20", weekly_usd: "50", monthly_usd: null },
-    timelock_ms: 0,
-  };
+  const policy = desiredPolicy();
   const generated =
     state.pendingCreate && Date.parse(state.pendingCreate.expires_at) > Date.now() + 30_000
       ? state.pendingCreate
@@ -99,6 +107,34 @@ if (!state.agentId) {
 const agent = await api.agent(state.agentId);
 state.wallet = agent.wallet?.near_account_id;
 save();
+
+// 1b. Keep the policy in force equal to desiredPolicy(): one owner signature when it differs.
+{
+  const current = await api.policy(state.agentId);
+  const want = desiredPolicy();
+  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  const differs =
+    !current.policy ||
+    !same(current.policy.limits, want.limits) ||
+    !same(current.policy.budget, want.budget) ||
+    current.policy.max_actions_per_hour !== want.max_actions_per_hour ||
+    !same(current.policy.destinations, want.destinations) ||
+    !same(current.policy.assets, want.assets) ||
+    !same(current.policy.actions, want.actions);
+  if (differs) {
+    if (current.status !== "APPLIED" || current.revision === null) throw new Error(`the current policy is ${current.status}; wait for it to apply, then run this again`);
+    const generated = await api.generateIntent({ type: "policy_update", agent_id: state.agentId, policy: want, expected_revision: current.revision }, `veto-policy-${randomUUID()}`);
+    log(`signing: ${generated.preview.summary}`);
+    const status = await ownerSigns(generated);
+    if (status.status !== "SUCCESS") throw new Error(`policy_update ${status.status}: ${status.failure_code ?? ""}`);
+    for (let i = 0; i < 30; i++) {
+      const p = await api.policy(state.agentId);
+      if (p.status === "APPLIED" && p.provider_policy_synced && p.revision !== current.revision) break;
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+    log("updated the owner's policy");
+  }
+}
 
 // 2. Veto's grant: the only credential that can spend. The token is saved before the owner signs.
 if (!state.grantId) {

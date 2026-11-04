@@ -1,6 +1,8 @@
 // Runs every demo flow against a deployment and checks each ends the way it should: the vault
-// path, the OutLayer path and the Base payout, passes and vetoes, every verdict signed by the
-// model in its enclave (not the fallback test key). Exits non-zero if anything is off.
+// path, the OutLayer path, the Base payout and the NEAR Intents Agent API wallet, passes and
+// vetoes, every verdict signed by the model in its enclave (not the fallback test key). Exits
+// non-zero if anything is off. An Agent API pass counts once Veto has sent it with its grant: paid,
+// or refused only for lack of funds while the wallet holds no USDC.
 //   node scripts/demo-check.ts [https://veto-beta.vercel.app] [--vault <id>]
 // With --vault it checks a vault the factory created (the agent's inbox only; owned vaults have
 // no OutLayer wallet or Base route).
@@ -22,6 +24,7 @@ const info = (await (await fetch(`${base}/api/demo${query}`)).json()) as {
   vault: string;
   guardian: { model: string };
   outlayer: unknown;
+  agentapi?: unknown;
   scenarios: { id: string; expect: "pass" | "veto"; symbol?: string }[];
 };
 const rpc = async (method: string, args: Record<string, unknown>) => {
@@ -73,5 +76,34 @@ for (const [scenario, via, expect] of plan) {
       `${enclave ? "" : "  [signed by the fallback test key]"}${settled ? "" : "  [not settled]"}`,
   );
 }
+// The Agent API wallet (sandbox only): its result comes back in the response, no vault proposal.
+if (info.agentapi) {
+  for (const [scenario, expect] of [["invoice", "pass"], ["wallet-changed", "veto"], ["duplicate", "veto"]] as const) {
+    const started = Date.now();
+    const res = await fetch(`${base}/api/demo/run`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scenario, via: "agentapi", vault: info.vault }) });
+    const body = (await res.json()) as {
+      error?: string;
+      agentapi?: {
+        verdict: { verdict: string; reasons: string[]; model: string; approved_signer: boolean };
+        execution: { kind: string; code?: string; status?: string };
+        request: { amount: string };
+      };
+    };
+    const a = body.agentapi;
+    if (!res.ok || !a) {
+      console.log(`✗ ${scenario} via agentapi: ${body.error ?? res.status}`);
+      failures++;
+      continue;
+    }
+    const sent = a.execution.kind === "sent" && a.execution.status === "SUCCESS";
+    const unfunded = a.execution.kind === "refused" && a.execution.code === "insufficient_balance";
+    const ok = a.verdict.approved_signer && (expect === "pass" ? a.verdict.verdict === "PASS" && (sent || unfunded) : a.verdict.verdict === "VETO" && a.execution.kind === "skipped");
+    if (!ok) failures++;
+    const what = a.execution.kind === "sent" ? `sent: ${a.execution.status}` : a.execution.kind === "refused" ? `refused: ${a.execution.code}` : "not sent";
+    const why = a.verdict.reasons.length ? ` (${a.verdict.reasons.join(", ")})` : "";
+    console.log(`${ok ? "✓" : "✗"} ${`${scenario} via agentapi`.padEnd(30)} ${a.verdict.verdict.padEnd(8)}${why} $${(Number(a.request.amount) / 1e6).toFixed(2)}, ${what} ${((Date.now() - started) / 1000).toFixed(1)} s${unfunded ? "  [wallet not funded yet]" : ""}`);
+  }
+}
+
 console.log(failures ? `\n${failures} check(s) failed.` : "\nEvery flow behaved as expected.");
 process.exit(failures ? 1 : 0);

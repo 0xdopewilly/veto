@@ -30,7 +30,10 @@ export interface EvmDemo {
 
 export function buildScenarios(root: string, history: Proposal[], evm?: EvmDemo | null): Scenario[] {
   const kano = `kano-cotton.${root}`;
-  const nextInvoice = `INV-${2290 + history.length}`;
+  // One past the highest invoice the vault has seen. (Not the history's length: it's one page of
+  // recent proposals, so past 50 it would hand out the same number again and look like a duplicate.)
+  const used = history.map((p) => Number(/^INV-(\d+)$/.exec(p.request.memo ?? "")?.[1] ?? 0));
+  const nextInvoice = `INV-${Math.max(2290 + history.length, ...used.map((n) => n + 1))}`;
   const lastPaid = history.find((p) => p.status === "Paid" && p.request.payee === kano && p.request.memo);
 
   const list: Scenario[] = [
