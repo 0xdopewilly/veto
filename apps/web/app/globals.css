@@ -52,9 +52,10 @@
   --sidebar: 248px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  /* Floating capsule nav, 72px tall. On phones with a home indicator it sits 10px into that
-     area, like the system's own floating tab bars; elsewhere 14px off the edge. */
-  --nav-bottom: max(14px, calc(var(--safe-bottom) - 10px));
+  /* Floating capsule nav, 72px tall, 14px above the bottom safe area. In a browser tab that area
+     can sit under the browser's own toolbar (Chrome on iOS), so the nav stays clear of it; the
+     home-screen app lowers it (below). */
+  --nav-bottom: calc(14px + var(--safe-bottom));
   --tabbar: calc(72px + var(--nav-bottom));
   /* The app's full height. See the standalone rule below. */
   --app-h: 100dvh;
@@ -70,6 +71,9 @@
 @media (display-mode: standalone) {
   :root {
     --app-h: 100lvh;
+    /* Nothing but the home indicator below the app here, so the nav dips 10px into that area,
+       like the system's own floating tab bars. */
+    --nav-bottom: max(14px, calc(var(--safe-bottom) - 10px));
   }
   html {
     height: 100lvh;
