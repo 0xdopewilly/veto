@@ -71,3 +71,29 @@ export async function exists(accountId: string, network: Network) {
     return false;
   }
 }
+
+const FAUCET = "https://helper.nearprotocol.com/account";
+
+/** A fresh testnet account funded by the public faucet (it rate-limits per IP). */
+export async function faucetAccount(): Promise<DevAccount> {
+  const key = newKey();
+  const accountId = `veto-${Math.random().toString(36).slice(2, 10)}.testnet`;
+  const res = await fetch(FAUCET, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ newAccountId: accountId, newAccountPublicKey: key.getPublicKey().toString() }),
+  });
+  if (!res.ok) throw new Error(`faucet refused (${res.status}): ${(await res.text()).slice(0, 200)}`);
+  for (let i = 0; i < 20 && !(await exists(accountId, "testnet")); i++) await new Promise((r) => setTimeout(r, 1500));
+  return { accountId, key: key.toString() as KeyPairString };
+}
+
+/** Folds fresh faucet accounts into the root until it holds `yocto`. */
+export async function ensureRootYocto(state: DevState, yocto: bigint, log: (s: string) => void = console.log) {
+  const root = account(state.root!, "testnet");
+  while ((await root.getBalance()) < yocto) {
+    const extra = await faucetAccount();
+    await account(extra, "testnet").deleteAccount(state.root!.accountId);
+    log(`topped up the root from faucet account ${extra.accountId}`);
+  }
+}

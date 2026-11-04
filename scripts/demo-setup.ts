@@ -15,10 +15,9 @@ import { DEFAULT_MODEL, modelAttestation, MPC_CONTRACT, OutLayer, provider, Vaul
 // "demo3": the vault with OutLayer wallets and Chain Signatures payouts. Older demo vaults
 // can't be upgraded in place.
 process.env.VETO_PROFILE ??= "demo3";
-const { account, exists, loadState, newKey, saveState } = await import("./dev-state.ts");
+const { account, ensureRootYocto, exists, faucetAccount, loadState, newKey, saveState } = await import("./dev-state.ts");
 
 const NETWORK = "testnet";
-const FAUCET = "https://helper.nearprotocol.com/account";
 const VAULT_WASM = new URL("../contract/target/wasm32-unknown-unknown/release/veto_vault.wasm", import.meta.url);
 const FACTORY_WASM = new URL("../factory/target/wasm32-unknown-unknown/release/veto_factory.wasm", import.meta.url);
 const TOKEN_WASM = new URL("../test-token/target/wasm32-unknown-unknown/release/veto_test_usdc.wasm", import.meta.url);
@@ -53,28 +52,8 @@ function base58(bytes: Uint8Array): string {
   return out;
 }
 
-async function faucetAccount() {
-  const key = newKey();
-  const accountId = `veto-${Math.random().toString(36).slice(2, 10)}.testnet`;
-  const res = await fetch(FAUCET, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ newAccountId: accountId, newAccountPublicKey: key.getPublicKey().toString() }),
-  });
-  if (!res.ok) throw new Error(`faucet refused (${res.status}): ${(await res.text()).slice(0, 200)}`);
-  for (let i = 0; i < 20 && !(await exists(accountId, NETWORK)); i++) await new Promise((r) => setTimeout(r, 1500));
-  return { accountId, key: key.toString() as `ed25519:${string}` };
-}
-
 /** Folds fresh faucet accounts into the root until it holds `near`. */
-async function ensureRootBalance(near: `${number}`) {
-  const root = account(state.root!, NETWORK);
-  while ((await root.getBalance()) < nearToYocto(near)) {
-    const extra = await faucetAccount();
-    await account(extra, NETWORK).deleteAccount(state.root!.accountId);
-    log(`topped up the root from faucet account ${extra.accountId}`);
-  }
-}
+const ensureRootBalance = (near: `${number}`) => ensureRootYocto(state, nearToYocto(near), log);
 
 // 1. Root account and enough testnet NEAR for contract storage.
 if (!state.root || !(await exists(state.root.accountId, NETWORK))) {
