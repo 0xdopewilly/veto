@@ -27,8 +27,11 @@ const labelOf = (path: string) => PLACES.find(([re]) => re.test(path))?.[1];
 /** The screen before this one, or `fallback` when you arrived here directly (a link, a reload). */
 export function useBackTo(fallback: { href: string; label: string } = { href: "/app/decisions", label: "Activity" }) {
   const pathname = usePathname();
-  const at = stack.lastIndexOf(pathname);
-  const before = at > 0 ? stack[at - 1] : undefined;
+  const n = stack.length;
+  // A screen's first render comes before the shell records it. Recorded: the one before it.
+  // Arriving by going back (it's the one before the top): the one before that. Arriving
+  // forward: the last one recorded.
+  const before = stack[n - 1] === pathname ? stack[n - 2] : stack[n - 2] === pathname ? stack[n - 3] : stack[n - 1];
   const label = before && labelOf(before);
   return before && label ? { href: before, label } : fallback;
 }

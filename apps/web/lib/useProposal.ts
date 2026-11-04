@@ -14,16 +14,23 @@ export function useProposal(id: string): { proposal: Proposal | null; missing: b
   useEffect(() => {
     if (!state || fromList) return;
     let cancelled = false;
-    reader
-      .proposal(id)
-      .then((p) => {
-        if (cancelled) return;
-        setSingle(p);
-        setMissing(!p);
-      })
-      .catch(() => !cancelled && setMissing(true));
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    // Only the chain saying "no such payment" makes it missing; a failed read is retried.
+    const load = (attempt: number) =>
+      reader
+        .proposal(id)
+        .then((p) => {
+          if (cancelled) return;
+          setSingle(p);
+          setMissing(!p);
+        })
+        .catch(() => {
+          if (!cancelled && attempt < 5) timer = setTimeout(() => load(attempt + 1), 1200 * (attempt + 1));
+        });
+    void load(0);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, [state, fromList, id, reader]);
 
