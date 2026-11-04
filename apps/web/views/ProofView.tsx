@@ -3,7 +3,7 @@
 import { metaOf, useVault } from "@/lib/vault";
 import { useProposal } from "@/lib/useProposal";
 import { isTestSigner, requesterLabel } from "@/lib/decision";
-import { explorerAddress, verifierUrl, VAULT_ID } from "@/lib/config";
+import { explorerAddress, verifierUrl } from "@/lib/config";
 import { formatAmount, formatWhen, shortAddress, shortHash, chainLabel } from "@/lib/format";
 import { Screen, BackLink, delay } from "@/components/Screen";
 import { Icon, type IconName } from "@/components/Icon";
@@ -12,7 +12,7 @@ import { LineReveal } from "@/components/LineReveal";
 import styles from "./ProofView.module.css";
 
 export function ProofView({ id }: { id: string }) {
-  const { state } = useVault();
+  const { state, vaultId } = useVault();
   const { proposal: p, missing } = useProposal(id);
   const back = `/app/decisions/${id}`;
 
@@ -133,7 +133,7 @@ export function ProofView({ id }: { id: string }) {
           <a className={`${styles.linkRow} press`} href={verifierUrl(v.model_id)} target="_blank" rel="noreferrer">
             Open in the NEAR AI verifier <Icon name="external" size={16} />
           </a>
-          <a className={`${styles.linkRow} press`} href={explorerAddress(VAULT_ID)} target="_blank" rel="noreferrer">
+          <a className={`${styles.linkRow} press`} href={explorerAddress(vaultId ?? "")} target="_blank" rel="noreferrer">
             View the vault on NearBlocks <Icon name="external" size={16} />
           </a>
           <dl className={styles.facts}>

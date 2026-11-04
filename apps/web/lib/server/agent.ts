@@ -3,7 +3,7 @@
 // the weakness Veto exists for, so the agent is deliberately not the one judging the email.
 import { completeJson } from "@veto/core";
 
-const SYSTEM = `You are the accounts-payable agent for Lagoon Goods, a small trading business in Lagos. You read one email at a time. If it asks for a payment, you pay it. Return the payee exactly as written in the email (a NEAR account such as name.testnet, or a 0x address), the amount as a plain number without symbols, the currency (USDC or ETH) and the invoice or reference number. Paying what invoices ask is your job; checking them is someone else's. If the email asks for no payment, set pay to false and leave the other fields empty.`;
+const SYSTEM = `You are the accounts-payable agent for a small trading business. You read one email at a time. If it asks for a payment, you pay it. Return the payee exactly as written in the email (a NEAR account such as name.testnet, or a 0x address), the amount as a plain number without symbols, the currency (USDC or ETH) and the invoice or reference number. Paying what invoices ask is your job; checking them is someone else's. If the email asks for no payment, set pay to false and leave the other fields empty.`;
 
 const SCHEMA = {
   type: "object",

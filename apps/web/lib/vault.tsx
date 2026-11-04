@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { JsonRpcProvider } from "near-api-js";
 import { VaultReader } from "@veto/core/vault";
 import type { Payee, Proposal, VaultConfig } from "@veto/core/proposal";
-import { POLL_MS, RPC_URL, VAULT_ID } from "./config";
+import { FACTORY_ID, isKnownVault, POLL_MS, RPC_URL, SANDBOX_ID, SANDBOX_NAME } from "./config";
 import { NATIVE, type AssetMeta } from "./format";
 
 export interface AssetPolicy {
@@ -56,13 +56,74 @@ export interface VaultState {
 }
 
 interface VaultContextValue {
+  /** The open vault; null for the first client render, before the saved choice is read. */
+  vaultId: string | null;
+  /** The business name: the sandbox's, or what the owner called their vault. */
+  vaultName: string;
+  /** The shared demo vault anyone can act on, as opposed to a vault someone owns. */
+  isSandbox: boolean;
+  reader: VaultReader;
   state: VaultState | null;
   error: string | null;
   refresh: () => Promise<void>;
+  /** Opens another vault (the sandbox, or one the factory made) and remembers the choice. */
+  selectVault: (id: string) => void;
 }
 
 const rpc = new JsonRpcProvider({ url: RPC_URL });
-export const reader = new VaultReader(VAULT_ID, rpc);
+const readers = new Map<string, VaultReader>();
+function readerFor(id: string): VaultReader {
+  let r = readers.get(id);
+  if (!r) readers.set(id, (r = new VaultReader(id, rpc)));
+  return r;
+}
+
+const STORE_KEY = "veto.vault";
+const labelKey = (id: string) => `veto.label.${id}`;
+
+/** Remembers which vault to open next time (and its name, so it shows before the chain answers). */
+export function rememberVault(id: string, label?: string) {
+  try {
+    if (id === SANDBOX_ID) localStorage.removeItem(STORE_KEY);
+    else localStorage.setItem(STORE_KEY, id);
+    if (label) localStorage.setItem(labelKey(id), label);
+  } catch {
+    // Private mode: the choice lasts for this visit only.
+  }
+}
+
+/** A `?vault=` link, then the saved choice, then the sandbox. */
+function savedVault(): string {
+  try {
+    const fromUrl = new URLSearchParams(window.location.search).get("vault");
+    if (fromUrl && isKnownVault(fromUrl)) {
+      rememberVault(fromUrl);
+      return fromUrl;
+    }
+    const stored = localStorage.getItem(STORE_KEY);
+    if (stored && isKnownVault(stored)) return stored;
+  } catch {
+    // fall through to the sandbox
+  }
+  return SANDBOX_ID;
+}
+
+function savedLabel(id: string): string | null {
+  try {
+    return localStorage.getItem(labelKey(id));
+  } catch {
+    return null;
+  }
+}
+
+/** A vault the factory made, as it records it. */
+export interface FactoryVault {
+  owner: string;
+  label: string;
+  created_at: string;
+}
+
+class MissingVault extends Error {}
 
 const metaCache = new Map<string, AssetMeta>([["near", NATIVE]]);
 
@@ -80,27 +141,41 @@ export async function assetMeta(asset: string): Promise<AssetMeta> {
   return value;
 }
 
+/** Whether a NEAR account exists (for checking a vault name is free). */
+export async function accountExists(accountId: string): Promise<boolean> {
+  try {
+    await rpc.viewAccount({ accountId, blockQuery: { finality: "optimistic" } });
+    return true;
+  } catch (e) {
+    if (/does not exist|doesn't exist|UNKNOWN_ACCOUNT/i.test((e as Error).message)) return false;
+    throw e;
+  }
+}
+
 export async function accessKeys(accountId: string) {
   return rpc.viewAccessKeyList({ accountId, finalityQuery: { finality: "optimistic" } });
 }
 
 /** Reads the shared server snapshot; falls back to reading the chain directly. */
-async function load(): Promise<VaultState> {
+async function load(vaultId: string): Promise<VaultState> {
   try {
-    const res = await fetch("/api/state", { cache: "no-store" });
+    const res = await fetch(`/api/state?vault=${encodeURIComponent(vaultId)}`, { cache: "no-store" });
+    if (res.status === 404) throw new MissingVault("That vault doesn't exist.");
     if (res.ok) {
       const data = await res.json();
       data.balances = Object.fromEntries(Object.entries(data.balances as Record<string, string>).map(([k, v]) => [k, BigInt(v)]));
       for (const [id, meta] of Object.entries(data.assets as Record<string, AssetMeta>)) metaCache.set(id, meta);
       return data as VaultState;
     }
-  } catch {
+  } catch (e) {
+    if (e instanceof MissingVault) throw e;
     // fall through to a direct read
   }
-  return loadDirect();
+  return loadDirect(vaultId);
 }
 
-async function loadDirect(): Promise<VaultState> {
+async function loadDirect(vaultId: string): Promise<VaultState> {
+  const reader = readerFor(vaultId);
   const [config, proposals, payees, agents, wallets, policies, pending, account] = await Promise.all([
     reader.config(),
     reader.proposals(0, 100),
@@ -110,7 +185,7 @@ async function loadDirect(): Promise<VaultState> {
     reader.view<[string, WalletInfo][]>("get_wallets").catch(() => []),
     reader.view<[string, AssetPolicy][]>("get_policies"),
     reader.view<[string, PendingPolicy][]>("get_pending_policies"),
-    rpc.viewAccount({ accountId: VAULT_ID }),
+    rpc.viewAccount({ accountId: vaultId }),
   ]);
 
   // EVM-chain assets ("<chain>:<coin>") need the server's snapshot; the direct read skips them.
@@ -122,7 +197,7 @@ async function loadDirect(): Promise<VaultState> {
   const spendableNear = account.amount - BigInt(account.storage_usage) * 10n ** 19n;
   const tokenIds = assetIds.filter((id) => id !== "near");
   const tokenBalances = await Promise.all(
-    tokenIds.map((id) => view<string>(id, "ft_balance_of", { account_id: VAULT_ID }).then(BigInt)),
+    tokenIds.map((id) => view<string>(id, "ft_balance_of", { account_id: vaultId }).then(BigInt)),
   );
   const balances: Record<string, bigint> = { near: spendableNear > 0n ? spendableNear : 0n };
   tokenIds.forEach((id, i) => (balances[id] = tokenBalances[i]));
@@ -134,7 +209,16 @@ async function loadDirect(): Promise<VaultState> {
   return { config, proposals, payees, agents, wallets, policies, pending, spend, assets, balances, primaryAsset };
 }
 
-const VaultContext = createContext<VaultContextValue>({ state: null, error: null, refresh: async () => {} });
+const VaultContext = createContext<VaultContextValue>({
+  vaultId: null,
+  vaultName: SANDBOX_NAME,
+  isSandbox: true,
+  reader: readerFor(SANDBOX_ID),
+  state: null,
+  error: null,
+  refresh: async () => {},
+  selectVault: () => {},
+});
 
 const sig = (v: unknown) => JSON.stringify(v, (_k, x) => (typeof x === "bigint" ? x.toString() : x));
 
@@ -167,34 +251,79 @@ function reconcile(prev: VaultState | null, next: VaultState): VaultState {
   };
 }
 
-export function VaultProvider({ children }: { children: ReactNode }) {
+/** `idle`: knows which vault is open but doesn't poll it (onboarding needs only the wallet). */
+export function VaultProvider({ children, idle = false }: { children: ReactNode; idle?: boolean }) {
+  const [vaultId, setVaultId] = useState<string | null>(null);
+  const [label, setLabel] = useState<string | null>(null);
   const [state, setState] = useState<VaultState | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const busy = useRef(false);
+  // The vault a read belongs to: a slow answer for a vault the visitor already left is dropped.
+  const current = useRef<string | null>(null);
+  const busy = useRef<string | null>(null);
+
+  const selectVault = useCallback((id: string) => {
+    if (!isKnownVault(id) || id === current.current) return;
+    rememberVault(id);
+    current.current = id;
+    setState(null);
+    setError(null);
+    setLabel(id === SANDBOX_ID ? null : savedLabel(id));
+    setVaultId(id);
+  }, []);
 
   const refresh = useCallback(async () => {
-    if (busy.current) return;
-    busy.current = true;
+    const id = current.current;
+    if (!id || busy.current === id) return;
+    busy.current = id;
     try {
-      const next = await load();
+      const next = await load(id);
+      if (current.current !== id) return;
       setState((prev) => reconcile(prev, next));
       setError(null);
     } catch (e) {
+      if (current.current !== id) return;
+      // A link to a vault that doesn't exist (or no longer does) opens the sandbox instead.
+      if (e instanceof MissingVault && id !== SANDBOX_ID) return selectVault(SANDBOX_ID);
       setError(e instanceof Error ? e.message : "Could not reach the vault");
     } finally {
-      busy.current = false;
+      if (busy.current === id) busy.current = null;
     }
-  }, []);
+  }, [selectVault]);
+
+  useEffect(() => selectVault(savedVault()), [selectVault]);
 
   useEffect(() => {
+    if (!vaultId || idle) return;
     refresh();
     const timer = setInterval(() => {
       if (document.visibilityState === "visible") refresh();
     }, POLL_MS);
     return () => clearInterval(timer);
-  }, [refresh]);
+  }, [vaultId, idle, refresh]);
 
-  const value = useMemo(() => ({ state, error, refresh }), [state, error, refresh]);
+  // The owner's name for their vault lives on the factory.
+  useEffect(() => {
+    if (!vaultId || vaultId === SANDBOX_ID || !FACTORY_ID) return;
+    let cancelled = false;
+    view<FactoryVault | null>(FACTORY_ID, "get_vault", { vault: vaultId })
+      .then((v) => {
+        if (cancelled || !v) return;
+        setLabel(v.label);
+        rememberVault(vaultId, v.label);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [vaultId]);
+
+  const isSandbox = !vaultId || vaultId === SANDBOX_ID;
+  const vaultName = isSandbox ? SANDBOX_NAME : (label ?? "Your vault");
+  const reader = readerFor(vaultId ?? SANDBOX_ID);
+  const value = useMemo(
+    () => ({ vaultId, vaultName, isSandbox, reader, state, error, refresh, selectVault }),
+    [vaultId, vaultName, isSandbox, reader, state, error, refresh, selectVault],
+  );
   return <VaultContext.Provider value={value}>{children}</VaultContext.Provider>;
 }
 

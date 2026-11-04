@@ -326,7 +326,8 @@ pub struct Vault {
 impl Vault {
     /// `period_anchor_secs` is the unix time a spending period starts from
     /// (e.g. a Monday 00:00 WAT). Delays default to 24h and the period to 7 days.
-    /// Starting policies apply at once; later raises wait for the raise delay.
+    /// Starting policies apply at once; later raises wait for the raise delay. A factory can
+    /// also set the first agents, approved model keys and payees here, in the same call.
     #[init]
     pub fn new(
         owner: AccountId,
@@ -339,6 +340,9 @@ impl Vault {
         raise_delay_secs: Option<U64>,
         screen_timeout_secs: Option<U64>,
         oneclick_key: Option<String>,
+        agents: Option<Vec<AccountId>>,
+        signers: Option<Vec<(String, String)>>,
+        payees: Option<Vec<(String, String, String)>>,
     ) -> Self {
         require!(mandate.len() <= MAX_MANDATE_LEN, "mandate is too long");
         let period_secs = period_secs.map_or(DEFAULT_PERIOD_SECS, |v| v.0);
@@ -371,6 +375,19 @@ impl Vault {
         for (asset, policy) in policies {
             require!(policy.max_single.0 <= policy.period_limit.0, "max_single exceeds period_limit");
             vault.policies.insert(asset, policy);
+        }
+        let now = U64(env::block_timestamp());
+        for agent in agents.unwrap_or_default() {
+            vault.agents.insert(agent, AgentInfo { active: true, added_at: now });
+        }
+        for (address, model_id) in signers.unwrap_or_default() {
+            let address = verdict::normalize_address(&address).unwrap_or_else(|| env::panic_str("signer must be 20 bytes of hex"));
+            vault.signers.insert(address, SignerInfo { model_id, added_at: now });
+        }
+        for (name, chain, address) in payees.unwrap_or_default() {
+            require!(!name.is_empty() && name.len() <= 64, "payee name must be 1-64 chars");
+            let address = address.trim().to_string();
+            vault.payees.insert(payee_key(&chain, &address), Payee { name, chain, address, added_at: now });
         }
         vault
     }

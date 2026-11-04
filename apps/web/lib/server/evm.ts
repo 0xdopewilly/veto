@@ -1,5 +1,6 @@
 // Server-only: the demo vault's own Base Sepolia address (NEAR Chain Signatures) and whether it
 // holds enough test ETH to pay the Base supplier scenario.
+import { SANDBOX_ID } from "@/lib/config";
 import { vaultSnapshot } from "./state";
 
 const env = (key: string) => process.env[key]?.trim() ?? "";
@@ -7,7 +8,7 @@ const env = (key: string) => process.env[key]?.trim() ?? "";
 const NEEDED = 150_000_000_000_000n;
 
 export async function evmDemo() {
-  const { state } = await vaultSnapshot();
+  const { state } = await vaultSnapshot(SANDBOX_ID);
   const account = state.evmAccounts?.[0];
   const payee = env("DEMO_EVM_PAYEE");
   if (!account || !payee) return null;

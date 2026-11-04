@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { accessKeys, metaOf, useVault, type VaultState } from "@/lib/vault";
 import { useWallet } from "@/lib/wallet";
-import { RPC_UPSTREAM, VAULT_ID } from "@/lib/config";
+import { RPC_UPSTREAM } from "@/lib/config";
 import { STATUS_TEXT, payeeLabel } from "@/lib/decision";
 import { formatAmount, formatWhen, NATIVE } from "@/lib/format";
 import { Screen, delay } from "@/components/Screen";
@@ -21,7 +21,7 @@ interface KeyInfo {
 }
 
 /** The agent's keys that can only call this vault. */
-function useVaultKeys(accountId: string): KeyInfo[] | null {
+function useVaultKeys(accountId: string, vaultId: string): KeyInfo[] | null {
   const [keys, setKeys] = useState<KeyInfo[] | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -33,7 +33,7 @@ function useVaultKeys(accountId: string): KeyInfo[] | null {
           const permission = k.access_key.permission as unknown;
           if (permission && typeof permission === "object" && "FunctionCall" in permission) {
             const fc = (permission as { FunctionCall: { receiver_id: string; method_names: string[]; allowance?: unknown } }).FunctionCall;
-            if (fc.receiver_id === VAULT_ID) {
+            if (fc.receiver_id === vaultId) {
               scoped.push({ publicKey: String(k.public_key), methods: fc.method_names, allowance: fc.allowance == null ? null : String(fc.allowance) });
             }
           }
@@ -44,7 +44,7 @@ function useVaultKeys(accountId: string): KeyInfo[] | null {
     return () => {
       cancelled = true;
     };
-  }, [accountId]);
+  }, [accountId, vaultId]);
   return keys;
 }
 
@@ -80,7 +80,8 @@ export function AgentsView() {
 
 function AgentCard({ state, agent, active, style }: { state: VaultState; agent: string; active: boolean; style?: React.CSSProperties }) {
   const { isOwner } = useWallet();
-  const keys = useVaultKeys(agent);
+  const { vaultId } = useVault();
+  const keys = useVaultKeys(agent, vaultId ?? "");
   const periodStartNs = (BigInt(state.config.period_anchor_secs) + BigInt(state.spend[state.primaryAsset]?.period ?? "0") * BigInt(state.config.period_secs)) * 1_000_000_000n;
   const mine = state.proposals.filter((p) => p.agent === agent);
   const thisPeriod = mine.filter((p) => BigInt(p.created_at) >= periodStartNs);
@@ -105,7 +106,7 @@ function AgentCard({ state, agent, active, style }: { state: VaultState; agent: 
               "Checking keys…"
             ) : proposeKey ? (
               <>
-                Function-call key · can only call <span className="mono">{proposeKey.methods.join(", ")}</span> on <span className="mono">{VAULT_ID}</span>
+                Function-call key · can only call <span className="mono">{proposeKey.methods.join(", ")}</span> on <span className="mono">{vaultId}</span>
                 <span className={`mono ${styles.key}`}>{shortKey(proposeKey.publicKey)}</span>
               </>
             ) : (
@@ -200,6 +201,7 @@ function WalletCard({ state, wallet, name, provider, style }: { state: VaultStat
 }
 
 function ConnectAgent() {
+  const { vaultId } = useVault();
   const lines: { text: string; tone?: "kw" | "str" | "muted" }[][] = [
     [{ text: "import", tone: "kw" }, { text: " { Account, JsonRpcProvider, teraToGas } " }, { text: "from", tone: "kw" }, { text: ' "near-api-js"', tone: "str" }, { text: ";" }],
     [],
@@ -208,7 +210,7 @@ function ConnectAgent() {
     [{ text: "  process.env.AGENT_KEY);" }, { text: " // a key that can only call propose", tone: "muted" }],
     [],
     [{ text: "const", tone: "kw" }, { text: " id = " }, { text: "await", tone: "kw" }, { text: " agent.callFunction({" }],
-    [{ text: "  contractId: " }, { text: `"${VAULT_ID}"`, tone: "str" }, { text: "," }],
+    [{ text: "  contractId: " }, { text: `"${vaultId ?? ""}"`, tone: "str" }, { text: "," }],
     [{ text: "  methodName: " }, { text: '"propose"', tone: "str" }, { text: "," }],
     [{ text: "  args: { request: { chain: " }, { text: '"near"', tone: "str" }, { text: ", asset: " }, { text: '"near"', tone: "str" }, { text: "," }],
     [{ text: "    payee: " }, { text: '"supplier.near"', tone: "str" }, { text: ", amount: " }, { text: '"180000000000000000000000"', tone: "str" }, { text: "," }],

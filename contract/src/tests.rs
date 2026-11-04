@@ -59,6 +59,9 @@ fn setup() -> Vault {
         None,
         None,
         None,
+        None,
+        None,
+        None,
     );
     vault.add_agent(agent());
     vault.add_signer(address_of(&model_key()), MODEL.into());
@@ -798,4 +801,27 @@ fn an_unsigned_payout_cannot_be_settled() {
     let id = pass_evm(&mut vault, 2 * GWEI);
     context(guardian(), HOUR * 201);
     vault.settle_evm(U64(id), format!("0x{}", "ab".repeat(32)));
+}
+
+#[test]
+fn a_factory_can_set_agents_signers_and_payees_at_creation() {
+    context(owner(), HOUR);
+    let vault = Vault::new(
+        owner(),
+        guardian(),
+        "Pay listed suppliers only.".into(),
+        vec![(USDC.into(), AssetPolicy { period_limit: U128(3000 * DOLLAR), max_single: U128(500 * DOLLAR) })],
+        U64(0),
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some(vec![agent()]),
+        Some(vec![(address_of(&model_key()).to_uppercase().replace("0X", "0x"), MODEL.into())]),
+        Some(vec![("Kano Cotton Mills".into(), "near".into(), "kano-cotton.testnet".into())]),
+    );
+    assert_eq!(vault.get_agents()[0].0, agent());
+    assert_eq!(vault.get_signers()[0].0, address_of(&model_key()));
+    assert_eq!(vault.get_payees()[0].name, "Kano Cotton Mills");
 }

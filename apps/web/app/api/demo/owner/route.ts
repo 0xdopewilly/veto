@@ -29,7 +29,9 @@ const ACTIONS: Record<string, (a: Args) => Args | null> = {
 
 export async function POST(req: Request) {
   if (!demo.enabled) return Response.json({ error: "the testnet demo is not configured" }, { status: 404 });
-  const { action, args } = (await req.json().catch(() => ({}))) as { action?: string; args?: Args };
+  const { action, args, vault } = (await req.json().catch(() => ({}))) as { action?: string; args?: Args; vault?: string };
+  // Only the sandbox has a demo owner; an owned vault's owner signs with their own wallet.
+  if (vault && vault !== demo.vaultId) return Response.json({ error: "only the vault's owner can do that, from their wallet" }, { status: 403 });
   const build = action ? ACTIONS[action] : undefined;
   const parsed = build?.(args ?? {});
   if (!action || !parsed) return Response.json({ error: "unknown action or bad arguments" }, { status: 400 });

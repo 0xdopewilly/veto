@@ -1,8 +1,13 @@
 // Runs every demo flow against a deployment and checks each ends the way it should: the vault
 // path, the OutLayer path and the Base payout, passes and vetoes, every verdict signed by the
 // model in its enclave (not the fallback test key). Exits non-zero if anything is off.
-//   node scripts/demo-check.ts [https://veto-beta.vercel.app]
-const base = process.argv[2] ?? "http://localhost:3000";
+//   node scripts/demo-check.ts [https://veto-beta.vercel.app] [--vault <id>]
+// With --vault it checks a vault the factory created (the agent's inbox only; owned vaults have
+// no OutLayer wallet or Base route).
+const args = process.argv.slice(2);
+const vaultArg = args.includes("--vault") ? args[args.indexOf("--vault") + 1] : undefined;
+const base = args.find((a, i) => !a.startsWith("--") && args[i - 1] !== "--vault") ?? "http://localhost:3000";
+const query = vaultArg ? `?vault=${encodeURIComponent(vaultArg)}` : "";
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 interface Proposal {
@@ -13,7 +18,7 @@ interface Proposal {
   evm?: { tx_hash: string | null } | null;
 }
 
-const info = (await (await fetch(`${base}/api/demo`)).json()) as {
+const info = (await (await fetch(`${base}/api/demo${query}`)).json()) as {
   vault: string;
   guardian: { model: string };
   outlayer: unknown;
@@ -45,7 +50,7 @@ if (info.outlayer) {
 let failures = 0;
 for (const [scenario, via, expect] of plan) {
   const started = Date.now();
-  const res = await fetch(`${base}/api/demo/run`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scenario, via }) });
+  const res = await fetch(`${base}/api/demo/run`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scenario, via, vault: info.vault }) });
   const body = (await res.json()) as { proposal_id?: string; error?: string };
   if (!res.ok || !body.proposal_id) {
     console.log(`✗ ${scenario} via ${via}: ${body.error ?? res.status}`);

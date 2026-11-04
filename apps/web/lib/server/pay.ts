@@ -4,14 +4,15 @@
 import { after } from "next/server";
 import { actions, teraToGas } from "near-api-js";
 import { canonicalJson, payoutIfSigned, screenAndSubmit, sha256Hex, type PaymentRequest } from "@veto/core";
-import { demo, demoAccounts } from "./demo";
+import type { VaultAccounts } from "./demo";
 import { recordOnVault, requestPayment, screenAndVote } from "./outlayer";
 
 export type Evidence = { source: string; from: string; subject: string; body: string };
 
-export async function startPayment(request: PaymentRequest, evidence: Evidence, via?: string) {
-  const { reader, agent, guardian, screener } = demoAccounts();
+export async function startPayment(accounts: VaultAccounts, request: PaymentRequest, evidence: Evidence, via?: string) {
+  const { vaultId, reader, agent, guardian, screener } = accounts;
   if (via === "outlayer") {
+    if (!accounts.outlayer) throw new Error("this vault has no OutLayer wallet");
     if (request.chain !== "near") throw new Error("the OutLayer wallet pays on NEAR only");
     const { approvalId, requestId } = await requestPayment(request);
     const { id, tx } = await recordOnVault(approvalId, evidence);
@@ -19,7 +20,7 @@ export async function startPayment(request: PaymentRequest, evidence: Evidence, 
     return { proposal_id: id, tx, approval_id: approvalId };
   }
   const outcome = await agent.signAndSendTransaction({
-    receiverId: demo.vaultId,
+    receiverId: vaultId,
     actions: [actions.functionCall("propose", { request, context_hash: sha256Hex(canonicalJson(evidence)) }, teraToGas("30"), 0n)],
     waitUntil: "FINAL",
   });
@@ -43,7 +44,7 @@ export async function startPayment(request: PaymentRequest, evidence: Evidence, 
 /** The vault's own refusals (caps, frozen, a bad payee) are the demo working, not a server error. */
 export function refusal(e: unknown) {
   const message = (e as Error).message;
-  const refused = /exceeds|frozen|not allowed|not an active agent|not a valid|payee is not|refused|pays on NEAR only/.test(message);
+  const refused = /exceeds|frozen|not allowed|not an active agent|not a valid|payee is not|refused|pays on NEAR only|no OutLayer wallet/.test(message);
   return Response.json(
     { error: refused ? `The vault refused it: ${message.replace(/^.*Smart contract panicked: /, "")}` : message },
     { status: refused ? 422 : 500 },

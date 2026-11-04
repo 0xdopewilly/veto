@@ -2,10 +2,20 @@ export type Network = "testnet" | "mainnet";
 
 export const NETWORK: Network = process.env.NEXT_PUBLIC_NETWORK === "mainnet" ? "mainnet" : "testnet";
 
-/** The demo business on testnet. The vault itself has no name on-chain. */
-export const VAULT_NAME = process.env.NEXT_PUBLIC_VAULT_NAME ?? "Lagoon Goods";
+/** The shared sandbox: a demo business anyone can try without a wallet. */
+export const SANDBOX_NAME = process.env.NEXT_PUBLIC_VAULT_NAME ?? "Lagoon Goods";
 
-export const VAULT_ID = process.env.NEXT_PUBLIC_VAULT_ID ?? "treasury.veto-lagoon-dygj2w.testnet";
+export const SANDBOX_ID = process.env.NEXT_PUBLIC_VAULT_ID ?? "treasury.veto-rhwe0krb.testnet";
+
+/** Creates vaults owned by whoever calls it (the vault code is a NEAR global contract). */
+export const FACTORY_ID = process.env.NEXT_PUBLIC_FACTORY_ID ?? "";
+
+const FACTORY_VAULT = FACTORY_ID ? new RegExp(`^[a-z0-9]+(-[a-z0-9]+)*\\.${FACTORY_ID.replace(/[.-]/g, "\\$&")}$`) : null;
+
+/** Vaults this app opens: the sandbox, and vaults the factory created. */
+export function isKnownVault(id: string): boolean {
+  return id === SANDBOX_ID || !!FACTORY_VAULT?.test(id);
+}
 
 /** The public NEAR RPC the app's server talks to (also shown in code samples). */
 export const RPC_UPSTREAM =

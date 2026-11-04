@@ -1,11 +1,13 @@
 // Builds the public testnet demo: a fresh vault on the current contract, test USDC, the
 // agent, guardian and demo-owner keys, an OutLayer agent wallet that needs Veto's approval,
-// a Base Sepolia route paid from the vault's own Chain Signatures address, and the env file the
-// web app's demo API reads.
+// a Base Sepolia route paid from the vault's own Chain Signatures address, a factory that lets
+// anyone create their own vault (the vault code deployed once as a global contract), and the env
+// file the web app's demo API reads.
 // Safe to re-run; finished steps are skipped.
 //   node scripts/demo-setup.ts            (profile "demo3", state in .veto-dev/demo3.json)
 //   node scripts/demo-setup.ts --upgrade  (also redeploys new contract code onto the existing vault;
 //                                          only for changes that keep the stored state's layout)
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { Wallet } from "ethers";
 import { actions, KeyPair, nearToYocto, PublicKey, teraToGas, yoctoToNear, type KeyPairString } from "near-api-js";
@@ -18,6 +20,7 @@ const { account, exists, loadState, newKey, saveState } = await import("./dev-st
 const NETWORK = "testnet";
 const FAUCET = "https://helper.nearprotocol.com/account";
 const VAULT_WASM = new URL("../contract/target/wasm32-unknown-unknown/release/veto_vault.wasm", import.meta.url);
+const FACTORY_WASM = new URL("../factory/target/wasm32-unknown-unknown/release/veto_factory.wasm", import.meta.url);
 const TOKEN_WASM = new URL("../test-token/target/wasm32-unknown-unknown/release/veto_test_usdc.wasm", import.meta.url);
 const USD = 1_000_000n;
 const MANDATE = "Pay listed suppliers only, in USDC. No single payment over $500. Ask me before paying a new or changed address.";
@@ -38,6 +41,17 @@ const SUBS = {
 
 const state = loadState(NETWORK);
 const log = (m: string) => console.log(`• ${m}`);
+const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+function base58(bytes: Uint8Array): string {
+  let n = BigInt("0x" + Buffer.from(bytes).toString("hex"));
+  let out = "";
+  for (; n > 0n; n /= 58n) out = B58[Number(n % 58n)] + out;
+  for (const b of bytes) {
+    if (b) break;
+    out = "1" + out;
+  }
+  return out;
+}
 
 async function faucetAccount() {
   const key = newKey();
@@ -297,7 +311,76 @@ if (!(await view<{ address: string }[]>(vaultId, "get_payees")).some((p) => p.ad
 }
 const vaultEvm = await vaultEvmAddress(new VaultReader(vaultId, provider(NETWORK)), { mpc: MPC_CONTRACT.testnet, path: "veto-1" });
 
-// 10. Env for the web app's demo API (gitignored).
+// 10. A factory that gives anyone their own vault, owned by their wallet. The vault code goes
+// on-chain once as a global contract (stored on every shard, so it costs 10x a normal deploy);
+// each vault then only needs its account and state, which the factory sponsors.
+const codeHash = base58(createHash("sha256").update(vaultCode).digest());
+if (state.globalCodeHash !== codeHash) {
+  await ensureRootBalance(yoctoToNear(storage(vaultCode) * 10n + nearToYocto("3"), 0) as `${number}`);
+  await root.signAndSendTransaction({ receiverId: state.root.accountId, actions: [actions.deployGlobalContract(vaultCode, "codeHash")], waitUntil: "FINAL" });
+  state.globalCodeHash = codeHash;
+  saveState(state);
+  log(`deployed the vault code as global contract ${codeHash}`);
+}
+const factoryId = `vaults.${state.root.accountId}`;
+if (state.factory && state.factory !== factoryId) {
+  state.retiredFactories = [...new Set([...(state.retiredFactories ?? []), state.factory])];
+}
+const factoryCode = new Uint8Array(readFileSync(FACTORY_WASM));
+// Each vault the factory makes gets its own agent and guardian accounts holding only these keys,
+// limited to that vault, so the hosted app never holds a key that can do anything else.
+state.ownedAgentKey ??= newKey().toString();
+state.ownedGuardianKey ??= newKey().toString();
+saveState(state);
+const template = {
+  agent_key: KeyPair.fromString(state.ownedAgentKey as KeyPairString).getPublicKey().toString(),
+  guardian_key: KeyPair.fromString(state.ownedGuardianKey as KeyPairString).getPublicKey().toString(),
+  // Only the model's enclave key: vaults people create for themselves get no test signer.
+  signer: [state.modelSigner, DEFAULT_MODEL],
+  token: tokenId,
+  starter_funds: String(5_000n * USD),
+  max_single: String(500n * USD),
+  period_limit: String(3_000n * USD),
+  payees: [
+    ["Kano Cotton Mills", "near", state.payees["kano-cotton"].accountId],
+    ["Ibadan Dye Works", "near", state.payees["ibadan-dye"].accountId],
+  ],
+  mandate: MANDATE,
+};
+if (!(await exists(factoryId, NETWORK))) {
+  // Each vault costs it 0.9 NEAR (0.5 for the vault's state, 0.4 for its agent's and guardian's
+  // gas). Top it up with a plain transfer to sponsor more.
+  const budget = process.env.FACTORY_BUDGET ?? "5";
+  await ensureRootBalance(yoctoToNear(storage(factoryCode) + nearToYocto(budget) + nearToYocto("1"), 0) as `${number}`);
+  const key = newKey();
+  state.factoryKey = key.toString();
+  saveState(state);
+  await root.createSubAccount({ accountOrPrefix: "vaults", publicKey: key.getPublicKey(), nearToTransfer: storage(factoryCode) + nearToYocto(budget) });
+  const factory = account({ accountId: factoryId, key: key.toString() as KeyPairString }, NETWORK);
+  await factory.deployContract(factoryCode);
+  await factory.callFunction({ contractId: factoryId, methodName: "new", args: { admin: state.root.accountId, code_hash: codeHash, template }, gas: teraToGas("30") });
+  log(`deployed the vault factory at ${factoryId}`);
+} else if (state.factoryKey && process.argv.includes("--upgrade")) {
+  // Same state layout, new code (e.g. different deposits): redeploy in place with the factory's own key.
+  await account({ accountId: factoryId, key: state.factoryKey as KeyPairString }, NETWORK).deployContract(factoryCode);
+  log(`redeployed the factory code at ${factoryId}`);
+}
+if ((await view<string>(factoryId, "get_code_hash")) !== codeHash) {
+  await call(factoryId, "set_code_hash", { code_hash: codeHash });
+  log("pointed the factory at the new vault code");
+}
+await call(factoryId, "set_template", { template });
+state.factory = factoryId;
+saveState(state);
+if (!(await view(tokenId, "storage_balance_of", { account_id: factoryId }))) {
+  await call(tokenId, "storage_deposit", { account_id: factoryId, registration_only: true }, nearToYocto("0.00125"));
+}
+if (BigInt(await view<string>(tokenId, "ft_balance_of", { account_id: factoryId })) < 100_000n * USD) {
+  await call(tokenId, "mint", { account_id: factoryId, amount: String(1_000_000n * USD) });
+  log("minted $1,000,000 test USDC to the factory for starter funds");
+}
+
+// 11. Env for the web app's demo API (gitignored).
 const rootEnv = new URL("../.env.local", import.meta.url);
 const nearAiKey = existsSync(rootEnv) ? readFileSync(rootEnv, "utf8").match(/^NEARAI_API_KEY=(.*)$/m)?.[1]?.trim() ?? "" : "";
 const env = {
@@ -319,6 +402,10 @@ const env = {
   DEMO_OUTLAYER_APPROVER_ID: state.approver!.accountId,
   DEMO_OUTLAYER_APPROVER_KEY: state.approver!.key,
   DEMO_EVM_PAYEE: state.evmPayee.address,
+  NEXT_PUBLIC_FACTORY_ID: factoryId,
+  // Function-call keys on each factory vault's own agent and guardian accounts, limited to that vault.
+  DEMO_OWNED_AGENT_KEY: state.ownedAgentKey,
+  DEMO_OWNED_GUARDIAN_KEY: state.ownedGuardianKey,
   NEARAI_API_KEY: nearAiKey,
 };
 const envFile = new URL("../apps/web/.env.local", import.meta.url);

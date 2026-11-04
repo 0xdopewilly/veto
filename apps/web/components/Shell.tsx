@@ -5,10 +5,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { VaultProvider, useVault, needsDecision } from "@/lib/vault";
-import { WalletProvider, useWallet } from "@/lib/wallet";
+import { WalletProvider, useVaultKind, useWallet } from "@/lib/wallet";
 import { DemoProvider } from "@/lib/demoClient";
 import { useKeptBlocked } from "@/lib/dismissed";
-import { GITHUB_URL, NETWORK, VAULT_ID, VAULT_NAME } from "@/lib/config";
+import { GITHUB_URL, NETWORK } from "@/lib/config";
 import { payeeLabel, STATUS_TEXT } from "@/lib/decision";
 import { metaOf } from "@/lib/vault";
 import { formatShort, chainLabel } from "@/lib/format";
@@ -19,6 +19,7 @@ import { useStartHint } from "@/lib/hint";
 import { Icon, type IconName } from "./Icon";
 import { RouteStage, levelOf } from "./RouteStage";
 import { FreezeSheet } from "./FreezeSheet";
+import { VaultSwitcher } from "./VaultSwitcher";
 import { InboxSheet } from "./AgentInbox";
 import { MorphOverlay } from "./MorphOverlay";
 import { Spotlight } from "./Spotlight";
@@ -28,8 +29,9 @@ import styles from "./Shell.module.css";
 interface ShellApi {
   openFreeze: () => void;
   openInbox: () => void;
+  openVaults: () => void;
 }
-const ShellContext = createContext<ShellApi>({ openFreeze: () => {}, openInbox: () => {} });
+const ShellContext = createContext<ShellApi>({ openFreeze: () => {}, openInbox: () => {}, openVaults: () => {} });
 export const useShell = () => useContext(ShellContext);
 
 interface NavItem {
@@ -74,17 +76,21 @@ export function Shell({ children }: { children: ReactNode }) {
 
 function ShellFrame({ children }: { children: ReactNode }) {
   const [freezeOpen, setFreezeOpen] = useState(false);
+  const [vaultsOpen, setVaultsOpen] = useState(false);
   const pathname = usePathname();
   // The inbox belongs to the page it was opened on, so following a link out of it closes it.
   const [inboxAt, setInboxAt] = useState<string | null>(null);
   const inboxOpen = inboxAt === pathname;
   const showTabs = levelOf(pathname) === 0;
-  const api = useMemo(() => ({ openFreeze: () => setFreezeOpen(true), openInbox: () => setInboxAt(pathname) }), [pathname]);
+  const api = useMemo(
+    () => ({ openFreeze: () => setFreezeOpen(true), openInbox: () => setInboxAt(pathname), openVaults: () => setVaultsOpen(true) }),
+    [pathname],
+  );
 
   return (
     <ShellContext.Provider value={api}>
       <div className={styles.shell}>
-        <Sidebar onFreeze={api.openFreeze} />
+        <Sidebar onFreeze={api.openFreeze} onVaults={api.openVaults} />
         <div className={styles.main}>
           <TopBar />
           <RouteStage>{children}</RouteStage>
@@ -92,6 +98,7 @@ function ShellFrame({ children }: { children: ReactNode }) {
         <TabBar visible={showTabs} onInbox={api.openInbox} />
       </div>
       <FreezeSheet open={freezeOpen} onClose={() => setFreezeOpen(false)} />
+      <VaultSwitcher open={vaultsOpen} onClose={() => setVaultsOpen(false)} />
       <InboxSheet open={inboxOpen} onClose={() => setInboxAt(null)} />
       <MorphOverlay />
       <Spotlight />
@@ -101,10 +108,11 @@ function ShellFrame({ children }: { children: ReactNode }) {
 
 /* --------------------------------------------------------------- sidebar */
 
-function Sidebar({ onFreeze }: { onFreeze: () => void }) {
+function Sidebar({ onFreeze, onVaults }: { onFreeze: () => void; onVaults: () => void }) {
   const pathname = usePathname();
   const active = activeHref(pathname);
-  const { state } = useVault();
+  const { state, vaultId, vaultName } = useVault();
+  const kind = useVaultKind();
   const { accountId, connect, disconnect } = useWallet();
   const frozen = state?.config.frozen;
 
@@ -137,14 +145,20 @@ function Sidebar({ onFreeze }: { onFreeze: () => void }) {
           <Lockup size={24} sign={!pulse} />
         </span>
       </Link>
-      <div className={styles.vaultCard}>
-        <span className={styles.vaultName}>{VAULT_NAME}</span>
-        <span className={`mono ${styles.vaultId}`}>{VAULT_ID}</span>
+      <button type="button" className={`${styles.vaultCard} press`} onClick={onVaults} aria-label={`${vaultName}. Switch vault`}>
+        <span className={styles.vaultTop}>
+          <span className={styles.vaultName}>{vaultName}</span>
+          <Icon name="chevronDown" size={15} className={styles.vaultChevron} />
+        </span>
+        <span className={`mono ${styles.vaultId}`}>{vaultId ?? "\u00a0"}</span>
+        <span className={styles.vaultKind} data-mine={kind.mine || undefined}>
+          {kind.label}
+        </span>
         <span className={styles.status}>
           <span className={styles.statusDot} data-frozen={frozen || undefined} aria-hidden="true" />
           {frozen ? "Payments frozen" : "Screening every payment"}
         </span>
-      </div>
+      </button>
       <nav aria-label="Primary" className={styles.nav}>
         <span className={styles.navGroup}>Vault</span>
         {VAULT_NAV.map(item)}
@@ -169,9 +183,9 @@ function Sidebar({ onFreeze }: { onFreeze: () => void }) {
 
 function TopBar() {
   const router = useRouter();
-  const { state } = useVault();
+  const { state, vaultName } = useVault();
   const { kept } = useKeptBlocked();
-  const { accountId, connect } = useWallet();
+  const { accountId, isOwner, connect } = useWallet();
   const attention = state ? needsDecision(state.proposals, kept) : [];
 
   return (
@@ -192,10 +206,10 @@ function TopBar() {
         </button>
         <button className={`${styles.account} press`} onClick={connect}>
           <span className={styles.avatar} aria-hidden="true">
-            {(accountId ?? VAULT_NAME)[0].toUpperCase()}
+            {(accountId ?? vaultName)[0].toUpperCase()}
           </span>
           <span className={styles.accountText}>
-            <span className={styles.accountName}>{accountId ? "Owner wallet" : VAULT_NAME}</span>
+            <span className={styles.accountName}>{accountId ? (isOwner ? "Owner wallet" : "Your wallet") : vaultName}</span>
             <span className={`mono ${styles.accountSub}`}>{accountId ?? "Connect wallet"}</span>
           </span>
           <Icon name="chevronDown" size={16} />

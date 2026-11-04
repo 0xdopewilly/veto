@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import type { Proposal } from "@veto/core/proposal";
-import { reader, useVault } from "./vault";
+import { useVault } from "./vault";
 
 /** A proposal by id: from the polled list, or fetched on its own if it's older than that. */
 export function useProposal(id: string): { proposal: Proposal | null; missing: boolean } {
-  const { state } = useVault();
+  const { state, reader } = useVault();
   const fromList = state?.proposals.find((p) => p.id === id) ?? null;
   const [single, setSingle] = useState<Proposal | null>(null);
   const [missing, setMissing] = useState(false);
@@ -25,7 +25,7 @@ export function useProposal(id: string): { proposal: Proposal | null; missing: b
     return () => {
       cancelled = true;
     };
-  }, [state, fromList, id]);
+  }, [state, fromList, id, reader]);
 
   return { proposal: fromList ?? single, missing: !fromList && missing };
 }

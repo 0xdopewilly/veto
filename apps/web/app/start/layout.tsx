@@ -4,7 +4,7 @@ import { RouteStage } from "@/components/RouteStage";
 
 export default function StartLayout({ children }: { children: React.ReactNode }) {
   return (
-    <VaultProvider>
+    <VaultProvider idle>
       <WalletProvider>
         <div style={{ display: "flex", height: "100dvh" }}>
           <RouteStage>{children}</RouteStage>

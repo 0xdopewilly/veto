@@ -144,16 +144,60 @@
 .vaultCard {
   margin: 0 4px;
   padding: 14px 14px;
+  border: 0;
   border-radius: 18px;
   background: var(--tile);
+  color: var(--sand);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 3px;
+  transition: background-color 160ms var(--ease-draw);
+}
+
+@media (hover: hover) {
+  .vaultCard:hover {
+    background: var(--control);
+  }
+}
+
+.vaultTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.vaultChevron {
+  flex: none;
+  color: var(--muted);
+}
+
+.vaultKind {
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: var(--purple-soft);
+  color: var(--purple);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.vaultKind[data-mine] {
+  background: var(--green-soft);
+  color: var(--green);
 }
 
 .vaultName {
   font-size: 14.5px;
   font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .vaultId {

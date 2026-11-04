@@ -29,6 +29,15 @@ export interface DevState {
   outlayer?: { walletId: string; apiKey: string; account: string; policyTx?: string };
   /** A Base Sepolia supplier the vault pays from its own Chain Signatures address. */
   evmPayee?: { address: string; key: string };
+  /** The vault code deployed once as a global contract, and the factory that uses it. */
+  globalCodeHash?: string;
+  factory?: string;
+  /** The factory account's own key (it can redeploy the factory), and the factories it replaced. */
+  factoryKey?: string;
+  retiredFactories?: string[];
+  /** The keys each factory vault's own agent and guardian accounts get; they can only call that vault. */
+  ownedAgentKey?: string;
+  ownedGuardianKey?: string;
 }
 
 const DIR = new URL("../.veto-dev/", import.meta.url);

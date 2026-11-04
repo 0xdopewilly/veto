@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { metaOf, useVault, type VaultState } from "@/lib/vault";
 import { useNow } from "@/lib/useNow";
-import { VAULT_ID } from "@/lib/config";
 import { formatAmount, formatDuration, formatTime, formatWhen, remaining } from "@/lib/format";
 import { Screen, delay } from "@/components/Screen";
 import { Icon } from "@/components/Icon";
@@ -33,7 +32,7 @@ function toUnits(input: string, decimals: number): string | null {
 }
 
 export function MandateView() {
-  const { state } = useVault();
+  const { state, vaultId } = useVault();
   const [draft, setDraft] = useState<string | null>(null);
 
   if (!state) return <Boot loading caption="Loading your mandate" />;
@@ -46,7 +45,7 @@ export function MandateView() {
     <Screen>
       <LineReveal as="h1" className={head.title} text="Mandate" />
       <p className={`${head.lead} rise`} style={delay(60)}>
-        What your agent may pay from <span className="mono">{VAULT_ID}</span>, and how Veto checks every payment against it.
+        What your agent may pay from <span className="mono">{vaultId}</span>, and how Veto checks every payment against it.
       </p>
 
       {state.pending.map(([asset, change], i) => (

@@ -1,4 +1,4 @@
-import { allow, demo, demoAccounts } from "@/lib/server/demo";
+import { allow, demo, vaultAccounts } from "@/lib/server/demo";
 import { outlayerEnabled } from "@/lib/server/outlayer";
 import { buildScenarios } from "@/lib/server/scenarios";
 import { evmDemo } from "@/lib/server/evm";
@@ -17,13 +17,16 @@ export const maxDuration = 120;
  */
 export async function POST(req: Request) {
   if (!demo.enabled) return Response.json({ error: "the testnet demo is not configured" }, { status: 404 });
-  const { scenario, via } = (await req.json().catch(() => ({}))) as { scenario?: string; via?: string };
-  if (via === "outlayer" && !outlayerEnabled()) return Response.json({ error: "the OutLayer wallet is not configured" }, { status: 404 });
-  if (!allow("run", 12, 10 * 60_000)) return Response.json({ error: "too many demo runs; try again in a few minutes" }, { status: 429 });
+  const { scenario, via, vault } = (await req.json().catch(() => ({}))) as { scenario?: string; via?: string; vault?: string };
+  const accounts = vaultAccounts(vault);
+  if (!accounts) return Response.json({ error: "the demo agent doesn't work for that vault" }, { status: 404 });
+  if (via === "outlayer" && !(accounts.sandbox && outlayerEnabled())) return Response.json({ error: "the OutLayer wallet is not configured" }, { status: 404 });
+  if (!allow(`run:${accounts.vaultId}`, 12, 10 * 60_000) || !allow("run", 60, 10 * 60_000)) {
+    return Response.json({ error: "too many demo runs; try again in a few minutes" }, { status: 429 });
+  }
 
-  const { reader } = demoAccounts();
-  const history = await reader.proposals(0, 50);
-  const chosen = buildScenarios(demo.root, history, await evmDemo()).find((s) => s.id === scenario);
+  const history = await accounts.reader.proposals(0, 50);
+  const chosen = buildScenarios(demo.root, history, accounts.sandbox ? await evmDemo() : null).find((s) => s.id === scenario);
   if (!chosen) return Response.json({ error: "unknown scenario" }, { status: 400 });
 
   try {
@@ -35,7 +38,7 @@ export async function POST(req: Request) {
       amount: units(chosen.amount, chosen.decimals ?? 6),
       memo: chosen.memo,
     };
-    return Response.json(await startPayment(request, evidence, via));
+    return Response.json(await startPayment(accounts, request, evidence, via));
   } catch (e) {
     return refusal(e);
   }

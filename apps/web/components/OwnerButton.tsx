@@ -92,7 +92,7 @@ export function OwnerButton({
       </Pill>
       {viaDemo ? (
         <span className={`${styles.demo} ${confirmTone === "ink" ? styles.ink : ""}`}>
-          <span className={styles.chip}>Testnet demo owner</span>
+          <span className={styles.chip}>Sandbox owner</span>
           <button type="button" className={styles.useWallet} onClick={connect}>
             Use my wallet
           </button>

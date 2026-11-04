@@ -1,8 +1,12 @@
-// Server-only: the testnet demo's accounts. Each key can only call its own vault methods
-// (agent: propose; guardian: verdicts and external payments; demo owner: the owner methods).
-// The OutLayer wallet's API key and the approver's key are for the OutLayer path.
+// Server-only: the testnet demo's accounts. Every key here is a function-call key that can only
+// call its own vault's methods (agent: propose; guardian: verdicts and external payments; demo
+// owner: the owner methods). A vault created through the factory has its own agent and guardian
+// accounts (<name>_agent, <name>_guard) holding keys limited to that vault; its owner signs every
+// owner action from their own wallet. The OutLayer wallet's API key and the approver's key are
+// for the sandbox's OutLayer path.
 import { Account, type KeyPairString } from "near-api-js";
 import { DEFAULT_MODEL, DevScreener, FallbackScreener, NearAiScreener, OutLayer, VaultReader, type Screener } from "@veto/core";
+import { isKnownVault, SANDBOX_ID } from "@/lib/config";
 import { serverRpc } from "./rpc";
 
 const env = (key: string) => process.env[key]?.trim() ?? "";
@@ -16,6 +20,7 @@ export const demo = {
   guardianId: env("DEMO_GUARDIAN_ACCOUNT_ID"),
   ownerId: env("DEMO_OWNER_ACCOUNT_ID"),
   outlayerWallet: env("DEMO_OUTLAYER_WALLET"),
+  factory: env("NEXT_PUBLIC_FACTORY_ID"),
 };
 
 interface OutLayerDemo {
@@ -55,6 +60,52 @@ export function demoAccounts() {
     };
   }
   return cached;
+}
+
+/** The accounts that act on one vault: the sandbox's, or an owned vault's own agent and guardian. */
+export interface VaultAccounts {
+  vaultId: string;
+  sandbox: boolean;
+  reader: VaultReader;
+  agent: Account;
+  guardian: Account;
+  /** The sandbox's demo owner. Owned vaults have none: their owner's wallet signs. */
+  owner: Account | null;
+  screener: Screener;
+  outlayer: OutLayerDemo | null;
+}
+
+/** Whether the demo can act on vaults the factory created. */
+export const ownedVaultsEnabled = () => demo.enabled && !!demo.factory && !!env("DEMO_OWNED_AGENT_KEY") && !!env("DEMO_OWNED_GUARDIAN_KEY") && !!env("NEARAI_API_KEY");
+
+const owned = new Map<string, VaultAccounts>();
+let screener: Screener | null = null;
+
+/** `null` when this isn't a vault the demo acts on. */
+export function vaultAccounts(vaultId: string = SANDBOX_ID): VaultAccounts | null {
+  if (!demo.enabled || !isKnownVault(vaultId)) return null;
+  if (vaultId === demo.vaultId || vaultId === SANDBOX_ID) return { vaultId: demo.vaultId, sandbox: true, ...demoAccounts() };
+  if (!ownedVaultsEnabled()) return null;
+  let found = owned.get(vaultId);
+  if (!found) {
+    const rpc = serverRpc();
+    const name = vaultId.slice(0, vaultId.indexOf("."));
+    // Only the model in the enclave: an owned vault trusts no test key, so if NEAR AI can't
+    // answer, the payment expires unpaid.
+    screener ??= new NearAiScreener(env("NEARAI_API_KEY"), env("NEARAI_MODEL") || DEFAULT_MODEL);
+    found = {
+      vaultId,
+      sandbox: false,
+      reader: new VaultReader(vaultId, rpc),
+      agent: new Account(`${name}_agent.${demo.factory}`, rpc, env("DEMO_OWNED_AGENT_KEY") as KeyPairString),
+      guardian: new Account(`${name}_guard.${demo.factory}`, rpc, env("DEMO_OWNED_GUARDIAN_KEY") as KeyPairString),
+      owner: null,
+      outlayer: null,
+      screener,
+    };
+    owned.set(vaultId, found);
+  }
+  return found;
 }
 
 /** Small in-memory limiter: at most `max` events per `windowMs` per bucket. */

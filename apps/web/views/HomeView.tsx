@@ -7,10 +7,9 @@ import { AnimatePresence, motion } from "motion/react";
 import { lookalike } from "@veto/core/signals";
 import type { Proposal } from "@veto/core/proposal";
 import { useVault, metaOf, needsDecision, type VaultState } from "@/lib/vault";
-import { useWallet } from "@/lib/wallet";
+import { useVaultKind, useWallet } from "@/lib/wallet";
 import { useKeptBlocked } from "@/lib/dismissed";
 import { useIsDesktop } from "@/lib/media";
-import { VAULT_NAME } from "@/lib/config";
 import { formatParts, formatShort, formatTime, nsToDate, possessive } from "@/lib/format";
 import { SPRING_UI, useCalm } from "@/lib/motion";
 import { Screen, delay } from "@/components/Screen";
@@ -78,7 +77,9 @@ function PhoneHome({ state }: { state: VaultState }) {
   const router = useRouter();
   const { accountId, connect } = useWallet();
   const { kept } = useKeptBlocked();
-  const { openFreeze, openInbox } = useShell();
+  const { openFreeze, openInbox, openVaults } = useShell();
+  const { vaultName } = useVault();
+  const kind = useVaultKind();
   const o = useOverview(state, kept);
   const [filter, setFilter] = useState<Filter>("all");
   const lead = o.attention[0];
@@ -100,8 +101,13 @@ function PhoneHome({ state }: { state: VaultState }) {
         <header className={styles.head}>
           <div className={`${styles.topRow} rise`}>
             <div className={styles.titleBlock}>
-              <span className={styles.eyebrow}>Veto vault</span>
-              <h1 className={styles.vaultName}>{VAULT_NAME}</h1>
+              <button type="button" className={`${styles.vaultSwitch} press`} onClick={openVaults} aria-label={`${vaultName}. Switch vault`}>
+                <span className={styles.eyebrow}>{kind.label}</span>
+                <span className={styles.vaultNameRow}>
+                  <h1 className={styles.vaultName}>{vaultName}</h1>
+                  <Icon name="chevronDown" size={17} stroke={2} className={styles.vaultChevron} />
+                </span>
+              </button>
             </div>
             <div className={styles.circles}>
               <button
@@ -253,6 +259,9 @@ function Legend({ o }: { o: Overview }) {
 
 function DesktopHome({ state }: { state: VaultState }) {
   const hint = useStartHint();
+  const { openVaults } = useShell();
+  const { vaultName } = useVault();
+  const kind = useVaultKind();
   const { kept } = useKeptBlocked();
   const o = useOverview(state, kept);
   const [filter, setFilter] = useState<Filter>("all");
@@ -262,8 +271,13 @@ function DesktopHome({ state }: { state: VaultState }) {
   return (
     <Screen wide>
       <div className={styles.titleRow}>
-        <LineReveal as="h1" className={styles.pageTitle} text={VAULT_NAME} />
+        <LineReveal key={vaultName} as="h1" className={styles.pageTitle} text={vaultName} />
         <div className={`${styles.titleTools} rise`} style={delay(60)}>
+          <button type="button" className={`${styles.periodPill} ${styles.kindPill} press`} data-mine={kind.mine || undefined} onClick={openVaults}>
+            <span className={styles.kindDot} aria-hidden="true" />
+            {kind.label}
+            <Icon name="chevronDown" size={15} />
+          </button>
           <span className={styles.periodPill}>
             <Icon name="calendar" size={16} />
             {o.period === "this week" ? "This week" : o.period === "today" ? "Today" : "This period"}

@@ -1,6 +1,7 @@
 "use client";
 
 import { markTried } from "./hint";
+import { useVault } from "./vault";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 /** One email in the demo agent's inbox. */
@@ -21,6 +22,8 @@ export interface DemoInfo {
   enabled: boolean;
   network: string;
   vault: string;
+  /** The shared sandbox, with a demo owner key; false for a vault someone owns. */
+  sandbox: boolean;
   agent: { account: string };
   guardian: { account: string; model: string; test_signer: boolean };
   owner: { account: string } | null;
@@ -83,6 +86,7 @@ async function post<T>(url: string, body: unknown): Promise<T> {
 }
 
 export function DemoProvider({ children }: { children: ReactNode }) {
+  const { vaultId } = useVault();
   const [status, setStatus] = useState<DemoContextValue["status"]>("loading");
   const [info, setInfo] = useState<DemoInfo | null>(null);
   const [runs, setRuns] = useState<Record<string, DemoRun>>({});
@@ -90,11 +94,18 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const [composed, setComposed] = useState<DemoScenario[]>([]);
 
   useEffect(() => {
+    if (!vaultId) return;
     let cancelled = false;
     let retry: ReturnType<typeof setTimeout> | undefined;
+    // Another vault: its own agent inbox, from scratch.
+    setStatus("loading");
+    setInfo(null);
+    setRuns({});
+    setComposed([]);
+    setPayFrom("vault");
     // A busy RPC can fail the first look; try again a few times before giving up.
     const load = (attempt: number) =>
-      fetch("/api/demo", { cache: "no-store" })
+      fetch(`/api/demo?vault=${encodeURIComponent(vaultId)}`, { cache: "no-store" })
         .then(async (res) => {
           if (!res.ok || !(res.headers.get("content-type") ?? "").includes("json")) throw new Error("unavailable");
           return (await res.json()) as DemoInfo;
@@ -114,7 +125,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       clearTimeout(retry);
     };
-  }, []);
+  }, [vaultId]);
 
   const run = useCallback(async (scenario: string) => {
     markTried();
@@ -122,7 +133,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     const started: DemoRun = { scenario, via, startedAt: Date.now() };
     setRuns((r) => ({ ...r, [scenario]: started }));
     try {
-      const res = await post<{ proposal_id: string; tx: string }>("/api/demo/run", { scenario, via });
+      const res = await post<{ proposal_id: string; tx: string }>("/api/demo/run", { scenario, via, vault: vaultId });
       const done = { ...started, proposalId: res.proposal_id, tx: res.tx };
       setRuns((r) => ({ ...r, [scenario]: done }));
       return done;
@@ -131,7 +142,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       setRuns((r) => ({ ...r, [scenario]: failed }));
       return failed;
     }
-  }, [payFrom]);
+  }, [payFrom, vaultId]);
 
   const compose = useCallback(
     async (email: { from: string; subject: string; body: string }) => {
@@ -143,7 +154,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       setComposed((c) => [card, ...c]);
       setRuns((r) => ({ ...r, [id]: started }));
       try {
-        const res = await post<{ proposal_id: string; tx: string; agent: { payee: string; amount: string; currency: string } }>("/api/demo/compose", { ...email, via });
+        const res = await post<{ proposal_id: string; tx: string; agent: { payee: string; amount: string; currency: string } }>("/api/demo/compose", { ...email, via, vault: vaultId });
         setComposed((c) => c.map((x) => (x.id === id ? { ...x, amount: res.agent.amount, payee: res.agent.payee, symbol: res.agent.currency === "ETH" ? "ETH" : undefined } : x)));
         const done = { ...started, proposalId: res.proposal_id, tx: res.tx };
         setRuns((r) => ({ ...r, [id]: done }));
@@ -155,14 +166,15 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         return failed;
       }
     },
-    [payFrom],
+    [payFrom, vaultId],
   );
 
-  const owner = useCallback((action: string, args: Record<string, unknown>) => post<{ tx?: string }>("/api/demo/owner", { action, args }), []);
+  const owner = useCallback((action: string, args: Record<string, unknown>) => post<{ tx?: string }>("/api/demo/owner", { action, args, vault: vaultId }), [vaultId]);
 
+  // Only on the sandbox: a vault someone owns takes owner actions from its owner's wallet alone.
   const canActAsOwner = useCallback(
-    (method: string) => status === "ready" && !!info?.owner && (OWNER_ACTIONS as readonly string[]).includes(method),
-    [status, info],
+    (method: string) => status === "ready" && !!info?.sandbox && info.vault === vaultId && !!info.owner && (OWNER_ACTIONS as readonly string[]).includes(method),
+    [status, info, vaultId],
   );
 
   const value = useMemo(

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { EXPLORER, GITHUB_URL, VAULT_ID } from "@/lib/config";
+import { EXPLORER, GITHUB_URL, SANDBOX_ID as VAULT_ID } from "@/lib/config";
 import { Lockup } from "@/components/Logo";
 import { Circuit } from "@/components/Circuit";
 import { LineReveal } from "@/components/LineReveal";
@@ -30,18 +30,20 @@ type Status = "live" | "built" | "next";
 const STATUS_TEXT: Record<Status, string> = { live: "Live on testnet", built: "Built and tested", next: "Next" };
 
 const STATUS: { part: string; status: Status; note: string }[] = [
-  { part: "Vault contract: caps, verdict check, overrides, freeze", status: "live", note: "47 contract tests; deployed on NEAR testnet." },
+  { part: "Vault contract: caps, verdict check, overrides, freeze", status: "live", note: "48 contract tests; deployed on NEAR testnet." },
+  { part: "Your own vault, owned by your wallet", status: "live", note: "A factory creates a vault for any NEAR testnet account in one transaction its wallet signs. The vault code is deployed once as a NEAR global contract, so each new vault stores only its own state (about 1.6 KB). Its agent and screening accounts are its own too, each holding one key that can only call that vault. Every owner action is signed by the owner's wallet." },
   { part: "OutLayer agent wallets", status: "live", note: "Veto is an approver on an OutLayer wallet's policy. Pass, veto and override all run on testnet, settled against the wallet's real transactions." },
   { part: "Agent inbox and guardian screening", status: "live", note: "Real proposals and verdicts on testnet, screened by Qwen3-VL-30B inside NEAR AI's enclave. If NEAR AI can't answer, a labelled test key signs instead, so the demo never stalls." },
-  { part: "Owner actions in the app", status: "live", note: "With the owner's NEAR wallet, or the limited demo-owner key on testnet." },
+  { part: "Owner actions in the app", status: "live", note: "In your own vault, only your wallet. In the shared sandbox, a demo-owner key limited to the owner methods, so anyone can try it without a wallet." },
   { part: "Private AI screen on NEAR AI Cloud", status: "live", note: "Qwen3-VL-30B runs in an Intel TDX enclave on NEAR AI Cloud and signs each verdict in about 1.5 s. The vault checks the signature on-chain against the model's attested key." },
   { part: "Paying suppliers on other chains (NEAR Intents)", status: "built", note: "The vault verifies 1Click's signed quote on-chain, tested against a real executable quote. The mainnet payout is scripted and runs once the mainnet vault is funded." },
   { part: "Veto Bench", status: "live", note: "100 scenarios. Qwen3-VL-30B catches 50 of 50 attacks and blocks 8 of 50 honest payments; all 100 signatures re-verify offline. Plain-policy and rules-only baselines are published beside it." },
   { part: "Shield incident check before cross-chain payouts", status: "built", note: "Holds a payout while a NEAR Intents Shield incident touches its chain, bridge, token or payee; fails closed if it outlasts the deadline. Runs when the Shield key is added." },
-  { part: "The vault's own Base address via Chain Signatures", status: "live", note: "The vault builds each passed transfer and NEAR's MPC network signs exactly that; 47 contract tests include byte-for-byte checks against ethers." },
+  { part: "The vault's own Base address via Chain Signatures", status: "live", note: "The vault builds each passed transfer and NEAR's MPC network signs exactly that; the contract tests include byte-for-byte checks against ethers." },
 ];
 
 const METHODS: { method: string; who: string; does: string }[] = [
+  { method: "factory: create_vault(name, label, mandate?)", who: "Anyone", does: "Creates <name>.<factory>, owned by the caller, with starter test funds, caps, suppliers and the enclave model's key, plus its own agent and screening accounts whose keys can only call it." },
   { method: "propose(request, context_hash)", who: "Agent", does: "Asks to pay. Checked against the caps at once; then waits for the screen." },
   { method: "submit_verdict(id, model_id, chat_id, request_hash, response, signature, quote?)", who: "Guardian", does: "Records the signed verdict. PASS pays if the caps still allow it; VETO blocks." },
   { method: "expire(id)", who: "Anyone", does: "Ends a screening with no verdict after the deadline. No verdict means no payment." },
@@ -61,6 +63,14 @@ const METHODS: { method: string; who: string; does: string }[] = [
 ];
 
 const FAQ: { q: string; a: string }[] = [
+  {
+    q: "Is this real, or a simulation?",
+    a: "Real, on NEAR testnet. Every vault is a deployed contract, every payment is a testnet transaction you can open on NearBlocks, and every verdict is signed inside NEAR AI's enclave and checked by the contract. The tokens are test tokens. The shared sandbox lets anyone act as its owner so it can be tried without a wallet; a vault you create belongs to your wallet, and nothing changes its rules without your signature.",
+  },
+  {
+    q: "Where do the payment requests come from?",
+    a: "From what the agent reads. The inbox holds example emails (one genuine invoice, three common scams), and Write your own email sends the agent anything you type: a real model on NEAR AI reads it and proposes whatever it asks for, the way an accounts-payable agent would. In production that is the agent's own inbox, a supplier portal or a web page. Veto never trusts the request; it screens the payment against the evidence.",
+  },
   {
     q: "Which model screens the payments?",
     a: "Qwen3-VL-30B-A3B-Instruct, hosted by NEAR AI Cloud inside an Intel TDX enclave. It answers directly without a reasoning phase, so a verdict takes about 1.5 seconds and always arrives in full. The owner approves a model by its attested signing key (add_signer), so any other enclave-hosted model can be used instead; Veto Bench compares them on the same 100 scenarios.",
@@ -331,22 +341,23 @@ export function DocsView() {
           <section id="try" className={styles.section} data-reveal>
             <h2>Try it on testnet</h2>
             <p>
-              The live demo is at <a href="https://veto-beta.vercel.app/app">veto-beta.vercel.app</a>, with nothing to install. The demo vault is <a href={`${EXPLORER}/address/${VAULT_ID}`} target="_blank" rel="noreferrer" className={styles.mono}>{VAULT_ID}</a>.
-              It belongs to a made-up business, Lagoon Goods, which holds test USDC and pays two suppliers.
+              The live demo is at <a href="https://veto-beta.vercel.app/app">veto-beta.vercel.app</a>, with nothing to install. The shared sandbox is <a href={`${EXPLORER}/address/${VAULT_ID}`} target="_blank" rel="noreferrer" className={styles.mono}>{VAULT_ID}</a>,
+              a made-up business called Lagoon Goods that holds test USDC and pays two suppliers. Anyone can act as its owner. For a vault only you control, start with step 1.
             </p>
             <ol className={styles.doSee}>
+              <li><span>Do</span> open <Link href="/start/vault">Create your vault</Link>, connect a NEAR testnet wallet (MyNearWallet or Meteor make a testnet account for free), name your business and sign. <span>See</span> your own vault live in a few seconds, with $5,000 test USDC, two suppliers and its own test agent. From here on, overrides, freezes and rule changes need your wallet&apos;s signature.</li>
               <li><span>Do</span> open <Link href="/app">the app</Link> and press <strong>Try it</strong> (the green V on a phone, the Agent inbox panel on desktop). <span>See</span> the agent's inbox: one real invoice and three scams that look ordinary.</li>
               <li><span>Do</span> let the agent pay the real Kano Cotton Mills invoice. <span>See</span> "Agent proposed", "Screening privately", then <strong>Paid</strong>, with testnet transaction links.</li>
               <li><span>Do</span> let it pay "Updated payment details". <span>See</span> <strong>Vetoed</strong>: a lookalike address, a new payee and changed payout details, while the payment was inside the weekly limit.</li>
               <li><span>Do</span> open the decision, then <strong>Proof</strong>. <span>See</span> the signer, the hashes and the on-chain check.</li>
-              <li><span>Do</span> press <strong>Override</strong> (the demo owner works without a wallet). <span>See</span> a countdown; the override pays only after the delay and can be cancelled.</li>
-              <li><span>Do</span> switch <strong>Pay from</strong> to <strong>OutLayer wallet</strong> and repeat. <span>See</span> the paid invoice approved by Veto on OutLayer and sent by the wallet; the scam stays held, and <strong>Keep it blocked</strong> rejects it there for good.</li>
+              <li><span>Do</span> press <strong>Override</strong> (your wallet signs it in your own vault; in the sandbox anyone can). <span>See</span> a countdown; the override pays only after the delay and can be cancelled.</li>
+              <li><span>Do</span> in the sandbox, switch <strong>Pay from</strong> to <strong>OutLayer wallet</strong> and repeat. <span>See</span> the paid invoice approved by Veto on OutLayer and sent by the wallet; the scam stays held, and <strong>Keep it blocked</strong> rejects it there for good.</li>
               <li><span>Do</span> press <strong>Write your own email</strong> and write the agent an invoice, or a scam. <span>See</span> a real AI agent on NEAR AI read it and propose whatever it asks for, then Veto screen that payment like any other.</li>
-              <li><span>Do</span> let the agent pay <strong>"A supplier paid on Base"</strong>. <span>See</span> <strong>Paid</strong>, sent from the vault's own Base Sepolia address with NEAR Chain Signatures, with a Base explorer link.</li>
+              <li><span>Do</span> in the sandbox, let the agent pay <strong>"A supplier paid on Base"</strong>. <span>See</span> <strong>Paid</strong>, sent from the vault's own Base Sepolia address with NEAR Chain Signatures, with a Base explorer link.</li>
             </ol>
             <p className={styles.note}>
-              Every verdict is signed by Qwen3-VL-30B inside NEAR AI's enclave. If NEAR AI can't answer, the demo's labelled test key signs instead;
-              the decision's Proof page always shows which key signed it.
+              Every verdict is signed by Qwen3-VL-30B inside NEAR AI's enclave. If NEAR AI can't answer, the sandbox's labelled test key signs instead;
+              the decision's Proof page always shows which key signed it. Vaults you create trust only the enclave key, so without an answer the payment expires unpaid.
             </p>
           </section>
 
@@ -410,6 +421,7 @@ node bench/run.ts --screener dev && node bench/verify.ts bench/results/veto-dev_
               <li><strong>NEAR AI Cloud.</strong> Models in TEEs (Intel TDX and NVIDIA confidential GPUs) that sign every answer; the vault checks that signature on-chain.</li>
               <li><strong>NEAR Intents (1Click).</strong> Pays suppliers on other chains; the vault verifies the signed quote before sending.</li>
               <li><strong>Access keys.</strong> Function-call keys that can call one method each: the agent can only propose, the guardian can only submit verdicts.</li>
+              <li><strong>Global contracts.</strong> The vault code is deployed once (NEP-591); every vault the factory creates runs it by hash and stores only its own state.</li>
               <li><strong>Named accounts and sub-accounts.</strong> <code>treasury.</code>, <code>buyer.</code>, <code>guardian.</code> under one owner account, so roles are readable on-chain.</li>
               <li><strong>NEP-141 tokens and contract events.</strong> USDC payments, with every decision emitted as a NEP-297 event.</li>
             </ul>
