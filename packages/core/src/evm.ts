@@ -7,6 +7,18 @@ import { teraToGas, type Account } from "near-api-js";
 import type { Proposal } from "./proposal.ts";
 import type { VaultReader } from "./vault.ts";
 
+/**
+ * An address sharing the first and last six hex characters of `address`, the way an address-poisoning
+ * scam builds one: shortened, the two look the same. The demo's scams use it; nobody holds its key.
+ */
+export function lookalikeEvmAddress(address: string): string {
+  const hex = address.slice(2).toLowerCase();
+  const middle = hex.slice(6, -6);
+  let swapped = [...middle].reverse().join("");
+  if (swapped === middle) swapped = (middle[0] === "0" ? "1" : "0") + middle.slice(1);
+  return getAddress(`0x${hex.slice(0, 6)}${swapped}${hex.slice(-6)}`);
+}
+
 export const MPC_CONTRACT = { testnet: "v1.signer-prod.testnet", mainnet: "v1.signer" } as const;
 
 /** Public RPCs by chain id; override with EVM_RPC_<chainId>. */

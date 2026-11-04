@@ -17,7 +17,7 @@ const THEFTS = [
   },
   {
     title: "Changed payout details",
-    text: "An invoice or email says the supplier's wallet has changed. The new address belongs to someone else.",
+    text: "An invoice says a supplier's wallet has changed, or a \u201cworker\u201d asks for their salary at a new one. The new address belongs to someone else.",
   },
   {
     title: "Prompt-injected instructions",

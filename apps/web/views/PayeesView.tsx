@@ -20,7 +20,7 @@ const CHAINS = [
 ];
 
 
-/** Who the agent may pay, adding one, and lookalikes Veto blocked: the Suppliers part of Rules. */
+/** Who the agent may pay, adding one, and lookalikes Veto blocked: the Payees part of Rules. */
 export function PayeesSection({ state, titleClass }: { state: VaultState; titleClass: string }) {
   const { isOwner } = useWallet();
   const [name, setName] = useState("");
@@ -44,12 +44,12 @@ export function PayeesSection({ state, titleClass }: { state: VaultState; titleC
   return (
     <>
       <div className={styles.titleRow}>
-        <h2 id="suppliers-title" className={titleClass}>Suppliers</h2>
+        <h2 id="payees-title" className={titleClass}>Payees</h2>
         <a href="#add" className={`${styles.add} press`}>
-          <Icon name="plus" size={16} stroke={2.25} /> Add a supplier
+          <Icon name="plus" size={16} stroke={2.25} /> Add a payee
         </a>
       </div>
-      <p className={styles.lead}>Veto only pays these addresses. A changed address is never trusted automatically.</p>
+      <p className={styles.lead}>Suppliers and staff, each at the address and on the chain they chose. Veto only pays these. A changed address is never trusted automatically.</p>
 
       <div className={styles.table} role="table" aria-label="Saved payees">
         <div className={styles.head} role="row">
@@ -94,7 +94,7 @@ export function PayeesSection({ state, titleClass }: { state: VaultState; titleC
 
       <div className={styles.lower}>
         <section id="add" className={`${styles.form} rise`} style={delay(260)} aria-labelledby="add-title">
-          <h3 id="add-title" className={styles.h2}>Add a supplier</h3>
+          <h3 id="add-title" className={styles.h2}>Add a payee</h3>
           <label className={styles.field}>
             <span>Name</span>
             <input value={name} maxLength={64} onChange={(e) => setName(e.target.value)} placeholder="Kano Cotton Mills" />
@@ -109,7 +109,7 @@ export function PayeesSection({ state, titleClass }: { state: VaultState; titleC
           </label>
           <label className={styles.field}>
             <span>Address</span>
-            <input className="mono" value={address} onChange={(e) => setAddress(e.target.value)} placeholder={chain === "near" ? "supplier.near" : "0x…"} spellCheck={false} autoCapitalize="off" />
+            <input className="mono" value={address} onChange={(e) => setAddress(e.target.value)} placeholder={chain === "near" ? "name.near" : "0x…"} spellCheck={false} autoCapitalize="off" />
           </label>
           <p className={styles.helper}>Veto won't trust a new address until you confirm it with your wallet.</p>
           {canAdd ? (

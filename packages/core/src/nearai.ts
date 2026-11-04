@@ -67,7 +67,7 @@ export async function screen(opts: {
   };
   const requestBytes = new TextEncoder().encode(JSON.stringify(body));
 
-  const res = await fetch(`${baseUrl}/chat/completions`, {
+  const res = await retryOnce(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${opts.apiKey}`,
@@ -113,17 +113,39 @@ export async function screen(opts: {
   };
 }
 
+const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Sends once more after a dropped connection or a gateway error, so a network blip doesn't cost a
+ * verdict (an owned vault has no fallback signer: no verdict means the payment expires unpaid).
+ * The same bytes go out again, so what the enclave signs is still exactly what was sent.
+ */
+async function retryOnce(url: string, init: RequestInit): Promise<Response> {
+  try {
+    const res = await fetch(url, init);
+    if (![502, 503, 504].includes(res.status)) return res;
+  } catch {
+    // Dropped before a response: try again below.
+  }
+  await pause(800);
+  return fetch(url, init);
+}
+
 async function fetchSignature(baseUrl: string, apiKey: string, chatId: string): Promise<SignatureResponse> {
   const url = `${baseUrl}/signature/${encodeURIComponent(chatId)}?signing_algo=ecdsa`;
   for (let attempt = 0; attempt < 10; attempt++) {
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } });
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" } }).catch(() => null);
+    if (!res) {
+      await pause(1000);
+      continue;
+    }
     if (res.ok) {
       const body = (await res.json()) as SignatureResponse;
       if (!body.error_code && body.signature) return body;
     } else if (res.status !== 404) {
       throw new Error(`signature lookup failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
     }
-    await new Promise((r) => setTimeout(r, 1000));
+    await pause(1000);
   }
   throw new Error("no signature was recorded for this completion");
 }

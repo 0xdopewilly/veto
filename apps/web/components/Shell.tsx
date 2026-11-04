@@ -207,7 +207,7 @@ function Sidebar({ onFreeze, onVaults, onInbox }: { onFreeze: () => void; onVaul
         </span>
         <span className={styles.tryAgentText}>
           <strong>Try the agent</strong>
-          <span>Pay an invoice</span>
+          <span>Invoices and salaries</span>
         </span>
         <Icon name="arrowRight" size={16} />
       </button>
@@ -328,7 +328,7 @@ function Search() {
     const payees = state.payees
       .filter((p) => p.name.toLowerCase().includes(q) || p.address.toLowerCase().includes(q))
       .slice(0, 3)
-      .map((p) => ({ key: `y${p.address}`, href: "/app/rules#suppliers", title: p.name, sub: `${chainLabel(p.chain)} · ${p.address}`, icon: "users" as IconName }));
+      .map((p) => ({ key: `y${p.address}`, href: "/app/rules#payees", title: p.name, sub: `${chainLabel(p.chain)} · ${p.address}`, icon: "users" as IconName }));
     return [...proposals, ...payees];
   }, [state, q]);
 

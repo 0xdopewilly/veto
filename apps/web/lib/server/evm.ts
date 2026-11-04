@@ -6,6 +6,8 @@ import { vaultSnapshot } from "./state";
 const env = (key: string) => process.env[key]?.trim() ?? "";
 /** The scenario pays 0.0001 ETH; keep a little over for gas. */
 const NEEDED = 150_000_000_000_000n;
+/** The member of staff the payroll scenario pays, on the chain they chose. */
+export const WORKER = "Tunde Bello";
 
 export async function evmDemo() {
   const { state } = await vaultSnapshot(SANDBOX_ID);
@@ -19,6 +21,7 @@ export async function evmDemo() {
     payee,
     address: account.address,
     explorer: account.explorer,
+    worker: state.payees.find((p) => p.chain === account.chain && p.name === WORKER)?.address ?? null,
     balance: balance.toString(),
     funded: balance >= NEEDED,
   };

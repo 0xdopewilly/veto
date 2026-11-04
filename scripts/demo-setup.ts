@@ -22,7 +22,7 @@ const VAULT_WASM = new URL("../contract/target/wasm32-unknown-unknown/release/ve
 const FACTORY_WASM = new URL("../factory/target/wasm32-unknown-unknown/release/veto_factory.wasm", import.meta.url);
 const TOKEN_WASM = new URL("../test-token/target/wasm32-unknown-unknown/release/veto_test_usdc.wasm", import.meta.url);
 const USD = 1_000_000n;
-const MANDATE = "Pay listed suppliers only, in USDC. No single payment over $500. Ask me before paying a new or changed address.";
+const MANDATE = "Pay listed suppliers and staff only. Salaries go out once a month, to the wallet and chain each person chose. No single payment over $500. Ask me before paying a new or changed address.";
 const OWNER_METHODS = ["override_veto", "cancel_override", "execute_override", "keep_blocked", "freeze", "unfreeze", "set_mandate", "add_payee", "remove_payee", "set_agent_active"];
 const EVM_CHAIN = "base-sepolia";
 const EVM_ASSET = "base-sepolia:eth";
@@ -287,6 +287,21 @@ if (!state.evmPayee) {
 if (!(await view<{ address: string }[]>(vaultId, "get_payees")).some((p) => p.address.toLowerCase() === state.evmPayee!.address.toLowerCase())) {
   await call(vaultId, "add_payee", { name: "Ikeja Freight", chain: EVM_CHAIN, address: state.evmPayee.address });
   log("added payee Ikeja Freight on Base Sepolia");
+}
+// A member of staff who chose to be paid on Base: the payroll scenario's worker.
+if (!state.evmWorker) {
+  const w = Wallet.createRandom();
+  state.evmWorker = { address: w.address, key: w.privateKey };
+  saveState(state);
+}
+if (!(await view<{ address: string }[]>(vaultId, "get_payees")).some((p) => p.address.toLowerCase() === state.evmWorker!.address.toLowerCase())) {
+  await call(vaultId, "add_payee", { name: "Tunde Bello", chain: EVM_CHAIN, address: state.evmWorker.address });
+  log("added Tunde Bello, paid on Base Sepolia, to the payees");
+}
+// The sandbox's mandate follows MANDATE, so a reworded one reaches the live vault.
+if ((await view<{ mandate: string }>(vaultId, "get_config")).mandate !== MANDATE) {
+  await call(vaultId, "set_mandate", { mandate: MANDATE });
+  log("updated the sandbox's mandate");
 }
 const vaultEvm = await vaultEvmAddress(new VaultReader(vaultId, provider(NETWORK)), { mpc: MPC_CONTRACT.testnet, path: "veto-1" });
 

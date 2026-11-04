@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Transaction, Wallet } from "ethers";
-import { blockingIncident, canonicalJson, computeSignals, lookalike, parseVerdict, paymentFromApproval, proposalHash, sha256Hex, signedPayout, USDC, type Approval, type Payee, type Proposal } from "../src/index.ts";
+import { blockingIncident, canonicalJson, computeSignals, lookalike, lookalikeEvmAddress, parseVerdict, paymentFromApproval, proposalHash, sha256Hex, signedPayout, USDC, type Approval, type Payee, type Proposal } from "../src/index.ts";
 
 const KANO = "0xA11cE57b2F0c88dE41a9B3c07e6D1f45a3c0D9F2";
 const POISONED = "0xA11cE5f09d3B7a21Cc04e8F5b6A0d92e71B1D9F2";
@@ -33,6 +33,15 @@ test("address poisoning is flagged as a lookalike", () => {
   assert.match(lookalike(POISONED.toLowerCase(), KANO.toLowerCase()) ?? "", /first 6 and last 4/);
   assert.equal(lookalike(KANO.toLowerCase(), KANO.toLowerCase()), null);
   assert.equal(lookalike("0x1111111111111111111111111111111111111111", KANO.toLowerCase()), null);
+});
+
+test("the payroll scam's address is a lookalike of the worker's, never the same", () => {
+  const worker = "0x3d9772bcE39B2896DA9954d851173032B41519B8";
+  const decoy = lookalikeEvmAddress(worker);
+  assert.notEqual(decoy.toLowerCase(), worker.toLowerCase());
+  assert.equal(decoy.slice(0, 8).toLowerCase(), worker.slice(0, 8).toLowerCase());
+  assert.equal(decoy.slice(-6).toLowerCase(), worker.slice(-6).toLowerCase());
+  assert.ok(lookalike(decoy.toLowerCase(), worker.toLowerCase()));
 });
 
 test("lookalike NEAR names are flagged", () => {

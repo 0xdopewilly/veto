@@ -28,7 +28,8 @@ export async function POST(req: Request) {
     return Response.json({ error: "too many demo runs; try again in a few minutes" }, { status: 429 });
   }
 
-  const history = await accounts.reader.proposals(0, 50);
+  // The same window the inbox is built from (lib/server/state.ts), so the card and the run agree.
+  const history = await accounts.reader.proposals(0, 100);
   const chosen = buildScenarios(demo.root, history, accounts.sandbox ? await evmDemo() : null).find((s) => s.id === scenario);
   if (!chosen) return Response.json({ error: "unknown scenario" }, { status: 400 });
 

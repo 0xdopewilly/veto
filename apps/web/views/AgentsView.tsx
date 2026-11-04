@@ -59,7 +59,7 @@ export function AgentsView() {
     <Screen>
       <LineReveal as="h1" className={head.title} text="Agents" />
       <p className={`${head.lead} rise`} style={delay(60)}>
-        Each agent has its own key. It can ask the vault to pay; it can't change the rules.
+        Every agent that spends from this vault, whatever wallet it runs in, passes the same limits and the same private AI check. Each has its own key: it can ask to pay, never change the rules.
       </p>
 
       <div className={styles.list}>
@@ -215,7 +215,7 @@ function AgentApiCard({ style }: { style?: React.CSSProperties }) {
         <div className={styles.fact}>
           <dt>Owner&apos;s policy</dt>
           <dd>
-            {view.in_force ? "In force: " : "Syncing: "}USDC only, up to {usd(perPayment)} a payment and {usd(daily)} a day, to {view.policy?.destinations.list.length ?? 0} listed suppliers ({view.payees.map((p) => p.name).join(", ")}).
+            {view.in_force ? "In force: " : "Syncing: "}USDC only, up to {usd(perPayment)} a payment and {usd(daily)} a day, to {view.policy?.destinations.list.length ?? 0} listed payees ({view.payees.map((p) => p.name).join(", ")}).
           </dd>
         </div>
         <div className={styles.fact}>

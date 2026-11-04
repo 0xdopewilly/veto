@@ -29,6 +29,8 @@ export interface DevState {
   outlayer?: { walletId: string; apiKey: string; account: string; policyTx?: string };
   /** A Base Sepolia supplier the vault pays from its own Chain Signatures address. */
   evmPayee?: { address: string; key: string };
+  /** The payroll scenario's member of staff, paid on Base Sepolia. */
+  evmWorker?: { address: string; key: string };
   /** The vault code deployed once as a global contract, and the factory that uses it. */
   globalCodeHash?: string;
   factory?: string;

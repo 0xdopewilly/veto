@@ -15,16 +15,16 @@ import styles from "./RulesView.module.css";
 
 const PARTS = [
   { id: "mandate", label: "Mandate and limits" },
-  { id: "suppliers", label: "Suppliers" },
+  { id: "payees", label: "Payees" },
   { id: "freeze", label: "Freeze" },
 ];
 
-/** Everything that decides what the agent may pay, in one place: mandate, limits, suppliers, freeze. */
+/** Everything that decides what the agent may pay, in one place: mandate, limits, payees, freeze. */
 export function RulesView() {
   const { state, vaultId } = useVault();
   const { openFreeze } = useShell();
 
-  // Links like /app/rules#suppliers: the app scrolls inside its own container, so scroll there here.
+  // Links like /app/rules#payees: the app scrolls inside its own container, so scroll there here.
   useEffect(() => {
     if (!state) return;
     const id = window.location.hash.slice(1);
@@ -54,7 +54,7 @@ export function RulesView() {
           <MandateSection state={state} />
         </section>
 
-        <section id="suppliers" className={styles.part} aria-labelledby="suppliers-title">
+        <section id="payees" className={styles.part} aria-labelledby="payees-title">
           <PayeesSection state={state} titleClass={styles.partTitle} />
         </section>
 

@@ -18,7 +18,7 @@ import { LineReveal } from "@/components/LineReveal";
 import { VLoader } from "@/components/VLoader";
 import styles from "./StartViews.module.css";
 
-const DEFAULT_MANDATE = "Pay listed suppliers only, in USDC. No single payment over $500. Ask me before paying a new or changed address.";
+const DEFAULT_MANDATE = "Pay listed suppliers and staff only. Salaries go out once a month, to the wallet and chain each person chose. No single payment over $500. Ask me before paying a new or changed address.";
 const MAX_VAULTS = 3;
 
 /** What a new testnet vault starts with; the owner can change all of it. */
@@ -319,7 +319,7 @@ export function VaultSetupView() {
             </li>
           ))}
         </ul>
-        <p className={styles.help}>Testnet tokens, free. You can change the limits, suppliers and agents from the app; each change is signed by your wallet.</p>
+        <p className={styles.help}>Testnet tokens, free. You can change the limits, payees and agents from the app; each change is signed by your wallet.</p>
       </section>
 
       <div className={styles.spacer} />

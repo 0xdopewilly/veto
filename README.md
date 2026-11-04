@@ -17,6 +17,10 @@ It also covers a **NEAR Intents Agent API** wallet on mainnet. The owner's signe
 
 The vault can also pay on **Base** from its own address there, through **NEAR Chain Signatures**. The vault builds each passed transfer itself, and NEAR's MPC network signs exactly that.
 
+**Payroll** runs through the same gate. Staff sit on the payee list with the wallet and chain each one chose. In the sandbox the agent pays Tunde Bello's salary on Base, and Veto vetoes the scam payroll attracts most: an email asking to send the salary to a "new wallet".
+
+**Many agents, one gate.** A vault takes any number of agents, each holding a key that can only propose. Agents in OutLayer or Agent API wallets go through the same caps and the same private AI review, and the owner can pause any one of them.
+
 ## Check it in five minutes (no keys, no funds)
 
 Requires Node 24+, pnpm 11, and Rust with the `wasm32-unknown-unknown` target.
@@ -54,13 +58,15 @@ pnpm build && pnpm start        # http://localhost:3000
 - an OutLayer agent wallet whose policy needs an approval for every payment;
 - the vault code deployed once as a NEAR global contract, and a factory (`vaults.<root>`) that creates a vault for any testnet account. Each new vault runs that code by hash, stores only its own state (about 1.6 KB), and starts with $5,000 test USDC, the same caps and suppliers, and only the enclave model's key. It also gets its own agent (`<name>_agent`) and screening account (`<name>_guard`), each holding one function-call key that can only call that vault, so the hosted app never holds a key that can do more. A global deploy stores the code on every shard, so it costs about 51 test NEAR; the faucet gives 10 per account and limits how many you make, so this step may need a second run a few hours later. Each vault costs the factory 0.9 test NEAR; send the factory more to sponsor more.
 
-Then open http://localhost:3000/app and press **Try it** (the green V on a phone; the **Agent inbox** panel on desktop):
+Then open http://localhost:3000/app and press **Try it** (the green V on a phone; **Try the agent** at the top of the sidebar on desktop):
 
 | Do | See |
 | --- | --- |
 | Open **/start**, connect a testnet wallet, name your business and sign | Your own vault, live in a few seconds. Its owner is your account, and every owner action below needs your wallet. Skip this to use the shared sandbox, where anyone can act as the owner |
 | Let the agent pay **"Invoice INV-…: 72 bales of combed cotton"** | Agent proposed → Screening privately → **Paid**, with testnet tx links |
 | Let it pay **"Updated payment details for INV-…"** | **Vetoed**: a lookalike of an address you've paid before. The coral card appears on Home |
+| In the sandbox, let it pay **"Payroll PAY-…: … salary for Tunde Bello"** | **Paid** on Base, the chain Tunde chose, from the vault's own Base Sepolia address (NEAR Chain Signatures) |
+| Let it pay **"New wallet for my salary"** | **Vetoed**: the address imitates Tunde's saved one and has never been paid |
 | Open the vetoed decision → **Override** | A 3-minute countdown, then it pays (still inside the caps), unless you cancel |
 | In the sandbox, switch **Pay from** to **OutLayer wallet** and repeat both | Paid: Veto approved it on OutLayer and the wallet sent it. Vetoed: Veto never signs, so OutLayer keeps holding it. **Keep it blocked** then rejects it there for good |
 | In the sandbox, switch **Pay from** to **Agent API** and repeat both | The same screen, then a real call to the NEAR Intents Agent API with Veto's grant. Amounts are scaled 1:100 for a wallet holding a few real dollars. A veto never reaches the API; a payment the owner's policy forbids is refused there even after a pass |
@@ -140,7 +146,7 @@ vault: ecrecover → approved model key → echoes this proposal's id and hash �
   3. The agent asks; Veto screens the request with the same enclave model, against the business's mandate and payment history, and requires a signer the vault approves.
   4. Only a pass becomes a `transfer` with Veto's grant, under an idempotency key tied to that screening, so a retry can never send twice. The owner's policy still refuses anything outside it.
 - **Factory** ([factory/src/lib.rs](factory/src/lib.rs)): `create_vault(name, label, mandate?)` creates `<name>.<factory>` owned by the caller in one receipt (create account, use the global vault code, init). Then it creates the vault's agent and screening accounts, each with one function-call key limited to that vault, registers the vault with the token and sends starter funds. Up to 3 vaults per account on testnet. New testnet wallets often hold no NEAR, so `send_gas(account)` sends a wallet 0.3 test NEAR once; only the factory's own function-call key (held by the web app, limited to that method) can call it, and the app calls it when an empty wallet connects.
-- **App** ([apps/web](apps/web)): Next.js, mobile and desktop, with the same four places on both: Home, Activity (what needs your decision, then every payment), Rules (mandate, limits, suppliers, freeze) and Agents. **Try it** (the V button on phones, the top of the sidebar on desktop) opens the agent's inbox. Open the shared sandbox or any vault the factory made (`/app?vault=<id>`); create one at `/start`. In your own vault, owner actions are signed by your wallet; in the sandbox, a demo-owner key limited to the owner methods lets anyone try them.
+- **App** ([apps/web](apps/web)): Next.js, mobile and desktop, with the same four places on both: Home, Activity (what needs your decision, then every payment), Rules (mandate, limits, payees, freeze) and Agents. **Try it** (the V button on phones, the top of the sidebar on desktop) opens the agent's inbox. Open the shared sandbox or any vault the factory made (`/app?vault=<id>`); create one at `/start`. In your own vault, owner actions are signed by your wallet; in the sandbox, a demo-owner key limited to the owner methods lets anyone try them.
 - **SDK** ([packages/sdk](packages/sdk/src/index.ts)): `Veto` for vault agents and `VetoOutLayer` for agents with OutLayer wallets.
 
 ## Status
@@ -149,7 +155,8 @@ vault: ecrecover → approved model key → echoes this proposal's id and hash �
 | --- | --- |
 | Vault contract, verdict check, overrides, freeze | Live on testnet, 48 tests |
 | Your own vault, owned by your wallet (factory + NEAR global contract) | Live on testnet, 9 factory tests |
-| Payouts from the vault's own Base Sepolia address (NEAR Chain Signatures) | Live on testnet; the inbox shows the Base supplier once the vault's address holds test ETH |
+| Payouts from the vault's own Base Sepolia address (NEAR Chain Signatures) | Live on testnet |
+| Payroll: staff on the payee list, each paid on the chain they chose | Live on testnet; the sandbox pays Tunde Bello on Base and vetoes a fake "new wallet" request. Shown once the vault's Base address holds test ETH |
 | OutLayer agent wallets (pass, veto, override) | Live on testnet |
 | NEAR Intents Agent API wallet, with Veto holding its only grant | Live on mainnet; payments run once the wallet holds USDC |
 | Agent inbox, guardian, owner actions in the app | Live on testnet |

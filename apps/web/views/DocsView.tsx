@@ -34,6 +34,7 @@ const STATUS: { part: string; status: Status; note: string }[] = [
   { part: "Your own vault, owned by your wallet", status: "live", note: "A factory creates a vault for any NEAR testnet account in one transaction its wallet signs. The vault code is deployed once as a NEAR global contract, so each new vault stores only its own state (about 1.6 KB). Its agent and screening accounts are its own too, each holding one key that can only call that vault. Every owner action is signed by the owner's wallet." },
   { part: "OutLayer agent wallets", status: "live", note: "Veto is an approver on an OutLayer wallet's policy. Pass, veto and override all run on testnet, settled against the wallet's real transactions." },
   { part: "NEAR Intents Agent API wallet", status: "live", note: "An agent account on mainnet whose owner-signed policy is the hard limit. Veto holds its only grant, screens each request with the same enclave model, and sends only a pass. Payments run once the wallet holds a few USDC." },
+  { part: "Payroll: staff paid on the chain they chose", status: "live", note: "Staff sit on the payee list with their own wallet and chain. The sandbox pays a salary in test ETH on Base from the vault's Chain Signatures address and vetoes a fake request to send it to a new wallet." },
   { part: "Agent inbox and guardian screening", status: "live", note: "Real proposals and verdicts on testnet, screened by Qwen3-VL-30B inside NEAR AI's enclave. If NEAR AI can't answer, a labelled test key signs instead, so the demo never stalls." },
   { part: "Owner actions in the app", status: "live", note: "In your own vault, only your wallet. In the shared sandbox, a demo-owner key limited to the owner methods, so anyone can try it without a wallet." },
   { part: "Private AI screen on NEAR AI Cloud", status: "live", note: "Qwen3-VL-30B runs in an Intel TDX enclave on NEAR AI Cloud and signs each verdict in about 1.5 s. The vault checks the signature on-chain against the model's attested key." },
@@ -71,7 +72,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Where do the payment requests come from?",
-    a: "From what the agent reads. The inbox holds example emails (one genuine invoice, three common scams), and Write your own email sends the agent anything you type: a real model on NEAR AI reads it and proposes whatever it asks for, the way an accounts-payable agent would. In production that is the agent's own inbox, a supplier portal or a web page. Veto never trusts the request; it screens the payment against the evidence.",
+    a: "From what the agent reads. The inbox holds example emails (a supplier's invoice and a salary, both genuine, and four common scams), and Write your own email sends the agent anything you type: a real model on NEAR AI reads it and proposes whatever it asks for, the way an accounts-payable agent would. In production that is the agent's own inbox, a supplier portal or a web page. Veto never trusts the request; it screens the payment against the evidence.",
   },
   {
     q: "Which model screens the payments?",
@@ -88,6 +89,14 @@ const FAQ: { q: string; a: string }[] = [
   {
     q: "How is this different from a policy wallet?",
     a: "A policy wallet enforces caps and an allowlist, and Veto's contract does the same. Those rules stop payments to strangers. They can't stop a payment to a listed supplier for an invoice that was already paid, or for more than was billed, and a strict allowlist blocks every new supplier. Veto adds a private screen that reads the evidence behind each payment and can only say no, so the two work together rather than compete. On an OutLayer wallet that is literal: Veto is an approver on the wallet's policy.",
+  },
+  {
+    q: "Can it run payroll?",
+    a: "Yes. Staff go on the payee list with the wallet and chain each one chose, and the agent pays salaries like any other payment: inside the caps, screened privately. In the sandbox, Tunde Bello is paid in test ETH on Base from the vault's own address, signed by NEAR's MPC network; on mainnet the same payout can go through NEAR Intents from one USDC balance. The scam payroll attracts most, an email asking to send someone's salary to a new wallet, is vetoed: the address is new and imitates the saved one.",
+  },
+  {
+    q: "Can Veto guard a swarm of agents?",
+    a: "Yes. A vault takes any number of agents, each with its own key that can only propose a payment, and agents running in OutLayer TEE wallets or NEAR Intents Agent API wallets go through the same gate. Every payment from any of them meets the same contract caps and the same private AI review, and the owner can pause one agent without stopping the rest. Separate budgets for each agent are next.",
   },
   {
     q: "Why not just use a card with limits?",
@@ -363,18 +372,19 @@ export function DocsView() {
             <h2>Try it on testnet</h2>
             <p>
               The live demo is at <a href="https://veto-beta.vercel.app/app">veto-beta.vercel.app</a>, with nothing to install. The shared sandbox is <a href={`${EXPLORER}/address/${VAULT_ID}`} target="_blank" rel="noreferrer" className={styles.mono}>{VAULT_ID}</a>,
-              a made-up business called Lagoon Goods that holds test USDC and pays two suppliers. Anyone can act as its owner. For a vault only you control, start with step 1.
+              a made-up business called Lagoon Goods that holds test USDC and pays two suppliers and a member of staff. Anyone can act as its owner. For a vault only you control, start with step 1.
             </p>
             <ol className={styles.doSee}>
               <li><span>Do</span> open <Link href="/start/vault">Create your vault</Link>, connect a NEAR testnet wallet (Meteor Wallet at meteorwallet.app makes a testnet account for free; switch it to testnet first), name your business and sign. A new wallet starts with no NEAR, so Veto sends it 0.3 test NEAR for gas when it connects. <span>See</span> your own vault live in a few seconds, with $5,000 test USDC, two suppliers and its own test agent. From here on, overrides, freezes and rule changes need your wallet&apos;s signature.</li>
-              <li><span>Do</span> open <Link href="/app">the app</Link> and press <strong>Try it</strong> (the green V on a phone, <strong>Try the agent</strong> at the top of the sidebar on desktop). <span>See</span> the agent's inbox: one real invoice and three scams that look ordinary.</li>
+              <li><span>Do</span> open <Link href="/app">the app</Link> and press <strong>Try it</strong> (the green V on a phone, <strong>Try the agent</strong> at the top of the sidebar on desktop). <span>See</span> the agent's inbox: a real invoice, a real salary and four scams that look ordinary.</li>
               <li><span>Do</span> let the agent pay the real Kano Cotton Mills invoice. <span>See</span> "Agent proposed", "Screening privately", then <strong>Paid</strong>, with testnet transaction links.</li>
               <li><span>Do</span> let it pay "Updated payment details". <span>See</span> <strong>Vetoed</strong>: a lookalike address, a new payee and changed payout details, while the payment was inside the weekly limit.</li>
               <li><span>Do</span> open the decision, then <strong>Proof</strong>. <span>See</span> the signer, the hashes and the on-chain check.</li>
               <li><span>Do</span> press <strong>Override</strong> (your wallet signs it in your own vault; in the sandbox anyone can). <span>See</span> a countdown; the override pays only after the delay and can be cancelled.</li>
               <li><span>Do</span> in the sandbox, switch <strong>Pay from</strong> to <strong>OutLayer wallet</strong> and repeat. <span>See</span> the paid invoice approved by Veto on OutLayer and sent by the wallet; the scam stays held, and <strong>Keep it blocked</strong> rejects it there for good.</li>
               <li><span>Do</span> press <strong>Write your own email</strong> and write the agent an invoice, or a scam. <span>See</span> a real AI agent on NEAR AI read it and propose whatever it asks for, then Veto screen that payment like any other.</li>
-              <li><span>Do</span> in the sandbox, let the agent pay <strong>"A supplier paid on Base"</strong>. <span>See</span> <strong>Paid</strong>, sent from the vault's own Base Sepolia address with NEAR Chain Signatures, with a Base explorer link.</li>
+              <li><span>Do</span> in the sandbox, let the agent pay <strong>Tunde Bello&apos;s salary</strong>. <span>See</span> <strong>Paid</strong> on Base, the chain Tunde chose, sent from the vault&apos;s own Base Sepolia address with NEAR Chain Signatures, with a Base explorer link.</li>
+              <li><span>Do</span> let it pay <strong>&ldquo;New wallet for my salary&rdquo;</strong>. <span>See</span> <strong>Vetoed</strong>: the address imitates Tunde&apos;s saved one, it has never been paid, and the request came from outside the company.</li>
             </ol>
             <p className={styles.note}>
               Every verdict is signed by Qwen3-VL-30B inside NEAR AI's enclave. If NEAR AI can't answer, the sandbox's labelled test key signs instead;
