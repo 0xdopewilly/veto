@@ -71,12 +71,25 @@ export async function screenAndVote(id: string, evidence: unknown, requestId?: s
   if (after?.status === "Executing") await approveAndSettle(after, requestId);
 }
 
-/** Votes yes for a payment the vault has approved (a pass, or an override that came due). */
+/**
+ * The wallet request an approval holds. OutLayer creates the two together but an approval doesn't
+ * name its request, so a retry (when the first vote's answer was lost) finds it by creation time.
+ * settleFromTx then checks the transaction itself, so a wrong match can't settle anything.
+ */
+async function requestFor(createdAt: string | undefined): Promise<string | undefined> {
+  const { outlayer } = demoAccounts();
+  if (!outlayer || !createdAt) return undefined;
+  const at = Date.parse(createdAt);
+  const { requests } = await outlayer.client.call<{ requests: { request_id: string; type: string; created_at: string }[] }>("GET", "/wallet/v1/requests?limit=50", { key: outlayer.walletKey });
+  return requests.find((r) => r.type === "call" && Math.abs(Date.parse(r.created_at) - at) < 3000)?.request_id;
+}
+
+/** Votes yes for a payment the vault has approved (a pass, or an override that came due), then settles it. */
 export async function approveAndSettle(proposal: Proposal, requestId?: string) {
   const { outlayer, reader, guardian } = demoAccounts();
   if (!outlayer || !proposal.external) return;
   const vote = await approvePassed({ outlayer: outlayer.client, proposal, approver: outlayer.approver });
-  const rid = requestId ?? ("request_id" in vote ? vote.request_id : undefined);
+  const rid = requestId ?? ("request_id" in vote ? vote.request_id : undefined) ?? (await requestFor("created_at" in vote ? (vote.created_at as string) : undefined));
   if (!rid) throw new Error("OutLayer did not say which request the vote released");
   // The agent can read its own request; the guardian then checks the transaction on NEAR itself.
   for (let i = 0; i < 40; i++) {
