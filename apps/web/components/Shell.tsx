@@ -357,7 +357,19 @@ function TabBar({ visible, onInbox }: { visible: boolean; onInbox: () => void })
   return (
     <AnimatePresence initial={false}>
       {visible && (
+        <motion.div
+          key="scrim"
+          className={styles.tabScrim}
+          aria-hidden="true"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.28, ease: [0.2, 0, 0, 1] }}
+        />
+      )}
+      {visible && (
         <motion.nav
+          key="nav"
           aria-label="Primary"
           className={styles.tabbar}
           initial={calm ? { opacity: 0 } : { y: 130, opacity: 0.6 }}

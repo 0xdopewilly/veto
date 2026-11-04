@@ -54,8 +54,24 @@
   --tabbar: 86px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* The app's full height. See the standalone rule below. */
+  --app-h: 100dvh;
 
   color-scheme: dark;
+}
+
+/* Opened from the home screen, iOS shrinks dvh, svh, innerHeight and the box fixed elements
+   anchor to by the status bar's height (59pt on recent iPhones), so the app ended short and
+   the nav floated above the bottom. The large viewport keeps the true screen height, and
+   giving the root that height lets iOS correct the rest. A browser tab keeps dvh, since lvh
+   there is taller than what's visible. */
+@media (display-mode: standalone) {
+  :root {
+    --app-h: 100lvh;
+  }
+  html {
+    height: 100lvh;
+  }
 }
 
 *,

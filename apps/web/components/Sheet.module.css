@@ -7,6 +7,13 @@
   justify-content: center;
 }
 
+@media (display-mode: standalone) {
+  .layer {
+    bottom: auto;
+    height: var(--app-h);
+  }
+}
+
 .backdrop {
   position: absolute;
   inset: 0;
@@ -22,7 +29,7 @@
   position: relative;
   width: 100%;
   max-width: 560px;
-  max-height: calc(100dvh - 40px);
+  max-height: calc(var(--app-h) - 40px);
   overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--card);

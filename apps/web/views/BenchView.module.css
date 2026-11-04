@@ -1,5 +1,5 @@
 .page {
-  min-height: 100dvh;
+  min-height: var(--app-h);
   background: var(--black);
 }
 

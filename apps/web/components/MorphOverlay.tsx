@@ -9,9 +9,9 @@ import styles from "./MorphOverlay.module.css";
 const GROW = 0.6;
 
 /** Radius that covers the whole viewport from (x, y). */
-function coverRadius(x: number, y: number) {
+function coverRadius(x: number, y: number, el: HTMLElement) {
   const w = window.innerWidth;
-  const h = window.innerHeight;
+  const h = Math.max(window.innerHeight, el.offsetHeight);
   return Math.hypot(Math.max(x, w - x), Math.max(y, h - y)) + 24;
 }
 
@@ -23,7 +23,7 @@ export function MorphOverlay() {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const R = coverRadius(m.x, m.y);
+    const R = coverRadius(m.x, m.y, el);
     const at = `at ${m.x}px ${m.y}px`;
     if (m.phase === "grow") {
       el.style.opacity = "1";

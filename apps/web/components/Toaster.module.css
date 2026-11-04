@@ -10,6 +10,16 @@
   pointer-events: none;
 }
 
+@media (display-mode: standalone) {
+  .stack {
+    bottom: auto;
+    top: 0;
+    height: var(--app-h);
+    justify-content: flex-end;
+    padding-bottom: calc(108px + var(--safe-bottom));
+  }
+}
+
 .toast {
   pointer-events: auto;
   display: flex;

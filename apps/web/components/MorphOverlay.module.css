@@ -6,3 +6,10 @@
   clip-path: circle(0px at 50% 50%);
   will-change: clip-path, opacity;
 }
+
+@media (display-mode: standalone) {
+  .overlay {
+    bottom: auto;
+    height: var(--app-h);
+  }
+}
