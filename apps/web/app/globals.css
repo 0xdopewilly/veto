@@ -50,10 +50,12 @@
   --spring-surface-ms: 790ms;
 
   --sidebar: 248px;
-  /* Floating capsule nav: 72px tall, 14px off the bottom edge. */
-  --tabbar: 86px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Floating capsule nav, 72px tall. On phones with a home indicator it sits 10px into that
+     area, like the system's own floating tab bars; elsewhere 14px off the edge. */
+  --nav-bottom: max(14px, calc(var(--safe-bottom) - 10px));
+  --tabbar: calc(72px + var(--nav-bottom));
   /* The app's full height. See the standalone rule below. */
   --app-h: 100dvh;
 

@@ -1,6 +1,6 @@
 .screen {
   min-height: 100%;
-  padding: calc(16px + var(--safe-top)) 20px calc(var(--tabbar) + var(--safe-bottom) + 32px);
+  padding: calc(16px + var(--safe-top)) 20px calc(var(--tabbar) + 32px);
 }
 
 .pushed {
