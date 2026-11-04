@@ -9,8 +9,8 @@
 //! the test USDC token and sends it starter funds. Every owner action on the new vault is then
 //! signed by its owner's own wallet.
 //!
-//! New testnet wallets often start with no NEAR at all, so the factory can also send a wallet a
-//! little test NEAR for gas, once (`send_gas`). Only the factory's own function-call key, held by
+//! New testnet wallets often start with no NEAR at all, so the factory can also send a wallet
+//! 0.3 test NEAR for gas, once (`send_gas`). Only the factory's own function-call key, held by
 //! the web app, can ask for that.
 
 use near_sdk::json_types::{Base58CryptoHash, U128, U64};
@@ -35,8 +35,11 @@ const GAS_INIT: Gas = Gas::from_tgas(40);
 const GAS_CALLBACK: Gas = Gas::from_tgas(60);
 const GAS_FT: Gas = Gas::from_tgas(15);
 const MAX_VAULTS_PER_OWNER: usize = 3;
-/// Test NEAR sent once to a wallet for its own gas: dozens of owner actions at testnet prices.
-const GAS_GIFT: NearToken = NearToken::from_millinear(200);
+/// Test NEAR sent once to a wallet for its own gas. A transaction must hold its attached gas at
+/// about ten times the current price before it runs (most comes back), so creating a vault
+/// (150 Tgas) needs ~0.15 NEAR on hand at testnet's usual 1e8 price; 0.3 covers that and then
+/// owner actions (100 Tgas each), which actually burn a few thousandths of a NEAR apiece.
+const GAS_GIFT: NearToken = NearToken::from_millinear(300);
 /// Kept back from gas gifts so the factory can still sponsor vaults.
 const GAS_RESERVE: NearToken = NearToken::from_near(2);
 const MAX_NAME_LEN: usize = 24;

@@ -7,7 +7,7 @@ import { nearBalance, useVault } from "./vault";
 
 /**
  * Test NEAR for the connected wallet's gas. New testnet wallets often start empty, so on connect
- * an empty wallet is sent 0.2 test NEAR once (see /api/gas) before it has to sign anything.
+ * an empty wallet is sent 0.3 test NEAR once (see /api/gas) before it has to sign anything.
  */
 export type GasStatus =
   | { state: "idle" }
@@ -16,8 +16,8 @@ export type GasStatus =
   | { state: "ok" }
   | { state: "failed"; reason: string };
 
-/** Below this a wallet can't reserve the gas for creating a vault. */
-const GAS_LOW = 50_000_000_000_000_000_000_000n; // 0.05 NEAR
+/** Below this a wallet can't reserve the gas for creating a vault (see /api/gas). */
+const GAS_LOW = 160_000_000_000_000_000_000_000n; // 0.16 NEAR
 
 /** What a wallet's error means, in words; wallets wrap the chain's reason in their own codes. */
 export function walletMessage(e: unknown): string {
@@ -99,7 +99,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         if (((await nearBalance(accountId).catch(() => 0n)) ?? 0n) >= GAS_LOW) break;
         await new Promise((r) => setTimeout(r, 1000));
       }
-      if (!cancelled) setGas({ state: "sent", amount: body.amount ?? "0.2" });
+      if (!cancelled) setGas({ state: "sent", amount: body.amount ?? "0.3" });
     })();
     return () => {
       cancelled = true;

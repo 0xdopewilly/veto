@@ -5,15 +5,18 @@ import { accountBalance, serverRpc } from "@/lib/server/rpc";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Below this a wallet can't pay for a vault's creation (200 Tgas reserved) at testnet prices. */
-const LOW = 50_000_000_000_000_000_000_000n; // 0.05 NEAR
-const GIFT = "0.2";
+/**
+ * Below this a wallet can't create a vault: a transaction must hold its attached gas (150 Tgas)
+ * at about ten times the gas price before it runs, ~0.15 NEAR at testnet's usual price.
+ */
+const LOW = 160_000_000_000_000_000_000_000n; // 0.16 NEAR
+const GIFT = "0.3";
 const TESTNET_ACCOUNT = /^(?=.{2,64}$)(([a-z\d]+[-_])*[a-z\d]+\.)+testnet$/;
 const IMPLICIT = /^[0-9a-f]{64}$/;
 
 /**
  * New testnet wallets (Meteor makes them empty) can't pay gas for anything. This sends a wallet
- * 0.2 test NEAR, once, through the factory's send_gas method. The server's key on the factory
+ * 0.3 test NEAR, once, through the factory's send_gas method. The server's key on the factory
  * can call nothing else, and the factory refuses a second gift to the same account.
  */
 export async function POST(req: Request) {

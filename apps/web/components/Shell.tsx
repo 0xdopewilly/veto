@@ -84,8 +84,8 @@ function GasToast() {
   useEffect(() => {
     if (gas.state === "sending" && !pending.current) {
       void track({
-        pending: "Your wallet has no test NEAR yet. Sending it some for gas",
-        success: "Sent your wallet 0.2 test NEAR for gas, free",
+        pending: "Your wallet is low on test NEAR. Sending it some for gas",
+        success: "Sent your wallet 0.3 test NEAR for gas, free",
         run: () => new Promise<void>((resolve, reject) => (pending.current = { resolve, reject })),
       });
     } else if (gas.state === "sent") {

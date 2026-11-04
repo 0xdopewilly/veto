@@ -146,7 +146,7 @@ export function VaultSetupView() {
     if (fueling) return;
     setPhase({ step: "signing" });
     try {
-      const result = await callContract(FACTORY_ID, "create_vault", { name: slug, label: label.trim(), mandate: mandate.trim() === DEFAULT_MANDATE ? null : mandate.trim() }, 200);
+      const result = await callContract(FACTORY_ID, "create_vault", { name: slug, label: label.trim(), mandate: mandate.trim() === DEFAULT_MANDATE ? null : mandate.trim() }, 150);
       setPhase({ step: "creating", tx: txHashOf(result) });
       // The factory records the vault once the new account is set up; wait for it.
       for (let i = 0; i < 30; i++) {
@@ -236,7 +236,7 @@ export function VaultSetupView() {
                     {gas.state === "sending" ? (
                       <>
                         <VLoader size={16} />
-                        Your wallet has no test NEAR yet. Sending it 0.2 for gas, free.
+                        Your wallet is low on test NEAR. Sending it some for gas, free.
                       </>
                     ) : gas.state === "sent" ? (
                       <>

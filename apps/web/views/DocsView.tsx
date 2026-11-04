@@ -44,7 +44,7 @@ const STATUS: { part: string; status: Status; note: string }[] = [
 
 const METHODS: { method: string; who: string; does: string }[] = [
   { method: "factory: create_vault(name, label, mandate?)", who: "Anyone", does: "Creates <name>.<factory>, owned by the caller, with starter test funds, caps, suppliers and the enclave model's key, plus its own agent and screening accounts whose keys can only call it." },
-  { method: "factory: send_gas(account)", who: "The factory's own key", does: "Sends an empty testnet wallet 0.2 test NEAR for gas, once per wallet. The web app holds a key that can call only this, and calls it when an empty wallet connects." },
+  { method: "factory: send_gas(account)", who: "The factory's own key", does: "Sends an empty testnet wallet 0.3 test NEAR for gas, once per wallet. The web app holds a key that can call only this, and calls it when an empty wallet connects." },
   { method: "propose(request, context_hash)", who: "Agent", does: "Asks to pay. Checked against the caps at once; then waits for the screen." },
   { method: "submit_verdict(id, model_id, chat_id, request_hash, response, signature, quote?)", who: "Guardian", does: "Records the signed verdict. PASS pays if the caps still allow it; VETO blocks." },
   { method: "expire(id)", who: "Anyone", does: "Ends a screening with no verdict after the deadline. No verdict means no payment." },
@@ -346,7 +346,7 @@ export function DocsView() {
               a made-up business called Lagoon Goods that holds test USDC and pays two suppliers. Anyone can act as its owner. For a vault only you control, start with step 1.
             </p>
             <ol className={styles.doSee}>
-              <li><span>Do</span> open <Link href="/start/vault">Create your vault</Link>, connect a NEAR testnet wallet (Meteor Wallet at meteorwallet.app makes a testnet account for free; switch it to testnet first), name your business and sign. A new wallet starts with no NEAR, so Veto sends it 0.2 test NEAR for gas when it connects. <span>See</span> your own vault live in a few seconds, with $5,000 test USDC, two suppliers and its own test agent. From here on, overrides, freezes and rule changes need your wallet&apos;s signature.</li>
+              <li><span>Do</span> open <Link href="/start/vault">Create your vault</Link>, connect a NEAR testnet wallet (Meteor Wallet at meteorwallet.app makes a testnet account for free; switch it to testnet first), name your business and sign. A new wallet starts with no NEAR, so Veto sends it 0.3 test NEAR for gas when it connects. <span>See</span> your own vault live in a few seconds, with $5,000 test USDC, two suppliers and its own test agent. From here on, overrides, freezes and rule changes need your wallet&apos;s signature.</li>
               <li><span>Do</span> open <Link href="/app">the app</Link> and press <strong>Try it</strong> (the green V on a phone, the Agent inbox panel on desktop). <span>See</span> the agent's inbox: one real invoice and three scams that look ordinary.</li>
               <li><span>Do</span> let the agent pay the real Kano Cotton Mills invoice. <span>See</span> "Agent proposed", "Screening privately", then <strong>Paid</strong>, with testnet transaction links.</li>
               <li><span>Do</span> let it pay "Updated payment details". <span>See</span> <strong>Vetoed</strong>: a lookalike address, a new payee and changed payout details, while the payment was inside the weekly limit.</li>
