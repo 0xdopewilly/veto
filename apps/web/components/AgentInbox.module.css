@@ -454,3 +454,14 @@
     animation: none;
   }
 }
+
+/* Which key signed the Agent API verdict. */
+.signer {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.signer :global(.mono) {
+  color: var(--muted);
+}

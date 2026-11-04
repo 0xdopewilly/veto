@@ -3,6 +3,7 @@ import { readEmail } from "@/lib/server/agent";
 import { evmDemo } from "@/lib/server/evm";
 import { outlayerEnabled } from "@/lib/server/outlayer";
 import { refusal, startPayment, units } from "@/lib/server/pay";
+import { agentApiDemo, runViaAgentApi } from "@/lib/server/agentapi";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,11 +22,12 @@ export async function POST(req: Request) {
   if (!demo.enabled) return Response.json({ error: "the testnet demo is not configured" }, { status: 404 });
   const input = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const email = { from: text(input.from, 120) || "unknown sender", subject: text(input.subject, 200), body: text(input.body, 4000) };
-  const via = input.via === "outlayer" ? "outlayer" : undefined;
+  const via = input.via === "outlayer" ? "outlayer" : input.via === "agentapi" ? "agentapi" : undefined;
   const accounts = vaultAccounts(typeof input.vault === "string" ? input.vault : undefined);
   if (!accounts) return Response.json({ error: "the demo agent doesn't work for that vault" }, { status: 404 });
   if (email.body.length < 10) return Response.json({ error: "Write the email first." }, { status: 400 });
-  if (via && !(accounts.sandbox && outlayerEnabled())) return Response.json({ error: "the OutLayer wallet is not configured" }, { status: 404 });
+  if (via === "outlayer" && !(accounts.sandbox && outlayerEnabled())) return Response.json({ error: "the OutLayer wallet is not configured" }, { status: 404 });
+  if (via === "agentapi" && !(accounts.sandbox && agentApiDemo())) return Response.json({ error: "the Agent API wallet is not configured" }, { status: 404 });
   if (!allow(`compose:${accounts.vaultId}`, 10, 10 * 60_000) || !allow("compose", 50, 10 * 60_000)) {
     return Response.json({ error: "too many emails; try again in a few minutes" }, { status: 429 });
   }
@@ -51,6 +53,11 @@ export async function POST(req: Request) {
       request = { chain: "near", asset: demo.token, payee, amount: units(amount, 6), memo };
     }
 
+    if (via === "agentapi") {
+      if (request.chain !== "near") return Response.json({ error: "The Agent API wallet pays USDC on NEAR. Ask for USDC instead." }, { status: 422 });
+      const agentapi = await runViaAgentApi({ payee: request.payee, amount: request.amount, memo: request.memo ?? null, evidence: { source: "email", ...email }, scaled: false });
+      return Response.json({ agentapi, agent: { payee: request.payee, amount, currency: reading.currency, reference: memo } });
+    }
     const result = await startPayment(accounts, request, { source: "email", ...email }, via);
     return Response.json({ ...result, agent: { payee: request.payee, amount, currency: reading.currency, reference: memo } });
   } catch (e) {

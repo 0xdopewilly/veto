@@ -13,6 +13,8 @@ The AI can block a payment the caps would allow. It can never allow one the caps
 
 The same screen also covers agents that pay from an **OutLayer** wallet. Veto is an approver on the wallet's policy, so OutLayer holds each payment until the vault has passed it.
 
+It also covers a **NEAR Intents Agent API** wallet on mainnet. The owner's signed policy is the hard limit, and Veto holds the account's only grant, so the AI agent can only ask: Veto screens each request and sends just what passes.
+
 The vault can also pay on **Base** from its own address there, through **NEAR Chain Signatures**. The vault builds each passed transfer itself, and NEAR's MPC network signs exactly that.
 
 ## Check it in five minutes (no keys, no funds)
@@ -24,7 +26,7 @@ pnpm install
 pnpm test
 ```
 
-You should see `ℹ pass 11` (TypeScript core), `test result: ok. 48 passed` (vault contract) and `test result: ok. 9 passed` (vault factory). The contract tests include a real executable 1Click quote and a real 1Click signature. They also pin the proposal hash that the TypeScript side must reproduce.
+You should see `ℹ pass 13` (TypeScript core), `test result: ok. 48 passed` (vault contract) and `test result: ok. 9 passed` (vault factory). The contract tests include a real executable 1Click quote and a real 1Click signature. They also pin the proposal hash that the TypeScript side must reproduce.
 
 ```sh
 node bench/run.ts --screener policy   # Attacks caught 33/50, normal payments blocked 8/50
@@ -61,6 +63,7 @@ Then open http://localhost:3000/app and press **Try it** (the green V on a phone
 | Let it pay **"Updated payment details for INV-…"** | **Vetoed**: a lookalike of an address you've paid before. The coral card appears on Home |
 | Open the vetoed decision → **Override** | A 3-minute countdown, then it pays (still inside the caps), unless you cancel |
 | In the sandbox, switch **Pay from** to **OutLayer wallet** and repeat both | Paid: Veto approved it on OutLayer and the wallet sent it. Vetoed: Veto never signs, so OutLayer keeps holding it. **Keep it blocked** then rejects it there for good |
+| In the sandbox, switch **Pay from** to **Agent API** and repeat both | The same screen, then a real call to the NEAR Intents Agent API with Veto's grant. Amounts are scaled 1:100 for a wallet holding a few real dollars. A veto never reaches the API; a payment the owner's policy forbids is refused there even after a pass |
 | Press **Write your own email** and write an invoice or a scam | A real AI agent on NEAR AI reads it and proposes what it asks for; Veto screens it like any other payment |
 | Open any decision → **Proof** | The request and response hashes, the signer, and the on-chain signature check |
 
@@ -131,6 +134,11 @@ vault: ecrecover → approved model key → echoes this proposal's id and hash �
   3. The payment is screened. The approval id and operation hash are part of the proposal hash the model must echo.
   4. Only after a pass does the guardian sign a NEP-413 approval.
   5. It marks the payment paid once the wallet's own transaction is final on NEAR.
+- **NEAR Intents Agent API** ([packages/core/src/agentapi.ts](packages/core/src/agentapi.ts), [apps/web/lib/server/agentapi.ts](apps/web/lib/server/agentapi.ts)), plain HTTP, with the grant credential and EIP-712 owner signing checked against the API's official test vectors:
+  1. `scripts/agentapi-setup.ts` creates an agent account on mainnet with one owner signature over its policy: USDC only, at most $5 a payment and $20 a day, to two listed suppliers.
+  2. The owner issues one grant, and Veto holds it. The AI agent holds none, so it can't spend.
+  3. The agent asks; Veto screens the request with the same enclave model, against the business's mandate and payment history, and requires a signer the vault approves.
+  4. Only a pass becomes a `transfer` with Veto's grant, under an idempotency key tied to that screening, so a retry can never send twice. The owner's policy still refuses anything outside it.
 - **Factory** ([factory/src/lib.rs](factory/src/lib.rs)): `create_vault(name, label, mandate?)` creates `<name>.<factory>` owned by the caller in one receipt (create account, use the global vault code, init). Then it creates the vault's agent and screening accounts, each with one function-call key limited to that vault, registers the vault with the token and sends starter funds. Up to 3 vaults per account on testnet. New testnet wallets often hold no NEAR, so `send_gas(account)` sends a wallet 0.3 test NEAR once; only the factory's own function-call key (held by the web app, limited to that method) can call it, and the app calls it when an empty wallet connects.
 - **App** ([apps/web](apps/web)): Next.js, mobile and desktop. Open the shared sandbox or any vault the factory made (`/app?vault=<id>`); create one at `/start`. In your own vault, owner actions are signed by your wallet; in the sandbox, a demo-owner key limited to the owner methods lets anyone try them.
 - **SDK** ([packages/sdk](packages/sdk/src/index.ts)): `Veto` for vault agents and `VetoOutLayer` for agents with OutLayer wallets.
@@ -143,6 +151,7 @@ vault: ecrecover → approved model key → echoes this proposal's id and hash �
 | Your own vault, owned by your wallet (factory + NEAR global contract) | Live on testnet, 9 factory tests |
 | Payouts from the vault's own Base Sepolia address (NEAR Chain Signatures) | Live on testnet; the inbox shows the Base supplier once the vault's address holds test ETH |
 | OutLayer agent wallets (pass, veto, override) | Live on testnet |
+| NEAR Intents Agent API wallet, with Veto holding its only grant | Live on mainnet; payments run once the wallet holds USDC |
 | Agent inbox, guardian, owner actions in the app | Live on testnet |
 | Private screen on NEAR AI Cloud (Qwen3-VL-30B in a TDX enclave) | Live on testnet; about 1.5 s per verdict |
 | Veto Bench | Live: 50/50 attacks caught, 8/50 honest payments blocked, 100/100 signatures verified |

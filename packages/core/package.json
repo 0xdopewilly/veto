@@ -14,7 +14,8 @@
     "./pipeline": "./src/pipeline.ts",
     "./outlayer": "./src/outlayer.ts",
     "./shield": "./src/shield.ts",
-    "./evm": "./src/evm.ts"
+    "./evm": "./src/evm.ts",
+    "./agentapi": "./src/agentapi.ts"
   },
   "dependencies": {
     "@noble/curves": "2.4.0",

@@ -3,6 +3,7 @@ import { demo, vaultAccounts } from "@/lib/server/demo";
 import { buildScenarios } from "@/lib/server/scenarios";
 import { evmDemo } from "@/lib/server/evm";
 import { vaultSnapshot } from "@/lib/server/state";
+import { AGENT_SCALE, agentApiDemo } from "@/lib/server/agentapi";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,6 +31,8 @@ export async function GET(req: Request) {
     guardian: { account: accounts.guardian.accountId, model: screener.model, test_signer: screener.model.startsWith("veto-dev/") },
     owner: owner ? { account: demo.ownerId } : null,
     outlayer: outlayer ? { wallet: outlayer.wallet, approver: outlayer.approver.accountId } : null,
+    // A NEAR Intents Agent API wallet on mainnet whose only grant Veto holds (sandbox only).
+    agentapi: sandbox && agentApiDemo() ? { agent_id: agentApiDemo()!.agentId, scale: Number(AGENT_SCALE) } : null,
     evm,
     scenarios: buildScenarios(demo.root, history, evm).map(({ body: _body, memo: _memo, ...card }) => card),
   });

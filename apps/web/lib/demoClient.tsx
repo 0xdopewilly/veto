@@ -29,19 +29,34 @@ export interface DemoInfo {
   owner: { account: string } | null;
   /** The agent's OutLayer wallet, when the demo has one: it holds each payment for Veto's approval. */
   outlayer: { wallet: string; approver: string } | null;
+  /** A NEAR Intents Agent API wallet on mainnet whose only grant Veto holds; amounts are scaled down by `scale`. */
+  agentapi?: { agent_id: string; scale: number } | null;
   /** The vault's own Base Sepolia address (NEAR Chain Signatures), when it has one. */
   evm: { chain: string; address: string; explorer: string; balance: string; funded: boolean } | null;
   scenarios: DemoScenario[];
 }
 
 /** Where the demo agent pays from. */
-export type PayFrom = "vault" | "outlayer";
+export type PayFrom = "vault" | "outlayer" | "agentapi";
+
+/** What happened to a payment the agent asked its Agent API wallet to make (see lib/server/agentapi). */
+export interface AgentApiOutcome {
+  id: string;
+  request: { payee: string; payee_name: string | null; amount: string; asset: string };
+  verdict: { verdict: "PASS" | "VETO"; reasons: string[]; model: string; signer: string; approved_signer: boolean; ms: number };
+  execution:
+    | { kind: "skipped" }
+    | { kind: "refused"; code: string; layer: string | null; message: string }
+    | { kind: "sent"; correlation_id: string; status: string; failure_code: string | null; tx_hash: string | null };
+}
 
 export interface DemoRun {
   scenario: string;
   via: PayFrom;
   proposalId?: string;
   tx?: string;
+  /** Set when the Agent API path finished: it doesn't create a vault proposal. */
+  agentapi?: AgentApiOutcome;
   error?: string;
   startedAt: number;
 }
@@ -133,8 +148,8 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     const started: DemoRun = { scenario, via, startedAt: Date.now() };
     setRuns((r) => ({ ...r, [scenario]: started }));
     try {
-      const res = await post<{ proposal_id: string; tx: string }>("/api/demo/run", { scenario, via, vault: vaultId });
-      const done = { ...started, proposalId: res.proposal_id, tx: res.tx };
+      const res = await post<{ proposal_id?: string; tx?: string; agentapi?: AgentApiOutcome }>("/api/demo/run", { scenario, via, vault: vaultId });
+      const done = { ...started, proposalId: res.proposal_id, tx: res.tx, agentapi: res.agentapi };
       setRuns((r) => ({ ...r, [scenario]: done }));
       return done;
     } catch (e) {
@@ -154,9 +169,9 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       setComposed((c) => [card, ...c]);
       setRuns((r) => ({ ...r, [id]: started }));
       try {
-        const res = await post<{ proposal_id: string; tx: string; agent: { payee: string; amount: string; currency: string } }>("/api/demo/compose", { ...email, via, vault: vaultId });
+        const res = await post<{ proposal_id?: string; tx?: string; agentapi?: AgentApiOutcome; agent: { payee: string; amount: string; currency: string } }>("/api/demo/compose", { ...email, via, vault: vaultId });
         setComposed((c) => c.map((x) => (x.id === id ? { ...x, amount: res.agent.amount, payee: res.agent.payee, symbol: res.agent.currency === "ETH" ? "ETH" : undefined } : x)));
-        const done = { ...started, proposalId: res.proposal_id, tx: res.tx };
+        const done = { ...started, proposalId: res.proposal_id, tx: res.tx, agentapi: res.agentapi };
         setRuns((r) => ({ ...r, [id]: done }));
         return done;
       } catch (e) {

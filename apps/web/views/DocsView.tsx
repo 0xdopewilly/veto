@@ -18,6 +18,7 @@ const SECTIONS = [
   { id: "proof", label: "Checking a decision" },
   { id: "cross-chain", label: "Other chains" },
   { id: "outlayer", label: "OutLayer wallets" },
+  { id: "agent-api", label: "NEAR Intents Agent API" },
   { id: "privacy", label: "What stays private" },
   { id: "try", label: "Try it on testnet" },
   { id: "developers", label: "For developers" },
@@ -33,6 +34,7 @@ const STATUS: { part: string; status: Status; note: string }[] = [
   { part: "Vault contract: caps, verdict check, overrides, freeze", status: "live", note: "48 contract tests; deployed on NEAR testnet." },
   { part: "Your own vault, owned by your wallet", status: "live", note: "A factory creates a vault for any NEAR testnet account in one transaction its wallet signs. The vault code is deployed once as a NEAR global contract, so each new vault stores only its own state (about 1.6 KB). Its agent and screening accounts are its own too, each holding one key that can only call that vault. Every owner action is signed by the owner's wallet." },
   { part: "OutLayer agent wallets", status: "live", note: "Veto is an approver on an OutLayer wallet's policy. Pass, veto and override all run on testnet, settled against the wallet's real transactions." },
+  { part: "NEAR Intents Agent API wallet", status: "live", note: "An agent account on mainnet whose owner-signed policy is the hard limit. Veto holds its only grant, screens each request with the same enclave model, and sends only a pass. Payments run once the wallet holds a few USDC." },
   { part: "Agent inbox and guardian screening", status: "live", note: "Real proposals and verdicts on testnet, screened by Qwen3-VL-30B inside NEAR AI's enclave. If NEAR AI can't answer, a labelled test key signs instead, so the demo never stalls." },
   { part: "Owner actions in the app", status: "live", note: "In your own vault, only your wallet. In the shared sandbox, a demo-owner key limited to the owner methods, so anyone can try it without a wallet." },
   { part: "Private AI screen on NEAR AI Cloud", status: "live", note: "Qwen3-VL-30B runs in an Intel TDX enclave on NEAR AI Cloud and signs each verdict in about 1.5 s. The vault checks the signature on-chain against the model's attested key." },
@@ -314,6 +316,36 @@ export function DocsView() {
               The owner is a second approver on the wallet. An override on the vault waits out the same delay, then Veto votes yes; the owner
               can also approve on OutLayer directly. Keeping the veto rejects it on OutLayer right away; an approval nobody signs
               expires after 24 hours.
+            </p>
+          </section>
+
+          <section id="agent-api" className={styles.section} data-reveal>
+            <h2>NEAR Intents Agent API wallets</h2>
+            <p>
+              The NEAR Intents Agent API gives an AI agent its own account on NEAR Intents. The owner signs one policy, which is the hard
+              limit: which actions, which assets, how much, and where money may go. Whoever is allowed to spend holds a grant.
+            </p>
+            <ol className={styles.steps}>
+              <li>
+                <strong>Veto holds the only grant.</strong> The AI agent has none, so it can't move money. It can only ask Veto.
+              </li>
+              <li>
+                <strong>Veto screens the request.</strong> The same enclave model reads the agent's evidence against the mandate and the
+                business's payment history, and Veto requires the verdict to be signed by a key the vault approves.
+              </li>
+              <li>
+                <strong>Only a pass becomes a transfer.</strong> Veto calls the API with its grant, under an idempotency key tied to that
+                screening, so a retry can never send twice. A veto never reaches the API.
+              </li>
+              <li>
+                <strong>The owner&apos;s policy still decides.</strong> Even after a pass, the API refuses anything the policy doesn&apos;t
+                allow: an unlisted payee, more than the per-payment or daily limit, or a frozen account.
+              </li>
+            </ol>
+            <p className={styles.note}>
+              The demo&apos;s account lives on mainnet and holds a few real dollars, so the inbox&apos;s amounts are scaled 1:100 on this path. The
+              sandbox vault is on testnet, so these decisions aren&apos;t recorded on it; the enclave&apos;s signed verdict and the API&apos;s own
+              operation record are the trail.
             </p>
           </section>
 

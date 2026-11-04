@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import type { Proposal } from "@veto/core/proposal";
 import { useState } from "react";
-import { useDemo, type DemoRun, type DemoScenario } from "@/lib/demoClient";
+import { useDemo, type AgentApiOutcome, type DemoRun, type DemoScenario, type PayFrom } from "@/lib/demoClient";
 import { metaOf, useVault } from "@/lib/vault";
 import { reasonText } from "@/lib/decision";
 import { EXPLORER } from "@/lib/config";
@@ -23,6 +23,13 @@ const shortModel = (model: string) => (model.split("/").pop() ?? model).replace(
 /** Who pays these emails, in a line. */
 function InboxSub() {
   const demo = useDemo();
+  if (demo.info?.agentapi && demo.payFrom === "agentapi") {
+    return (
+      <>
+        The agent asks its NEAR Intents Agent API wallet on mainnet to pay. The agent holds no grant; Veto holds the only one and sends just what passes. Amounts are scaled 1:{demo.info.agentapi.scale} for a wallet holding a few real dollars.
+      </>
+    );
+  }
   if (demo.info && demo.payFrom === "outlayer" && demo.info.outlayer) {
     return (
       <>
@@ -47,7 +54,7 @@ function InboxMeta() {
         <span className={styles.metaDot} data-test={guardian.test_signer || undefined} />
         {guardian.test_signer ? "Screened by a local test signer" : `Screened by ${shortModel(guardian.model)} in an enclave`}
       </span>
-      <span className={styles.metaChip}>Testnet</span>
+      <span className={styles.metaChip}>{demo.payFrom === "agentapi" ? "Mainnet" : "Testnet"}</span>
     </div>
   );
 }
@@ -68,7 +75,7 @@ export function AgentInbox({ titleId = "inbox-title", compact = false, head = tr
         </header>
       )}
 
-      {demo.info?.outlayer && (
+      {(demo.info?.outlayer || demo.info?.agentapi) && (
         <div className={styles.payFrom}>
           <span className={styles.payFromLabel}>Pay from</span>
           <Segmented
@@ -76,8 +83,9 @@ export function AgentInbox({ titleId = "inbox-title", compact = false, head = tr
             value={demo.payFrom}
             onChange={demo.setPayFrom}
             options={[
-              { value: "vault", label: "Veto vault" },
-              { value: "outlayer", label: "OutLayer wallet" },
+              { value: "vault" as PayFrom, label: "Vault" },
+              ...(demo.info.outlayer ? [{ value: "outlayer" as PayFrom, label: "OutLayer" }] : []),
+              ...(demo.info.agentapi ? [{ value: "agentapi" as PayFrom, label: "Agent API" }] : []),
             ]}
           />
         </div>
@@ -103,7 +111,7 @@ export function AgentInbox({ titleId = "inbox-title", compact = false, head = tr
 
       {demo.status === "ready" && demo.info && (
         <ul className={styles.list}>
-          {[...demo.composed, ...demo.info.scenarios].map((s, i) => (
+          {[...demo.composed, ...demo.info.scenarios.filter((s) => demo.payFrom !== "agentapi" || !s.symbol)].map((s, i) => (
             <ScenarioCard
               key={s.id}
               scenario={s}
@@ -124,11 +132,13 @@ function ScenarioCard({ scenario, run, index, busy }: { scenario: DemoScenario; 
   const { state } = useVault();
   const symbol = state ? metaOf(state, state.primaryAsset).symbol : "USDC";
   const coin = scenario.symbol ?? symbol;
-  const amount = /^[\d.,]+$/.test(scenario.amount) ? (coin.toUpperCase().includes("USD") ? `$${scenario.amount}` : `${scenario.amount} ${coin}`) : scenario.amount;
-  const proposal = run?.proposalId ? state?.proposals.find((p) => p.id === run.proposalId) : undefined;
-  const sending = !!run && !run.proposalId && !run.error;
-  const initial = scenario.from.trim()[0]?.toUpperCase() ?? "?";
   const own = scenario.id.startsWith("mail-");
+  const scale = demo.payFrom === "agentapi" && !own && coin.toUpperCase().includes("USD") ? (demo.info?.agentapi?.scale ?? 1) : 1;
+  const shown = scale > 1 && /^[\d.,]+$/.test(scenario.amount) ? (Number(scenario.amount.replace(/,/g, "")) / scale).toFixed(2) : scenario.amount;
+  const amount = /^[\d.,]+$/.test(shown) ? (coin.toUpperCase().includes("USD") ? `$${shown}` : `${shown} ${coin}`) : shown;
+  const proposal = run?.proposalId ? state?.proposals.find((p) => p.id === run.proposalId) : undefined;
+  const sending = !!run && !run.proposalId && !run.agentapi && !run.error;
+  const initial = scenario.from.trim()[0]?.toUpperCase() ?? "?";
 
   return (
     <motion.li
@@ -150,7 +160,12 @@ function ScenarioCard({ scenario, run, index, busy }: { scenario: DemoScenario; 
 
       <div className={styles.foot}>
         <span className={styles.payee}>
-          Pays <span className="mono">{shortAddress(scenario.payee)}</span>
+          Pays{" "}
+          {demo.payFrom === "agentapi" && !own ? (
+            agentApiPayee(scenario.payee, run?.agentapi)
+          ) : (
+            <span className="mono">{shortAddress(scenario.payee)}</span>
+          )}
         </span>
         <AnimatePresence initial={false}>
           {(!run || (run.error && !own)) && (
@@ -184,6 +199,10 @@ function ScenarioCard({ scenario, run, index, busy }: { scenario: DemoScenario; 
               label={
                 own && sending
                   ? "The agent is reading your email"
+                  : run.via === "agentapi"
+                  ? sending
+                    ? "Agent is asking its Agent API wallet to pay"
+                    : "Agent asked its Agent API wallet. It holds no grant, so it can't pay"
                   : run.via === "outlayer"
                   ? sending
                     ? "Agent is asking its OutLayer wallet to pay"
@@ -199,8 +218,17 @@ function ScenarioCard({ scenario, run, index, busy }: { scenario: DemoScenario; 
                 </a>
               )}
             </Stage>
-            {!sending && <Stage done={!!proposal && proposal.status !== "Screening"} active={!proposal || proposal.status === "Screening"} label="Screening privately" />}
-            {proposal && proposal.status !== "Screening" && <Verdict proposal={proposal} />}
+            {run.agentapi ? (
+              <>
+                <Stage done active={false} label={`Screened privately in the enclave, ${(run.agentapi.verdict.ms / 1000).toFixed(1)} s`} />
+                <AgentApiVerdict outcome={run.agentapi} />
+              </>
+            ) : (
+              <>
+                {!sending && <Stage done={!!proposal && proposal.status !== "Screening"} active={!proposal || proposal.status === "Screening"} label="Screening privately" />}
+                {proposal && proposal.status !== "Screening" && <Verdict proposal={proposal} />}
+              </>
+            )}
           </motion.ol>
         )}
       </AnimatePresence>
@@ -216,6 +244,59 @@ function Stage({ done, active, label, children }: { done: boolean; active: boole
       </span>
       <span className={styles.stageLabel}>{label}</span>
       {children}
+    </motion.li>
+  );
+}
+
+/** On the Agent API path the sandbox's suppliers stand for the account's mainnet ones. */
+function agentApiPayee(payee: string, outcome?: AgentApiOutcome) {
+  if (outcome) return outcome.request.payee_name ?? "an address the owner's policy doesn't list";
+  if (payee.startsWith("kano-cotton.")) return "Kano Cotton Mills";
+  if (payee.startsWith("ibadan-dye.")) return "Ibadan Dye Works";
+  return "an address the owner's policy doesn't list";
+}
+
+/** What the Agent API's refusal means, in words; the owner's policy is the layer that says no. */
+function refusalText(code: string, message: string) {
+  if (code === "insufficient_balance") return "The wallet holds no USDC yet, so the Agent API stopped it. Nothing was charged.";
+  if (code === "policy_destination_denied") return "The owner's policy doesn't allow this payee, so the Agent API refused it.";
+  if (code === "policy_transaction_limit_exceeded") return "It's above the owner's per-payment limit, so the Agent API refused it.";
+  if (code === "spend_budget_exceeded" || code === "policy_limit_exceeded") return "It's over the owner's daily limit, so the Agent API refused it.";
+  if (code === "wallet_frozen") return "The owner froze this wallet.";
+  return message;
+}
+
+function AgentApiVerdict({ outcome }: { outcome: AgentApiOutcome }) {
+  const { verdict, execution } = outcome;
+  const vetoed = verdict.verdict === "VETO";
+  const paid = execution.kind === "sent" && execution.status === "SUCCESS";
+  const label = vetoed ? "Vetoed" : paid ? "Paid" : execution.kind === "sent" ? "Passed, sending" : "Passed";
+  const text = vetoed
+    ? `${verdict.reasons[0] ? reasonText(verdict.reasons[0]) : "The screen said no."} Nothing was sent: Veto didn't use its grant.`
+    : execution.kind === "refused"
+      ? `Veto sent it with its grant. ${refusalText(execution.code, execution.message)}`
+      : paid
+        ? `Veto sent it with its grant and the Agent API paid it on mainnet.`
+        : execution.kind === "sent"
+          ? `Veto sent it with its grant; the Agent API says ${execution.status.toLowerCase().replace(/_/g, " ")}.`
+          : "Passed.";
+
+  return (
+    <motion.li className={styles.verdict} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={SPRING_BOUNCE}>
+      <span className={`${styles.verdictPill} ${vetoed ? styles.pillVeto : paid || execution.kind !== "refused" ? styles.pillPass : styles.pillIdle}`}>
+        <Icon name={vetoed ? "x" : paid ? "check" : execution.kind === "refused" ? "shield" : "check"} size={13} stroke={3} />
+        {label}
+      </span>
+      <span className={styles.verdictText}>{text}</span>
+      {execution.kind === "sent" && execution.tx_hash && (
+        <a href={`https://nearblocks.io/txns/${execution.tx_hash}`} target="_blank" rel="noreferrer" className={styles.open}>
+          See it on NearBlocks <Icon name="external" size={13} stroke={2.25} />
+        </a>
+      )}
+      <span className={styles.signer}>
+        Signed in the enclave by <span className="mono">{verdict.signer.slice(0, 8)}…{verdict.signer.slice(-4)}</span>
+        {verdict.approved_signer ? ", a key the vault approves" : ", not a key the vault approves"}
+      </span>
     </motion.li>
   );
 }

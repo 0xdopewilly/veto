@@ -147,3 +147,21 @@ test("a Chain Signatures payout rebuilds into a valid transaction, high-s or not
   assert.equal(flipped.serialized, tx.serialized);
   assert.throws(() => signedPayout(proposal(sig.r.slice(2), sig.s.slice(2), sig.yParity), "0x000000000000000000000000000000000000dEaD"), /vault's address/);
 });
+
+// NEAR Intents Agent API: the official test vectors from github.com/NEAR-Intents-Agent-API/skills.
+test("agent api grant credentials match the official vector", async () => {
+  const { createGrantCredential } = await import("../src/agentapi.ts");
+  const { token, commitment } = createGrantCredential(new Uint8Array(32).fill(9));
+  assert.equal(token, "ngt_CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk");
+  assert.equal(commitment, "d632d3d1f5df65812a61000fa4cca20cce14fe14a2e3fe5d3e6bab1a445fc43f");
+});
+
+test("agent api EVM owner and EIP-712 signature match the official vector", async () => {
+  const { evmOwner, signEvmIntent } = await import("../src/agentapi.ts");
+  const v = {"private_key": "0x1111111111111111111111111111111111111111111111111111111111111111", "address": "0x19e7e376e7c213b7e7e7e46cc70a5dd086daff2a", "public_key": "0x4f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa385b6b1b8ead809ca67454d9683fcf2ba03456d6fe2c4abe2b07f0fbdbb2f1c1", "payload": {"types": {"EIP712Domain": [{"name": "name", "type": "string"}, {"name": "version", "type": "string"}], "WalletMessage": [{"name": "chainId", "type": "string"}, {"name": "signerId", "type": "string"}, {"name": "nonce", "type": "uint32"}, {"name": "createdAt", "type": "string"}, {"name": "timeoutSecs", "type": "uint32"}, {"name": "ops", "type": "string"}, {"name": "out", "type": "string"}]}, "primaryType": "WalletMessage", "domain": {"name": "NEAR Wallet Contract", "version": "1"}, "message": {"chainId": "mainnet", "signerId": "0s1234.near", "nonce": 42, "createdAt": "2026-10-07T00:00:00.000Z", "timeoutSecs": 300, "ops": "[]", "out": "{\"after\":[]}"}}, "signature": "0x011bb890ad576627ab6dbce119777912693a1bb16ef0dcd673d08198108cb5b245a4db114560088db56b209680788b4b5d02fcd933947b01912f59da6c1d62111c"};
+  const owner = evmOwner(v.private_key);
+  assert.equal(owner.address, v.address);
+  assert.equal(owner.public_key, v.public_key);
+  const signed = await signEvmIntent(v.private_key, { intent: { standard: "eip712", payload: v.payload } });
+  assert.equal(signed.signature, v.signature);
+});

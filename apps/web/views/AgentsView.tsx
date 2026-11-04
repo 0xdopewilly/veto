@@ -51,7 +51,7 @@ function useVaultKeys(accountId: string, vaultId: string): KeyInfo[] | null {
 const shortKey = (key: string) => (key.length > 20 ? `${key.slice(0, 11)}…${key.slice(-3)}` : key);
 
 export function AgentsView() {
-  const { state } = useVault();
+  const { state, isSandbox } = useVault();
   if (!state) return <Boot loading caption="Loading agents" />;
 
   return (
@@ -70,6 +70,7 @@ export function AgentsView() {
         {(state.wallets ?? []).map(([wallet, info], i) => (
           <WalletCard key={wallet} state={state} wallet={wallet} name={info.name} provider={info.provider} style={delay(120 + (state.agents.length + i) * 80)} />
         ))}
+        {isSandbox && <AgentApiCard style={delay(120 + (state.agents.length + (state.wallets ?? []).length) * 80)} />}
       </div>
 
       <ConnectAgent />
@@ -154,6 +155,88 @@ function AgentCard({ state, agent, active, style }: { state: VaultState; agent: 
 }
 
 /** An agent that pays from its own OutLayer wallet; Veto is an approver on that wallet's policy. */
+interface AgentApiView {
+  enabled: boolean;
+  name: string;
+  status: string;
+  owner: string | null;
+  wallet: string | null;
+  in_force: boolean;
+  usdc: string;
+  policy: {
+    frozen: boolean;
+    limits: { per_transaction?: Record<string, string>; daily?: Record<string, string> };
+    destinations: { mode: string; list: unknown[] };
+  } | null;
+  grants: { label: string; expires_at: string }[];
+  payees: { name: string; address: string }[];
+}
+
+const usd = (raw: string | undefined) => (raw ? `$${(Number(raw) / 1e6).toFixed(2)}` : "none");
+
+/** The NEAR Intents Agent API wallet (mainnet) whose only grant Veto holds; read live from the API. */
+function AgentApiCard({ style }: { style?: React.CSSProperties }) {
+  const [view, setView] = useState<AgentApiView | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/agentapi")
+      .then((r) => r.json())
+      .then((v: AgentApiView) => live && v.enabled && setView(v))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
+  if (!view) return null;
+  const perPayment = view.policy?.limits.per_transaction && Object.values(view.policy.limits.per_transaction)[0];
+  const daily = view.policy?.limits.daily && Object.values(view.policy.limits.daily)[0];
+  return (
+    <article className={`${styles.card} rise`} style={style}>
+      <header className={styles.cardHead}>
+        <h2 className={styles.agentName}>{view.name}</h2>
+        <span className={`${styles.badge} ${view.policy?.frozen ? styles.off : styles.on}`}>{view.policy?.frozen ? "Frozen" : "Agent API · mainnet"}</span>
+      </header>
+      <p className={styles.cardText}>
+        A NEAR Intents Agent API wallet. Its owner signed a policy that is the hard limit, and Veto holds its only grant, so the AI agent can only ask. Veto screens each request and sends just what passes.
+      </p>
+      <dl className={styles.facts}>
+        <div className={styles.fact}>
+          <dt>Wallet</dt>
+          <dd>
+            {view.wallet ? (
+              <a href={`https://nearblocks.io/address/${view.wallet}`} target="_blank" rel="noreferrer" className={`mono ${styles.key}`}>
+                {shortKey(view.wallet)}
+              </a>
+            ) : (
+              "Setting up"
+            )}
+          </dd>
+        </div>
+        <div className={styles.fact}>
+          <dt>Owner&apos;s policy</dt>
+          <dd>
+            {view.in_force ? "In force: " : "Syncing: "}USDC only, up to {usd(perPayment)} a payment and {usd(daily)} a day, to {view.policy?.destinations.list.length ?? 0} listed suppliers ({view.payees.map((p) => p.name).join(", ")}).
+          </dd>
+        </div>
+        <div className={styles.fact}>
+          <dt>Grant</dt>
+          <dd>{view.grants.length === 1 ? `One, held by Veto: "${view.grants[0].label}"` : `${view.grants.length} live grants`}</dd>
+        </div>
+        <div className={styles.fact}>
+          <dt>Balance</dt>
+          <dd>{usd(view.usdc)} USDC{view.usdc === "0" ? ", so a payment that passes is stopped for lack of funds until it's funded" : ""}</dd>
+        </div>
+        <div className={styles.fact}>
+          <dt>Owner</dt>
+          <dd>
+            An EVM key Veto&apos;s demo holds, like the sandbox&apos;s demo owner: <span className="mono">{view.owner ? shortKey(view.owner) : "unknown"}</span>
+          </dd>
+        </div>
+      </dl>
+    </article>
+  );
+}
+
 function WalletCard({ state, wallet, name, provider, style }: { state: VaultState; wallet: string; name: string; provider: string; style?: React.CSSProperties }) {
   const mine = state.proposals.filter((p) => p.external?.wallet === wallet);
   const paid = mine.filter((p) => p.status === "Paid").length;
