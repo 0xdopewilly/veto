@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Lockup } from "@/components/Logo";
 import { Icon } from "@/components/Icon";
 import { Circuit } from "@/components/Circuit";
 import { LineReveal } from "@/components/LineReveal";
@@ -79,32 +78,6 @@ export default function Landing() {
     <div className={styles.page}>
       <SmoothScroll />
       <RevealOnScroll />
-      <header className={styles.top}>
-        <div className={styles.topInner}>
-          <Link href="/" className={styles.brand} aria-label="Veto home">
-            <Lockup size={24} />
-          </Link>
-          <nav aria-label="Site" className={styles.topNav}>
-            <a href="#how">How it works</a>
-            <a href="#proof">Proof</a>
-            <Link href="/bench">Bench</Link>
-            <Link href="/docs">Docs</Link>
-            <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
-          </nav>
-          <Magnetic strength={0.22} className={styles.desktopOnly}>
-            <Link href="/app" className={`${styles.cta} press`}>
-              Open the demo vault
-              <span className={styles.ctaArrow} aria-hidden="true">
-                <Icon name="arrowRight" size={15} stroke={2.4} />
-              </span>
-            </Link>
-          </Magnetic>
-          <Link href="/start" className={`${styles.ctaRound} ${styles.mobileOnly} press`} aria-label="Open the demo vault">
-            <Icon name="arrowRight" size={18} stroke={2.4} />
-          </Link>
-        </div>
-      </header>
-
       <main>
         <section className={styles.hero} aria-label="Introduction">
           <div className={`${styles.heroPanel} notched`}>
@@ -257,17 +230,6 @@ export default function Landing() {
           </div>
         </section>
       </main>
-
-      <footer className={styles.footer}>
-        <div className={`${styles.wrap} ${styles.footerRow}`}>
-          <Lockup size={20} />
-          <span className={styles.footerText}>
-            Built for NEAR HACKATHON 2026 · MIT licence ·{" "}
-            <Link href="/docs">Docs</Link>
-            <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
-          </span>
-        </div>
-      </footer>
     </div>
   );
 }

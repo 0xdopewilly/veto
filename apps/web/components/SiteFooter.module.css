@@ -1,0 +1,169 @@
+.footer {
+  padding: 56px 12px calc(28px + var(--safe-bottom, 0px));
+}
+
+.inner {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.inner[data-wide] {
+  max-width: 1376px;
+}
+
+.next {
+  display: grid;
+  gap: 12px;
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 26px 76px 28px 26px;
+  border-radius: 30px;
+  background: var(--card);
+  color: var(--sand);
+  text-decoration: none;
+  transition:
+    transform var(--spring-bounce-ms) var(--spring-bounce),
+    background-color 200ms ease;
+}
+
+.card:hover {
+  background: var(--tile);
+}
+
+.cardApp {
+  box-shadow: inset 0 0 0 1px rgba(0, 236, 151, 0.22);
+}
+
+.kicker {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+.cardApp .kicker {
+  color: var(--green);
+}
+
+.title {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.text {
+  max-width: 46ch;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.go {
+  position: absolute;
+  right: 22px;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  margin-top: -22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--control);
+  color: var(--sand);
+  transition: transform var(--spring-bounce-ms) var(--spring-bounce);
+}
+
+.cardApp .go {
+  background: var(--green);
+  color: var(--black);
+}
+
+.card:hover .go {
+  transform: translateX(4px);
+}
+
+.card[data-back]:hover .go {
+  transform: translateX(-4px);
+}
+
+.row {
+  margin-top: 40px;
+  padding: 0 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 28px;
+}
+
+.brand {
+  display: flex;
+  color: var(--sand);
+  text-decoration: none;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+}
+
+.links a {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 14.5px;
+  font-weight: 550;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.links a:hover,
+.links a[aria-current] {
+  color: var(--sand);
+}
+
+.fine {
+  flex-basis: 100%;
+  font-size: 13px;
+  color: var(--dim);
+}
+
+@media (min-width: 900px) {
+  .footer {
+    padding: 72px 24px calc(32px + var(--safe-bottom, 0px));
+  }
+  .next {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .card {
+    padding: 34px 96px 36px 34px;
+    border-radius: 36px;
+  }
+  .title {
+    font-size: 32px;
+  }
+  .go {
+    right: 30px;
+    width: 52px;
+    height: 52px;
+    margin-top: -26px;
+  }
+  .row {
+    flex-wrap: nowrap;
+  }
+  .links {
+    margin-left: auto;
+    order: 2;
+  }
+  .fine {
+    flex-basis: auto;
+    order: 1;
+  }
+}

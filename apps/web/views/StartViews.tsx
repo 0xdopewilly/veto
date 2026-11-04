@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -36,6 +37,9 @@ export function WelcomeView() {
     <div className={styles.screen}>
       <header className={`${styles.header} rise`}>
         <Lockup size={25} />
+        <Link href="/" className={`${styles.aboutLink} press`}>
+          About Veto
+        </Link>
       </header>
 
       <section className={styles.intro} aria-label="Introduction">

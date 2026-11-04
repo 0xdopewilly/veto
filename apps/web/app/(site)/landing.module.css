@@ -14,82 +14,6 @@
   display: none !important;
 }
 
-/* ------------------------------------------------------------ top bar */
-
-.top {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  padding: calc(10px + var(--safe-top)) 12px 0;
-}
-
-.topInner {
-  max-width: 1376px;
-  margin: 0 auto;
-  min-height: 60px;
-  padding: 0 8px 0 18px;
-  border-radius: 30px;
-  background: rgba(17, 17, 17, 0.78);
-  backdrop-filter: blur(18px) saturate(150%);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
-  box-shadow: 0 16px 40px -20px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  min-height: 44px;
-  text-decoration: none;
-  color: var(--sand);
-}
-
-.topNav {
-  display: none;
-}
-
-.cta {
-  display: inline-flex;
-  height: 46px;
-  padding: 0 6px 0 20px;
-  border-radius: 23px;
-  background: var(--green);
-  color: var(--black);
-  font-size: 14.5px;
-  font-weight: 650;
-  text-decoration: none;
-  align-items: center;
-  gap: 12px;
-}
-
-.ctaArrow {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: var(--black);
-  color: var(--green);
-  display: grid;
-  place-items: center;
-  transition: transform var(--spring-bounce-ms) var(--spring-bounce);
-}
-
-.cta:hover .ctaArrow {
-  transform: translateX(3px);
-}
-
-.ctaRound {
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  background: var(--green);
-  color: var(--black);
-  display: grid;
-  place-items: center;
-}
-
 /* --------------------------------------------------------------- hero */
 
 .hero {
@@ -592,24 +516,6 @@
   color: var(--sand);
 }
 
-.footer {
-  padding: 40px 12px calc(40px + var(--safe-bottom));
-}
-
-.footerRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px 32px;
-  padding: 0 12px;
-}
-
-.footerText {
-  font-size: 14px;
-  color: var(--muted);
-}
-
 /* ------------------------------------------------------------- desktop */
 
 @media (min-width: 900px) {
@@ -618,37 +524,6 @@
   }
   .mobileOnly {
     display: none !important;
-  }
-  .top {
-    padding: 16px 24px 0;
-  }
-  .topInner {
-    min-height: 66px;
-    padding: 0 10px 0 24px;
-    border-radius: 33px;
-  }
-  .topNav {
-    display: flex;
-    gap: 2px;
-    padding: 4px;
-    border-radius: 26px;
-    background: var(--tile);
-  }
-  .topNav a {
-    display: flex;
-    align-items: center;
-    height: 42px;
-    padding: 0 18px;
-    border-radius: 21px;
-    font-size: 14.5px;
-    font-weight: 550;
-    color: var(--muted);
-    text-decoration: none;
-    transition: color 200ms ease, background-color 200ms ease;
-  }
-  .topNav a:hover {
-    color: var(--sand);
-    background: var(--control);
   }
   .hero {
     padding: 16px 24px 0;
@@ -732,9 +607,6 @@
     flex-direction: row;
     align-items: flex-end;
     justify-content: space-between;
-  }
-  .footer {
-    padding: 48px 24px calc(48px + var(--safe-bottom));
   }
 }
 

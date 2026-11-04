@@ -3,58 +3,6 @@
   background: var(--black);
 }
 
-.top {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  padding: calc(10px + var(--safe-top)) 12px 0;
-}
-
-.topInner {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 0 8px 0 18px;
-  min-height: 60px;
-  border-radius: 30px;
-  background: rgba(17, 17, 17, 0.82);
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  min-height: 44px;
-  text-decoration: none;
-  color: var(--sand);
-}
-
-.nav {
-  display: flex;
-  gap: 4px;
-}
-
-.nav a {
-  display: flex;
-  align-items: center;
-  height: 44px;
-  padding: 0 14px;
-  border-radius: 22px;
-  font-size: 15px;
-  font-weight: 550;
-  text-decoration: none;
-  color: var(--muted);
-}
-
-.nav a:hover {
-  color: var(--sand);
-  background: var(--control);
-}
-
 .main {
   max-width: 1120px;
   margin: 0 auto;
@@ -265,9 +213,6 @@
 }
 
 @media (min-width: 900px) {
-  .top {
-    padding: 16px 24px 0;
-  }
   .main {
     padding-left: 32px;
     padding-right: 32px;
@@ -279,5 +224,32 @@
   .section,
   .panel {
     padding: 30px 32px;
+  }
+}
+
+/* Phones: each scenario's example sits under its category instead of in a column off the edge. */
+.exampleInline {
+  display: none;
+}
+
+@media (max-width: 699px) {
+  .scenarios {
+    min-width: 0;
+  }
+  .scenarios .example {
+    display: none;
+  }
+  .scenarios .num {
+    width: 64px;
+    padding-right: 0 !important;
+    vertical-align: top;
+  }
+  .exampleInline {
+    display: block;
+    margin-top: 6px;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--muted);
   }
 }

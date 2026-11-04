@@ -1,9 +1,6 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import { GITHUB_URL } from "@/lib/config";
-import { Lockup } from "@/components/Logo";
 import { LineReveal } from "@/components/LineReveal";
 import { SmoothScroll } from "@/components/SmoothScroll";
 import { RevealOnScroll } from "@/components/RevealOnScroll";
@@ -62,18 +59,7 @@ export function BenchView() {
     <div className={styles.page}>
       <SmoothScroll />
       <RevealOnScroll />
-      <header className={styles.top}>
-        <div className={styles.topInner}>
-          <Link href="/" className={styles.brand} aria-label="Veto home">
-            <Lockup size={25} />
-          </Link>
-          <nav aria-label="Site" className={styles.nav}>
-            <Link href="/app">Overview</Link>
-            <Link href="/docs">Docs</Link>
-            <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
-          </nav>
-        </div>
-      </header>
+
 
       <main className={styles.main}>
         <LineReveal as="h1" className={styles.h1} text="Veto Bench" />
@@ -84,18 +70,21 @@ export function BenchView() {
         <section className={`${styles.section} rise`} style={{ animationDelay: "160ms" }} aria-labelledby="scenarios-title">
           <h2 id="scenarios-title" className={styles.h2}>Scenarios</h2>
           <div className={styles.scroll}>
-            <table className={styles.table}>
+            <table className={`${styles.table} ${styles.scenarios}`}>
               <thead>
                 <tr>
                   <th scope="col">Category</th>
                   <th scope="col" className={styles.num}>Scenarios</th>
-                  <th scope="col">Example</th>
+                  <th scope="col" className={styles.example}>Example</th>
                 </tr>
               </thead>
               <tbody>
                 {SCENARIOS.map((s, i) => (
                   <tr key={s.category} className="rise" style={{ animationDelay: `${140 + i * 60}ms` }}>
-                    <th scope="row">{s.category}</th>
+                    <th scope="row">
+                      {s.category}
+                      <span className={styles.exampleInline}>{s.example}</span>
+                    </th>
                     <td className={styles.num}>{s.count}</td>
                     <td className={styles.example}>{s.example}</td>
                   </tr>

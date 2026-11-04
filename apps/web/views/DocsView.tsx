@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { EXPLORER, GITHUB_URL, SANDBOX_ID as VAULT_ID } from "@/lib/config";
-import { Lockup } from "@/components/Logo";
+import { EXPLORER, SANDBOX_ID as VAULT_ID } from "@/lib/config";
 import { Circuit } from "@/components/Circuit";
 import { LineReveal } from "@/components/LineReveal";
 import { SmoothScroll } from "@/components/SmoothScroll";
@@ -135,18 +134,7 @@ export function DocsView() {
     <div className={styles.page}>
       <SmoothScroll />
       <RevealOnScroll />
-      <header className={styles.top}>
-        <div className={styles.topInner}>
-          <Link href="/" className={styles.brand} aria-label="Veto home">
-            <Lockup size={25} />
-          </Link>
-          <nav aria-label="Site" className={styles.nav}>
-            <Link href="/app">Open the app</Link>
-            <Link href="/bench">Bench</Link>
-            <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
-          </nav>
-        </div>
-      </header>
+
 
       <div className={styles.layout}>
         <nav aria-label="On this page" className={styles.toc}>
@@ -379,7 +367,7 @@ export function DocsView() {
             </p>
             <ol className={styles.doSee}>
               <li><span>Do</span> open <Link href="/start/vault">Create your vault</Link>, connect a NEAR testnet wallet (Meteor Wallet at meteorwallet.app makes a testnet account for free; switch it to testnet first), name your business and sign. A new wallet starts with no NEAR, so Veto sends it 0.3 test NEAR for gas when it connects. <span>See</span> your own vault live in a few seconds, with $5,000 test USDC, two suppliers and its own test agent. From here on, overrides, freezes and rule changes need your wallet&apos;s signature.</li>
-              <li><span>Do</span> open <Link href="/app">the app</Link> and press <strong>Try it</strong> (the green V on a phone, the Agent inbox panel on desktop). <span>See</span> the agent's inbox: one real invoice and three scams that look ordinary.</li>
+              <li><span>Do</span> open <Link href="/app">the app</Link> and press <strong>Try it</strong> (the green V on a phone, <strong>Try the agent</strong> at the top of the sidebar on desktop). <span>See</span> the agent's inbox: one real invoice and three scams that look ordinary.</li>
               <li><span>Do</span> let the agent pay the real Kano Cotton Mills invoice. <span>See</span> "Agent proposed", "Screening privately", then <strong>Paid</strong>, with testnet transaction links.</li>
               <li><span>Do</span> let it pay "Updated payment details". <span>See</span> <strong>Vetoed</strong>: a lookalike address, a new payee and changed payout details, while the payment was inside the weekly limit.</li>
               <li><span>Do</span> open the decision, then <strong>Proof</strong>. <span>See</span> the signer, the hashes and the on-chain check.</li>
@@ -486,11 +474,6 @@ node bench/run.ts --screener dev && node bench/verify.ts bench/results/veto-dev_
               ))}
             </div>
           </section>
-
-          <footer className={styles.footer}>
-            <span>Built for NEAR HACKATHON 2026 · MIT licence</span>
-            <Link href="/app">Open the app</Link>
-          </footer>
         </main>
       </div>
     </div>

@@ -10,7 +10,21 @@
 .header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   height: 48px;
+}
+
+.aboutLink {
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  background: var(--control);
+  color: var(--sand);
+  font-size: 14px;
+  font-weight: 550;
+  text-decoration: none;
 }
 
 .intro {

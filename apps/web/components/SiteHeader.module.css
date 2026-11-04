@@ -1,0 +1,352 @@
+/* The public site's header: landing, Docs and Bench share it, so it stays put between them. */
+
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: calc(10px + var(--safe-top, 0px)) 12px 0;
+}
+
+.bar {
+  position: relative;
+  z-index: 2;
+  max-width: 1180px;
+  margin: 0 auto;
+  min-height: 60px;
+  padding: 0 8px 0 18px;
+  border-radius: 30px;
+  background: rgba(17, 17, 17, 0.9);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  box-shadow: 0 16px 40px -20px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  transition: max-width var(--spring-surface-ms) var(--spring-surface);
+}
+
+/* The landing runs wider; the bar eases between the two widths as you move. */
+.top[data-wide] .bar {
+  max-width: 1376px;
+}
+
+.brand {
+  flex: none;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--sand);
+  text-decoration: none;
+}
+
+.lockup {
+  display: inline-flex;
+}
+
+.markOnly {
+  display: none;
+}
+
+/* ------------------------------------------------------------ desktop links */
+
+.nav {
+  display: none;
+}
+
+.navLink {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 21px;
+  font-size: 14.5px;
+  font-weight: 550;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 200ms ease;
+}
+
+.navLink > :not(.navPill) {
+  position: relative;
+}
+
+.navLink:hover {
+  color: var(--sand);
+}
+
+.navLink[data-here] {
+  color: var(--black);
+}
+
+.navPill {
+  position: absolute;
+  inset: 0;
+  border-radius: 21px;
+  background: var(--sand);
+}
+
+/* --------------------------------------------------------- the app button */
+
+.end {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 5px 0 16px;
+  border-radius: 22px;
+  background: var(--green);
+  color: var(--black);
+  font-size: 14px;
+  font-weight: 650;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.app[data-back] {
+  padding: 0 16px 0 5px;
+}
+
+.appText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.appArrow {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--black);
+  color: var(--green);
+  display: grid;
+  place-items: center;
+  transition: transform var(--spring-bounce-ms) var(--spring-bounce);
+}
+
+.app:hover .appArrow {
+  transform: translateX(3px);
+}
+
+.app[data-back]:hover .appArrow {
+  transform: translateX(-3px);
+}
+
+.appFull {
+  width: 100%;
+  height: 56px;
+  border-radius: 28px;
+  padding: 0 8px 0 22px;
+  justify-content: space-between;
+  font-size: 16px;
+}
+
+.appFull[data-back] {
+  padding: 0 22px 0 8px;
+  justify-content: flex-start;
+  gap: 14px;
+}
+
+.appFull .appArrow {
+  width: 40px;
+  height: 40px;
+}
+
+/* ------------------------------------------------------------ phone menu */
+
+.menuButton {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--control);
+  color: var(--sand);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.burger {
+  position: relative;
+  width: 18px;
+  height: 14px;
+}
+
+.burger i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 6px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  transition: transform var(--spring-bounce-ms) var(--spring-bounce);
+}
+
+.burger i:first-child {
+  transform: translateY(-4px);
+}
+
+.burger i:last-child {
+  transform: translateY(4px);
+}
+
+.burger[data-open] i:first-child {
+  transform: rotate(45deg);
+}
+
+.burger[data-open] i:last-child {
+  transform: rotate(-45deg);
+}
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  padding: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  cursor: default;
+}
+
+.menu {
+  position: absolute;
+  z-index: 1;
+  top: calc(100% + 8px);
+  left: 12px;
+  right: 12px;
+  max-height: calc(var(--app-h) - 100px - var(--safe-top, 0px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px;
+  border-radius: 28px;
+  background: rgba(17, 17, 17, 0.97);
+  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transform-origin: top right;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 66px;
+  padding: 10px 18px;
+  border-radius: 20px;
+  color: var(--sand);
+  text-decoration: none;
+  transition: background-color 200ms ease;
+}
+
+.menuItem:active {
+  background: var(--control);
+}
+
+.menuItem[data-here] {
+  background: var(--tile);
+}
+
+.menuItem > svg {
+  flex: none;
+  color: var(--muted);
+}
+
+.menuText {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.menuLabel {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.menuSub {
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.hereTag {
+  flex: none;
+  padding: 5px 10px;
+  border-radius: var(--r-pill);
+  background: rgba(0, 236, 151, 0.12);
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.menuApp {
+  padding: 8px 2px 2px;
+}
+
+/* Phones showing "Back to …": the V alone, so the label keeps its words. */
+@media (max-width: 429px) {
+  .top[data-back] .lockup {
+    display: none;
+  }
+  .top[data-back] .markOnly {
+    display: inline-flex;
+  }
+}
+
+/* ---------------------------------------------------------------- desktop */
+
+@media (min-width: 900px) {
+  .top {
+    padding: 16px 24px 0;
+  }
+  .bar {
+    min-height: 66px;
+    padding: 0 10px 0 24px;
+    border-radius: 33px;
+  }
+  .nav {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 2px;
+    padding: 4px;
+    border-radius: 25px;
+    background: var(--tile);
+  }
+  .app {
+    height: 46px;
+    padding: 0 6px 0 20px;
+    border-radius: 23px;
+    font-size: 14.5px;
+    gap: 12px;
+  }
+  .app[data-back] {
+    padding: 0 20px 0 6px;
+  }
+  .menuButton,
+  .scrim,
+  .menu {
+    display: none;
+  }
+}
+
+.magnet {
+  min-width: 0;
+}
