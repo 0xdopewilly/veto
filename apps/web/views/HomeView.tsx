@@ -2,16 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { lookalike } from "@veto/core/signals";
 import type { Proposal } from "@veto/core/proposal";
 import { useVault, metaOf, needsDecision, type VaultState } from "@/lib/vault";
 import { useVaultKind, useWallet } from "@/lib/wallet";
 import { useKeptBlocked } from "@/lib/dismissed";
 import { useIsDesktop } from "@/lib/media";
-import { formatParts, formatShort, formatTime, nsToDate, possessive } from "@/lib/format";
-import { SPRING_UI, useCalm } from "@/lib/motion";
+import { formatParts, formatShort, formatTime, nsToDate } from "@/lib/format";
+import { SPRING_UI } from "@/lib/motion";
 import { Screen, delay } from "@/components/Screen";
 import { Boot } from "@/components/Boot";
 import { Icon, type IconName } from "@/components/Icon";
@@ -19,7 +18,6 @@ import { Odometer } from "@/components/Odometer";
 import { LineReveal } from "@/components/LineReveal";
 import { Segmented } from "@/components/Segmented";
 import { SpendRing } from "@/components/SpendRing";
-import { Orb } from "@/components/Orb";
 import { DecisionBars } from "@/components/DecisionBars";
 import { AgentInbox } from "@/components/AgentInbox";
 import { useStartHint } from "@/lib/hint";
@@ -88,11 +86,12 @@ function PhoneHome({ state }: { state: VaultState }) {
   const shown = filterProposals(state.proposals, filter).slice(0, 6);
   const tabs = <Segmented label="Filter activity" options={filterOptions(state.proposals)} value={filter} onChange={setFilter} tone={lead ? "dark" : "onGreen"} />;
 
+  const latest = state.proposals.find((p) => p.verdict);
   const actions: { label: string; icon: IconName; onClick: () => void }[] = [
     { label: "Try it", icon: "sparkle", onClick: openInbox },
     { label: frozen ? "Unfreeze" : "Freeze", icon: frozen ? "unlock" : "lock", onClick: openFreeze },
-    { label: "Mandate", icon: "file", onClick: () => router.push("/app/mandate") },
-    { label: "Payees", icon: "users", onClick: () => router.push("/app/payees") },
+    { label: "Proof", icon: "key", onClick: () => router.push(latest ? `/app/decisions/${latest.id}/proof` : "/app/decisions") },
+    { label: "How it works", icon: "file", onClick: () => router.push("/docs") },
   ];
 
   return (
@@ -199,8 +198,8 @@ function PhoneHome({ state }: { state: VaultState }) {
               </div>
               <div className={styles.mandate}>
                 <span>{o.mandateLine}</span>
-                <Link href="/app/mandate" className={styles.link}>
-                  Edit mandate
+                <Link href="/app/rules#mandate" className={styles.link}>
+                  Edit rules
                 </Link>
               </div>
             </section>
@@ -259,13 +258,10 @@ function Legend({ o }: { o: Overview }) {
 
 function DesktopHome({ state }: { state: VaultState }) {
   const hint = useStartHint();
-  const { openVaults } = useShell();
   const { vaultName } = useVault();
-  const kind = useVaultKind();
   const { kept } = useKeptBlocked();
   const o = useOverview(state, kept);
   const [filter, setFilter] = useState<Filter>("all");
-  const latest = state.proposals.find((p) => p.verdict);
   const step = (i: number) => delay(80 + i * 70);
 
   return (
@@ -273,19 +269,11 @@ function DesktopHome({ state }: { state: VaultState }) {
       <div className={styles.titleRow}>
         <LineReveal key={vaultName} as="h1" className={styles.pageTitle} text={vaultName} />
         <div className={`${styles.titleTools} rise`} style={delay(60)}>
-          <button type="button" className={`${styles.periodPill} ${styles.kindPill} press`} data-mine={kind.mine || undefined} onClick={openVaults}>
-            <span className={styles.kindDot} aria-hidden="true" />
-            {kind.label}
-            <Icon name="chevronDown" size={15} />
-          </button>
           <span className={styles.periodPill}>
             <Icon name="calendar" size={16} />
             {o.period === "this week" ? "This week" : o.period === "today" ? "Today" : "This period"}
             {o.resets && <span className={styles.periodSub}>· resets {o.resets}</span>}
           </span>
-          <Link href="/app/decisions" className={`${styles.circleBtn} press`} aria-label="Filter decisions">
-            <Icon name="sliders" size={18} />
-          </Link>
         </div>
       </div>
 
@@ -329,8 +317,6 @@ function DesktopHome({ state }: { state: VaultState }) {
             </Metric>
           </div>
         </section>
-
-        <AiPanel state={state} alarm={o.attention.length > 0} pulse={latest ? `${latest.id}${latest.status}` : "none"} latestId={latest?.id} style={step(1)} />
 
         <section className={`${styles.panel} ${styles.limit} rise spot`} style={step(2)} aria-labelledby="limit-title">
           <div className={styles.panelHead}>
@@ -391,8 +377,8 @@ function DesktopHome({ state }: { state: VaultState }) {
             </h2>
             <div className={styles.activityTools}>
               <Segmented label="Filter activity" options={filterOptions(state.proposals)} value={filter} onChange={setFilter} />
-              <Link href="/app/decisions" className={`${styles.circleBtn} press`} aria-label="All decisions">
-                <Icon name="sliders" size={17} />
+              <Link href="/app/decisions" className={styles.seeAll}>
+                See all
               </Link>
             </div>
           </div>
@@ -424,99 +410,5 @@ function Metric({ icon, label, children, delay: d, alarm = false }: { icon: Icon
       </span>
       <span className={styles.metricValue}>{children}</span>
     </div>
-  );
-}
-
-type Check = { tone: "pass" | "veto" | "pending"; text: string } | null;
-
-/** The enclave panel: orb, the two ways in (proof, bench), and a quick address check. */
-function AiPanel({ state, alarm, pulse, latestId, style }: { state: VaultState; alarm: boolean; pulse: string; latestId?: string; style: React.CSSProperties }) {
-  const calm = useCalm();
-  const [text, setText] = useState("");
-  const [check, setCheck] = useState<Check>(null);
-  const [checks, setChecks] = useState(0);
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    const value = text.trim().toLowerCase();
-    if (!value) return;
-    setChecks((n) => n + 1);
-    const saved = state.payees.find((p) => p.address.trim().toLowerCase() === value);
-    if (saved) {
-      setCheck({ tone: "pass", text: `${saved.name} is on your payee list. The cap would check the amount; the AI would screen the rest.` });
-      return;
-    }
-    for (const payee of state.payees) {
-      const why = lookalike(value, payee.address.trim().toLowerCase());
-      if (why) {
-        setCheck({ tone: "veto", text: `This looks like ${possessive(payee.name)} saved address (${why}). Veto would stop a payment to it.` });
-        return;
-      }
-    }
-    setCheck({ tone: "pending", text: "Not on your payee list and never paid. The AI screen would see a new payee and look closely." });
-  };
-
-  return (
-    <section className={`${styles.panel} ${styles.ai} rise`} style={style} aria-labelledby="ai-title">
-      <div className={styles.aiTop}>
-        <span className={styles.aiChip}>
-          <span className={styles.aiDot} data-alarm={alarm || undefined} aria-hidden="true" />
-          {alarm ? "Waiting on you" : "All clear"}
-        </span>
-        <h2 id="ai-title" className={styles.aiTitle}>Private screen</h2>
-        <Link href="/bench" className={`${styles.aiCorner} press`} aria-label="Open Veto Bench">
-          <Icon name="arrowRight" size={16} />
-        </Link>
-      </div>
-      <div className={styles.orbWrap}>
-        <Orb alarm={alarm} pulse={`${pulse}-${checks}`} size={156} />
-      </div>
-      <p className={styles.aiLine}>How Veto screens a payment: the cap checks the rules, then a private model reads the context and can only say no.</p>
-      <div className={styles.aiTiles}>
-        <Link href={latestId ? `/app/decisions/${latestId}/proof` : "/app/decisions"} className={`${styles.aiTile} press`}>
-          <Icon name="key" size={18} />
-          <span>Latest proof</span>
-        </Link>
-        <Link href="/bench" className={`${styles.aiTile} press`}>
-          <Icon name="chart" size={18} />
-          <span>Veto Bench</span>
-        </Link>
-      </div>
-      <form className={styles.ask} onSubmit={submit}>
-        <label htmlFor="ai-check" className="visually-hidden">
-          Paste an address to check against your payees
-        </label>
-        <input
-          id="ai-check"
-          className={styles.askInput}
-          placeholder="Paste an address to check…"
-          value={text}
-          autoComplete="off"
-          spellCheck={false}
-          onChange={(e) => {
-            setText(e.target.value);
-            setCheck(null);
-          }}
-        />
-        <button type="submit" className={`${styles.askSend} press`} aria-label="Check address" disabled={!text.trim()}>
-          <Icon name="send" size={17} />
-        </button>
-      </form>
-      <AnimatePresence initial={false}>
-        {check && (
-          <motion.p
-            key={check.text}
-            role="status"
-            className={`${styles.checkOut} ${styles[`check_${check.tone}`]}`}
-            initial={calm ? { opacity: 0 } : { opacity: 0, y: -6, height: 0 }}
-            animate={{ opacity: 1, y: 0, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={SPRING_UI}
-          >
-            {check.text}
-          </motion.p>
-        )}
-      </AnimatePresence>
-    </section>
   );
 }

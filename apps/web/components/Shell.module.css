@@ -789,3 +789,98 @@
     animation: none;
   }
 }
+
+/* ------------------------------------------------- sidebar: try the agent */
+
+/* The one primary action on desktop, as the V button is on phones. */
+.tryAgent {
+  margin: 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px 12px 12px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--green);
+  color: var(--black);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 12px 30px -14px rgba(0, 236, 151, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: background-color 160ms var(--ease-draw);
+}
+
+@media (hover: hover) {
+  .tryAgent:hover {
+    background: #2bf5ac;
+  }
+}
+
+.tryAgentMark {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--black);
+  display: grid;
+  place-items: center;
+}
+
+.tryAgentText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.tryAgentText strong {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.tryAgentText span {
+  font-size: 12px;
+  opacity: 0.72;
+}
+
+/* About the project: one quiet row under the freeze button. */
+.footLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 8px 14px 2px;
+}
+
+.footLinks a {
+  font-size: 13px;
+  color: var(--dim);
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+
+.footLinks a:hover {
+  color: var(--sand);
+}
+
+/* Top bar, no wallet yet: say exactly that. */
+.connectWallet {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 18px;
+  border-radius: 24px;
+  border: 0;
+  background: var(--card);
+  color: var(--sand);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-draw);
+}
+
+.connectWallet:hover {
+  background: var(--tile);
+}

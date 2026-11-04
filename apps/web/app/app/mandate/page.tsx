@@ -1,8 +1,6 @@
-import type { Metadata } from "next";
-import { MandateView } from "@/views/MandateView";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Mandate" };
-
+// The mandate now lives on Rules, with the limits, suppliers and freeze.
 export default function Page() {
-  return <MandateView />;
+  redirect("/app/rules#mandate");
 }

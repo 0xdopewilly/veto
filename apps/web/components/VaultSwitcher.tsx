@@ -5,6 +5,7 @@ import { FACTORY_ID, SANDBOX_ID, SANDBOX_NAME } from "@/lib/config";
 import { useMyVaults } from "@/lib/myVaults";
 import { rememberVault, useVault } from "@/lib/vault";
 import { useWallet } from "@/lib/wallet";
+import { ABOUT_LINKS } from "@/lib/nav";
 import { Icon } from "./Icon";
 import { Pill } from "./Pill";
 import { Sheet } from "./Sheet";
@@ -87,6 +88,20 @@ export function VaultSwitcher({ open, onClose }: { open: boolean; onClose: () =>
           Done
         </Pill>
       </div>
+
+      <nav className={styles.about} aria-label="About Veto">
+        {ABOUT_LINKS.map((l) =>
+          l.external ? (
+            <a key={l.href} href={l.href} target="_blank" rel="noreferrer">
+              {l.label}
+            </a>
+          ) : (
+            <a key={l.href} href={l.href} onClick={onClose}>
+              {l.label}
+            </a>
+          ),
+        )}
+      </nav>
     </Sheet>
   );
 }

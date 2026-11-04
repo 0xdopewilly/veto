@@ -596,24 +596,35 @@
   margin-bottom: 16px;
 }
 
+/* The agent's inbox is the way in, so it sits right after the numbers on narrower screens and in
+   its own column, always in view, on wide ones. */
 .dash {
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-areas:
     "hero hero"
-    "limit dec"
-    "ai inbox"
-    "act act";
+    "inbox inbox"
+    "act act"
+    "limit dec";
 }
 
 @media (min-width: 1200px) {
   .dash {
-    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(320px, 1fr);
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(340px, 1fr);
     grid-template-areas:
-      "hero hero ai"
-      "limit dec ai"
-      "act act inbox";
+      "hero hero inbox"
+      "act act inbox"
+      "limit dec inbox";
+    align-items: start;
+  }
+  .dash > .inbox {
+    position: sticky;
+    top: 0;
+    max-height: calc(var(--app-h) - 120px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
   }
 }
 
@@ -1036,4 +1047,17 @@
   .hintChip {
     animation: none;
   }
+}
+
+.seeAll {
+  flex: none;
+  font-size: 14px;
+  font-weight: 550;
+  color: var(--sand);
+  text-decoration: none;
+  padding: 0 6px;
+}
+
+.seeAll:hover {
+  color: var(--green);
 }

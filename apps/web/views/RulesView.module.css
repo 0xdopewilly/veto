@@ -1,0 +1,96 @@
+.jump {
+  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.jumpLink {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--r-pill);
+  background: var(--tile);
+  color: var(--sand);
+  font-size: 13.5px;
+  text-decoration: none;
+  transition: background-color 160ms var(--ease-draw);
+}
+
+@media (hover: hover) {
+  .jumpLink:hover {
+    background: var(--control);
+  }
+}
+
+/* Each part starts on its own line of sight, with room above when you jump to it. */
+.part {
+  margin-top: 40px;
+  scroll-margin-top: 16px;
+}
+
+.partTitle {
+  margin: 0 0 14px;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+}
+
+.freeze {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 18px;
+  border-radius: var(--r-card);
+  background: var(--card);
+}
+
+.freeze[data-frozen] {
+  background: var(--coral-tint);
+}
+
+.freezeIcon {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--control);
+  display: grid;
+  place-items: center;
+}
+
+.freeze[data-frozen] .freezeIcon {
+  background: var(--coral);
+  color: var(--black);
+}
+
+.freezeText {
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.freezeText strong {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--sand);
+}
+
+@media (min-width: 900px) {
+  .part {
+    margin-top: 56px;
+  }
+  .partTitle {
+    font-size: 30px;
+  }
+  .freeze {
+    padding: 22px 24px;
+  }
+}

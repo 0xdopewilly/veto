@@ -19,7 +19,7 @@ export function ProofView({ id }: { id: string }) {
   if (missing) {
     return (
       <Screen pushed>
-        <BackLink href="/app" label="Back to overview" />
+        <BackLink />
         <h1 className={styles.title}>No payment with that number</h1>
       </Screen>
     );

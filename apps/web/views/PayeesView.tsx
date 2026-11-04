@@ -2,16 +2,13 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useVault } from "@/lib/vault";
+import type { VaultState } from "@/lib/vault";
 import { useWallet } from "@/lib/wallet";
 import { compareAddresses, imitated, payeeHistory } from "@/lib/decision";
 import { formatWhen, shortAddress, chainLabel } from "@/lib/format";
-import { Screen, delay } from "@/components/Screen";
+import { delay } from "@/components/Screen";
 import { Icon } from "@/components/Icon";
 import { OwnerButton } from "@/components/OwnerButton";
-import { Boot } from "@/components/Boot";
-import { LineReveal } from "@/components/LineReveal";
-import head from "./PageHead.module.css";
 import styles from "./PayeesView.module.css";
 
 const CHAINS = [
@@ -23,14 +20,12 @@ const CHAINS = [
 ];
 
 
-export function PayeesView() {
-  const { state } = useVault();
+/** Who the agent may pay, adding one, and lookalikes Veto blocked: the Suppliers part of Rules. */
+export function PayeesSection({ state, titleClass }: { state: VaultState; titleClass: string }) {
   const { isOwner } = useWallet();
   const [name, setName] = useState("");
   const [chain, setChain] = useState("near");
   const [address, setAddress] = useState("");
-
-  if (!state) return <Boot loading caption="Loading payees" />;
 
   // One row per lookalike address: its latest attempt, and how many times it was tried.
   const attempts = new Map<string, number>();
@@ -47,17 +42,14 @@ export function PayeesView() {
   const canAdd = name.trim().length > 0 && name.trim().length <= 64 && address.trim().length > 0;
 
   return (
-    <Boot>
-    <Screen>
+    <>
       <div className={styles.titleRow}>
-        <LineReveal as="h1" className={head.title} text="Payees" />
-        <a href="#add" className={`${styles.add} press rise`}>
-          <Icon name="plus" size={16} stroke={2.25} /> Add payee
+        <h2 id="suppliers-title" className={titleClass}>Suppliers</h2>
+        <a href="#add" className={`${styles.add} press`}>
+          <Icon name="plus" size={16} stroke={2.25} /> Add a supplier
         </a>
       </div>
-      <p className={`${head.lead} rise`} style={delay(60)}>
-        Veto only pays these addresses. A changed address is never trusted automatically.
-      </p>
+      <p className={styles.lead}>Veto only pays these addresses. A changed address is never trusted automatically.</p>
 
       <div className={styles.table} role="table" aria-label="Saved payees">
         <div className={styles.head} role="row">
@@ -102,7 +94,7 @@ export function PayeesView() {
 
       <div className={styles.lower}>
         <section id="add" className={`${styles.form} rise`} style={delay(260)} aria-labelledby="add-title">
-          <h2 id="add-title" className={styles.h2}>Add a payee</h2>
+          <h3 id="add-title" className={styles.h2}>Add a supplier</h3>
           <label className={styles.field}>
             <span>Name</span>
             <input value={name} maxLength={64} onChange={(e) => setName(e.target.value)} placeholder="Kano Cotton Mills" />
@@ -138,7 +130,7 @@ export function PayeesView() {
         </section>
 
         <section className={`${styles.blocked} rise`} style={delay(320)} aria-labelledby="blocked-title">
-          <h2 id="blocked-title" className={styles.h2}>Blocked lookalikes</h2>
+          <h3 id="blocked-title" className={styles.h2}>Blocked lookalikes</h3>
           <p className={styles.helper}>Addresses Veto refused because they imitate a saved payee. They stay off your list unless you add them.</p>
           {blocked.length === 0 && <p className={styles.emptyBlocked}>None so far.</p>}
           {blocked.map(({ p, look }) => {
@@ -164,7 +156,6 @@ export function PayeesView() {
           })}
         </section>
       </div>
-    </Screen>
-    </Boot>
+    </>
   );
 }

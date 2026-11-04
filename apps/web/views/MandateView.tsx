@@ -1,16 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { metaOf, useVault, type VaultState } from "@/lib/vault";
+import { metaOf, type VaultState } from "@/lib/vault";
 import { useNow } from "@/lib/useNow";
 import { formatAmount, formatDuration, formatTime, formatWhen, remaining } from "@/lib/format";
-import { Screen, delay } from "@/components/Screen";
+import { delay } from "@/components/Screen";
 import { Icon } from "@/components/Icon";
 import { Pill } from "@/components/Pill";
 import { OwnerButton } from "@/components/OwnerButton";
-import { Boot } from "@/components/Boot";
-import { LineReveal } from "@/components/LineReveal";
-import head from "./PageHead.module.css";
 import styles from "./MandateView.module.css";
 
 const AI_CHECKS = [
@@ -31,30 +28,23 @@ function toUnits(input: string, decimals: number): string | null {
   return (BigInt(whole) * 10n ** BigInt(decimals) + BigInt((frac + "0".repeat(decimals)).slice(0, decimals) || "0")).toString();
 }
 
-export function MandateView() {
-  const { state, vaultId } = useVault();
+/** The mandate in your words and the limits the contract enforces: the first part of Rules. */
+export function MandateSection({ state }: { state: VaultState }) {
   const [draft, setDraft] = useState<string | null>(null);
 
-  if (!state) return <Boot loading caption="Loading your mandate" />;
   const text = draft ?? state.config.mandate;
   const changed = draft !== null && draft !== state.config.mandate;
   const raiseDelay = formatDuration(Number(state.config.raise_delay_secs));
 
   return (
-    <Boot>
-    <Screen>
-      <LineReveal as="h1" className={head.title} text="Mandate" />
-      <p className={`${head.lead} rise`} style={delay(60)}>
-        What your agent may pay from <span className="mono">{vaultId}</span>, and how Veto checks every payment against it.
-      </p>
-
+    <>
       {state.pending.map(([asset, change], i) => (
         <PendingBanner key={asset} state={state} asset={asset} change={change} style={delay(120 + i * 60)} />
       ))}
 
       <div className={styles.columns}>
         <section className={`${styles.words} rise`} style={delay(160)} aria-labelledby="words-title">
-          <h2 id="words-title" className={styles.h2}>In your words</h2>
+          <h3 id="words-title" className={styles.h2}>In your words</h3>
           <label htmlFor="mandate" className="visually-hidden">Mandate</label>
           <textarea
             id="mandate"
@@ -78,10 +68,10 @@ export function MandateView() {
         </section>
 
         <section className={`${styles.enforce} rise`} style={delay(240)} aria-labelledby="enforce-title">
-          <h2 id="enforce-title" className={styles.h2}>What Veto enforces</h2>
+          <h3 id="enforce-title" className={styles.h2}>What Veto enforces</h3>
 
           <div className={styles.group}>
-            <h3 className={styles.h3}>Enforced by the contract</h3>
+            <h4 className={styles.h3}>Enforced by the contract</h4>
             <p className={styles.groupText}>Hard limits. Nothing pays past them, not even an override.</p>
             <dl className={styles.limits}>
               {state.policies.map(([asset, policy]) => {
@@ -106,7 +96,7 @@ export function MandateView() {
           </div>
 
           <div className={styles.group}>
-            <h3 className={styles.h3}>Checked by the AI screen</h3>
+            <h4 className={styles.h3}>Checked by the AI screen</h4>
             <p className={styles.groupText}>Checked privately on every payment. A failed check blocks the payment. Passing never lifts a limit.</p>
             <ul className={styles.checks}>
               {AI_CHECKS.map((check, i) => (
@@ -126,8 +116,7 @@ export function MandateView() {
           </p>
         </section>
       </div>
-    </Screen>
-    </Boot>
+    </>
   );
 }
 

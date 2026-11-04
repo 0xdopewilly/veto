@@ -8,7 +8,7 @@ import { VaultProvider, useVault, needsDecision } from "@/lib/vault";
 import { WalletProvider, useVaultKind, useWallet } from "@/lib/wallet";
 import { DemoProvider } from "@/lib/demoClient";
 import { useKeptBlocked } from "@/lib/dismissed";
-import { GITHUB_URL, NETWORK } from "@/lib/config";
+import { NETWORK } from "@/lib/config";
 import { payeeLabel, STATUS_TEXT } from "@/lib/decision";
 import { metaOf } from "@/lib/vault";
 import { formatShort, chainLabel } from "@/lib/format";
@@ -16,6 +16,8 @@ import { SPRING_BOUNCE, SPRING_SURFACE, SPRING_UI, useCalm } from "@/lib/motion"
 import { Lockup, Mark } from "./Logo";
 import { useDecisionPulse } from "@/lib/pulse";
 import { useStartHint } from "@/lib/hint";
+import { recordPath } from "@/lib/backTo";
+import { ABOUT_LINKS } from "@/lib/nav";
 import { Icon, type IconName } from "./Icon";
 import { RouteStage, levelOf } from "./RouteStage";
 import { FreezeSheet } from "./FreezeSheet";
@@ -44,24 +46,20 @@ export const useShell = () => useContext(ShellContext);
 interface NavItem {
   href: string;
   label: string;
-  icon: IconName;
+  icon?: IconName;
   tab?: boolean;
   external?: boolean;
 }
 
+// One structure on phone and desktop: Home, Activity, Rules, Agents. Trying the agent is the V
+// button on phones and the first button in the sidebar on desktop.
 const VAULT_NAV: NavItem[] = [
-  { href: "/app", label: "Overview", icon: "dashboard", tab: true },
-  { href: "/app/decisions", label: "Decisions", icon: "activity" },
-  { href: "/app/mandate", label: "Mandate", icon: "file", tab: true },
-  { href: "/app/payees", label: "Payees", icon: "users", tab: true },
+  { href: "/app", label: "Home", icon: "home", tab: true },
+  { href: "/app/decisions", label: "Activity", icon: "activity", tab: true },
+  { href: "/app/rules", label: "Rules", icon: "shield", tab: true },
   { href: "/app/agents", label: "Agents", icon: "bot", tab: true },
 ];
-const OTHER_NAV: NavItem[] = [
-  { href: "/bench", label: "Veto Bench", icon: "chart" },
-  { href: "/docs", label: "Docs", icon: "file" },
-  { href: "/", label: "About Veto", icon: "home" },
-  { href: GITHUB_URL, label: "GitHub", icon: "github", external: true },
-];
+
 
 function activeHref(pathname: string) {
   return VAULT_NAV.find((n) => n.href !== "/app" && pathname.startsWith(n.href))?.href ?? "/app";
@@ -118,6 +116,7 @@ function ShellFrame({ children }: { children: ReactNode }) {
   const [walletOpen, setWalletOpen] = useState(false);
   const { accountId, connect } = useWallet();
   const showTabs = levelOf(pathname) === 0;
+  useEffect(() => recordPath(pathname), [pathname]);
   const api = useMemo(
     () => ({
       openFreeze: () => setFreezeOpen(true),
@@ -132,7 +131,7 @@ function ShellFrame({ children }: { children: ReactNode }) {
   return (
     <ShellContext.Provider value={api}>
       <div className={styles.shell}>
-        <Sidebar onFreeze={api.openFreeze} onVaults={api.openVaults} />
+        <Sidebar onFreeze={api.openFreeze} onVaults={api.openVaults} onInbox={api.openInbox} />
         <div className={styles.main}>
           <TopBar />
           <RouteStage>{children}</RouteStage>
@@ -152,12 +151,11 @@ function ShellFrame({ children }: { children: ReactNode }) {
 
 /* --------------------------------------------------------------- sidebar */
 
-function Sidebar({ onFreeze, onVaults }: { onFreeze: () => void; onVaults: () => void }) {
+function Sidebar({ onFreeze, onVaults, onInbox }: { onFreeze: () => void; onVaults: () => void; onInbox: () => void }) {
   const pathname = usePathname();
   const active = activeHref(pathname);
   const { state, vaultId, vaultName } = useVault();
   const kind = useVaultKind();
-  const { accountId, connect, disconnect } = useWallet();
   const frozen = state?.config.frozen;
 
   const item = (n: NavItem) => {
@@ -165,7 +163,7 @@ function Sidebar({ onFreeze, onVaults }: { onFreeze: () => void; onVaults: () =>
     const content = (
       <>
         {isActive && <motion.span layoutId="sidebar-pill" className={styles.navPill} transition={SPRING_UI} />}
-        <Icon name={n.icon} size={19} stroke={1.75} />
+        {n.icon && <Icon name={n.icon} size={19} stroke={1.75} />}
         <span>{n.label}</span>
         {n.external && <Icon name="external" size={13} className={styles.navExt} />}
       </>
@@ -203,21 +201,37 @@ function Sidebar({ onFreeze, onVaults }: { onFreeze: () => void; onVaults: () =>
           {frozen ? "Payments frozen" : "Screening every payment"}
         </span>
       </button>
+      <button type="button" className={`${styles.tryAgent} press`} onClick={onInbox}>
+        <span className={styles.tryAgentMark} aria-hidden="true">
+          <Mark size={18} />
+        </span>
+        <span className={styles.tryAgentText}>
+          <strong>Try the agent</strong>
+          <span>Pay an invoice</span>
+        </span>
+        <Icon name="arrowRight" size={16} />
+      </button>
       <nav aria-label="Primary" className={styles.nav}>
-        <span className={styles.navGroup}>Vault</span>
         {VAULT_NAV.map(item)}
-        <span className={styles.navGroup}>Other</span>
-        {OTHER_NAV.map(item)}
       </nav>
       <div className={styles.sideFoot}>
         <button className={`${styles.footButton} ${frozen ? styles.footAlarm : ""} press`} onClick={onFreeze}>
           <Icon name={frozen ? "unlock" : "lock"} size={17} />
           {frozen ? "Unfreeze payments" : "Freeze all payments"}
         </button>
-        <button className={`${styles.footButton} press`} onClick={accountId ? disconnect : connect}>
-          <Icon name="wallet" size={17} />
-          <span className={accountId ? `mono ${styles.ellipsis}` : undefined}>{accountId ? "Disconnect" : "Connect wallet"}</span>
-        </button>
+        <nav aria-label="About Veto" className={styles.footLinks}>
+          {ABOUT_LINKS.map((n) =>
+            n.external ? (
+              <a key={n.href} href={n.href} target="_blank" rel="noreferrer">
+                {n.label}
+              </a>
+            ) : (
+              <Link key={n.href} href={n.href}>
+                {n.label}
+              </Link>
+            ),
+          )}
+        </nav>
       </div>
     </aside>
   );
@@ -226,7 +240,7 @@ function Sidebar({ onFreeze, onVaults }: { onFreeze: () => void; onVaults: () =>
 /* ---------------------------------------------------------------- top bar */
 
 function TopBar() {
-  const { state, vaultName } = useVault();
+  const { state } = useVault();
   const { kept } = useKeptBlocked();
   const { accountId, isOwner } = useWallet();
   const { openNotes, openWallet } = useShell();
@@ -248,16 +262,23 @@ function TopBar() {
           <Icon name="bell" size={18} stroke={1.8} />
           {attention.length > 0 && <span className={styles.bellDot} aria-hidden="true" />}
         </button>
-        <button className={`${styles.account} press`} onClick={openWallet}>
-          <span className={styles.avatar} aria-hidden="true">
-            {(accountId ?? vaultName)[0].toUpperCase()}
-          </span>
-          <span className={styles.accountText}>
-            <span className={styles.accountName}>{accountId ? (isOwner ? "Owner wallet" : "Your wallet") : vaultName}</span>
-            <span className={`mono ${styles.accountSub}`}>{accountId ?? "Connect wallet"}</span>
-          </span>
-          <Icon name="chevronDown" size={16} />
-        </button>
+        {accountId ? (
+          <button className={`${styles.account} press`} onClick={openWallet}>
+            <span className={styles.avatar} aria-hidden="true">
+              {accountId[0].toUpperCase()}
+            </span>
+            <span className={styles.accountText}>
+              <span className={styles.accountName}>{isOwner ? "Owner wallet" : "Your wallet"}</span>
+              <span className={`mono ${styles.accountSub}`}>{accountId}</span>
+            </span>
+            <Icon name="chevronDown" size={16} />
+          </button>
+        ) : (
+          <button className={`${styles.connectWallet} press`} onClick={openWallet}>
+            <Icon name="wallet" size={17} />
+            Connect wallet
+          </button>
+        )}
       </div>
     </header>
   );
@@ -307,7 +328,7 @@ function Search() {
     const payees = state.payees
       .filter((p) => p.name.toLowerCase().includes(q) || p.address.toLowerCase().includes(q))
       .slice(0, 3)
-      .map((p) => ({ key: `y${p.address}`, href: "/app/payees", title: p.name, sub: `${chainLabel(p.chain)} · ${p.address}`, icon: "users" as IconName }));
+      .map((p) => ({ key: `y${p.address}`, href: "/app/rules#suppliers", title: p.name, sub: `${chainLabel(p.chain)} · ${p.address}`, icon: "users" as IconName }));
     return [...proposals, ...payees];
   }, [state, q]);
 
@@ -391,7 +412,7 @@ function TabBar({ visible, onInbox }: { visible: boolean; onInbox: () => void })
           animate={{ scale: 1, y: 0 }}
           transition={SPRING_BOUNCE}
         >
-          <Icon name={t.icon === "dashboard" ? "home" : t.icon} size={21} stroke={1.8} />
+          <Icon name={t.icon ?? "home"} size={21} stroke={1.8} />
         </motion.span>
         {isActive && <motion.span layoutId="tab-dot" className={styles.tabDot} transition={SPRING_UI} />}
       </Link>
@@ -424,14 +445,15 @@ function TabBar({ visible, onInbox }: { visible: boolean; onInbox: () => void })
           {left.map(tab)}
           <button
             className={styles.tryIt}
-            data-hint={hint.show || undefined}
+            data-hint={(hint.show && pathname === "/app") || undefined}
             onClick={() => {
               hint.done();
               onInbox();
             }}
             aria-label="Try it: open the agent inbox"
           >
-            {hint.show && (
+            {/* Only on Home: elsewhere it would sit on top of the page's own buttons. */}
+            {hint.show && pathname === "/app" && (
               <span className={styles.hintBubble} aria-hidden="true">
                 Start here
               </span>

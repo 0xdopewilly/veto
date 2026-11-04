@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { CSSProperties, MouseEvent, ReactNode } from "react";
 import { morphBack } from "@/lib/morph";
+import { useBackTo } from "@/lib/backTo";
 import { Icon } from "./Icon";
 import styles from "./Screen.module.css";
 
@@ -32,11 +33,15 @@ export function Screen({
 }
 
 /**
- * The round back button on pushed phone screens; a text link on desktop. With `morphId`, a
- * decision opened from a card collapses back into that card instead of sliding away.
+ * The round back button on pushed phone screens; a text link on desktop. Without `href` it goes
+ * back to the screen you came from (see lib/backTo). With `morphId`, a decision opened from a card
+ * collapses back into that card instead of sliding away.
  */
-export function BackLink({ href, label, onCoral = false, morphId }: { href: string; label: string; onCoral?: boolean; morphId?: string }) {
+export function BackLink({ href: to, label: text, onCoral = false, morphId }: { href?: string; label?: string; onCoral?: boolean; morphId?: string }) {
   const router = useRouter();
+  const back = useBackTo();
+  const href = to ?? back.href;
+  const label = text ?? `Back to ${back.label}`;
   const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (!morphId || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
     if (morphBack({ id: morphId, href, push: router.push })) e.preventDefault();

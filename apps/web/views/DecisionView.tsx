@@ -22,6 +22,7 @@ import {
   chainLabel,
 } from "@/lib/format";
 import { Screen, BackLink, delay } from "@/components/Screen";
+import { useBackTo } from "@/lib/backTo";
 import { Boot } from "@/components/Boot";
 import { Circuit } from "@/components/Circuit";
 import { LineReveal } from "@/components/LineReveal";
@@ -45,7 +46,7 @@ export function DecisionView({ id }: { id: string }) {
   if (missing) {
     return (
       <Screen pushed>
-        <BackLink href="/app" label="Back to overview" />
+        <BackLink />
         <h1 className={styles.plainTitle}>No payment with that number</h1>
         <p className={styles.plainText}>This vault has no proposal {id}. It may belong to a different vault.</p>
       </Screen>
@@ -108,6 +109,7 @@ function capCaption(state: VaultState, p: Proposal): string {
 
 function Vetoed({ state, p }: { state: VaultState; p: Proposal }) {
   const router = useRouter();
+  const back = useBackTo();
   const play = !useMorphHold();
   const { keep } = useKeptBlocked();
   const { figure, unit } = amountParts(state, p);
@@ -130,7 +132,7 @@ function Vetoed({ state, p }: { state: VaultState; p: Proposal }) {
           confirmTone="ink"
           onDone={() => {
             keep(p.id);
-            router.push("/app");
+            router.push(back.href);
           }}
         >
           Keep it blocked
@@ -141,7 +143,7 @@ function Vetoed({ state, p }: { state: VaultState; p: Proposal }) {
           full
           onClick={() => {
             keep(p.id);
-            router.push("/app");
+            router.push(back.href);
           }}
         >
           Keep it blocked
@@ -157,7 +159,7 @@ function Vetoed({ state, p }: { state: VaultState; p: Proposal }) {
   return (
     <Screen pushed tone="coral" wide>
       <div className={styles.topRow}>
-        <BackLink href="/app" label="Back to overview" onCoral morphId={p.id} />
+        <BackLink onCoral morphId={p.id} />
         <span className={styles.time}>{formatWhen(p.verdict?.recorded_at ?? p.created_at)}</span>
       </div>
 
@@ -281,7 +283,7 @@ function OverridePending({ state, p }: { state: VaultState; p: Proposal }) {
   return (
     <Screen pushed wide>
       <div className={styles.topRow}>
-        <BackLink href="/app" label="Back to overview" morphId={p.id} />
+        <BackLink morphId={p.id} />
       </div>
       <div className={styles.pendingLayout}>
         <section className={`${styles.pendingHero} ${styles.panel}`}>
@@ -378,7 +380,7 @@ function Paid({ state, p }: { state: VaultState; p: Proposal }) {
   return (
     <Screen pushed wide>
       <div className={styles.topRow}>
-        <BackLink href="/app" label="Back to overview" morphId={p.id} />
+        <BackLink morphId={p.id} />
         <span className={styles.timeMuted}>{formatWhen(p.settled_at ?? p.created_at)}</span>
       </div>
       <div className={styles.paidLayout}>
@@ -464,7 +466,7 @@ function InFlight({ state, p }: { state: VaultState; p: Proposal }) {
   const left = remaining(p.screen_deadline, now);
   return (
     <Screen pushed>
-      <BackLink href="/app" label="Back to overview" morphId={p.id} />
+      <BackLink morphId={p.id} />
       <section className={styles.inflight}>
         <VLoader size={96} label={screening ? "Screening" : "Sending"} />
         <LineReveal as="h1" className={styles.plainTitle} text={screening ? "Screening privately" : "Sending"} />
@@ -506,7 +508,7 @@ function Closed({ state, p }: { state: VaultState; p: Proposal }) {
   const copy = CLOSED[p.status] ?? CLOSED.Expired;
   return (
     <Screen pushed>
-      <BackLink href="/app" label="Back to overview" morphId={p.id} />
+      <BackLink morphId={p.id} />
       <section className={styles.inflight}>
         <span className={styles.closedIcon}>
           <Icon name={p.status === "Failed" ? "x" : "clock"} size={26} />

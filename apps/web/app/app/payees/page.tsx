@@ -1,8 +1,6 @@
-import type { Metadata } from "next";
-import { PayeesView } from "@/views/PayeesView";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Payees" };
-
+// Suppliers now live on Rules, with the mandate, limits and freeze.
 export default function Page() {
-  return <PayeesView />;
+  redirect("/app/rules#suppliers");
 }

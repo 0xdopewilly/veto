@@ -161,3 +161,22 @@
   flex-direction: column;
   gap: 10px;
 }
+
+/* About the project: a quiet row at the very bottom. */
+.about {
+  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 18px;
+}
+
+.about a {
+  font-size: 13.5px;
+  color: var(--dim);
+  text-decoration: none;
+}
+
+.about a:hover {
+  color: var(--sand);
+}
