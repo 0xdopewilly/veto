@@ -30,10 +30,7 @@ export interface EvmDemo {
 
 export function buildScenarios(root: string, history: Proposal[], evm?: EvmDemo | null): Scenario[] {
   const kano = `kano-cotton.${root}`;
-  // One past the highest invoice the vault has seen. (Not the history's length: it's one page of
-  // recent proposals, so past 50 it would hand out the same number again and look like a duplicate.)
-  const used = history.map((p) => Number(/^INV-(\d+)$/.exec(p.request.memo ?? "")?.[1] ?? 0));
-  const nextInvoice = `INV-${Math.max(2290 + history.length, ...used.map((n) => n + 1))}`;
+  const nextInvoice = nextNumber(history, "INV", 2290);
   const lastPaid = history.find((p) => p.status === "Paid" && p.request.payee === kano && p.request.memo);
 
   const list: Scenario[] = [
@@ -75,7 +72,7 @@ export function buildScenarios(root: string, history: Proposal[], evm?: EvmDemo 
     },
   ];
   if (evm?.funded) {
-    const number = `IF-${510 + history.length}`;
+    const number = nextNumber(history, "IF", 510);
     list.splice(1, 0, {
       id: "base-supplier",
       title: "A supplier paid on Base",
@@ -109,4 +106,14 @@ export function buildScenarios(root: string, history: Proposal[], evm?: EvmDemo 
     });
   }
   return list;
+}
+
+/**
+ * One past the highest `<prefix>-<n>` reference the vault has seen. Not the history's length: that
+ * is one page of recent proposals, so past 50 it would hand out a number already paid, and the
+ * genuine invoice would look like a duplicate.
+ */
+function nextNumber(history: { request: { memo: string | null } }[], prefix: string, start: number) {
+  const used = history.map((p) => Number(new RegExp(`^${prefix}-(\\d+)$`).exec(p.request.memo ?? "")?.[1] ?? 0));
+  return `${prefix}-${Math.max(start + history.length, ...used.map((n) => n + 1))}`;
 }
