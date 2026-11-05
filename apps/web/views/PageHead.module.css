@@ -39,6 +39,14 @@
   margin-top: 14px;
 }
 
+/* A section title with one action at its end (Activity's "Download CSV"). */
+.titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 @media (min-width: 900px) {
   .tools {
     margin-top: 26px;

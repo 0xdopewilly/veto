@@ -1,7 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { Transaction, Wallet } from "ethers";
 import { blockingIncident, canonicalJson, computeSignals, lookalike, lookalikeEvmAddress, parseVerdict, paymentFromApproval, proposalHash, sha256Hex, signedPayout, USDC, type Approval, type Payee, type Proposal } from "../src/index.ts";
+import { checkQuote, composeMatches, quoteBinding } from "../src/attest.ts";
 
 const KANO = "0xA11cE57b2F0c88dE41a9B3c07e6D1f45a3c0D9F2";
 const POISONED = "0xA11cE5f09d3B7a21Cc04e8F5b6A0d92e71B1D9F2";
@@ -173,4 +175,33 @@ test("agent api EVM owner and EIP-712 signature match the official vector", asyn
   assert.equal(owner.public_key, v.public_key);
   const signed = await signEvmIntent(v.private_key, { intent: { standard: "eip712", payload: v.payload } });
   assert.equal(signed.signature, v.signature);
+});
+
+// A real NEAR AI Cloud attestation for the model key the vaults approve, captured with our nonce,
+// with the Intel collateral it verified against: the quote checks run offline at that moment.
+const enclave = JSON.parse(readFileSync(new URL("./fixtures/nearai-attestation.json", import.meta.url), "utf8")) as {
+  nonce: string;
+  checked_at: number;
+  signing_address: string;
+  intel_quote: string;
+  app_compose: string;
+  collateral: unknown;
+};
+
+test("a real NEAR AI enclave quote verifies against Intel's collateral and binds the model key and our nonce", async () => {
+  const quote = await checkQuote(enclave.intel_quote, enclave.collateral, BigInt(enclave.checked_at));
+  assert.ok(quote.ok, quote.status);
+  assert.deepEqual(quoteBinding(quote.reportData, enclave.signing_address, enclave.nonce), { key: true, nonce: true });
+  assert.ok(composeMatches(quote.mrConfig, enclave.app_compose), "mr_config commits to the published app");
+  // Another key, another nonce or another app config is not what the hardware signed.
+  assert.deepEqual(quoteBinding(quote.reportData, "0x3b7500000000000000000000000000000000fa0c", enclave.nonce), { key: false, nonce: true });
+  assert.deepEqual(quoteBinding(quote.reportData, enclave.signing_address, "00".repeat(32)), { key: true, nonce: false });
+  assert.ok(!composeMatches(quote.mrConfig, `${enclave.app_compose} `));
+});
+
+test("a tampered enclave quote is rejected", async () => {
+  // Byte 600 sits in the TD report's report_data, which the quote's signature covers.
+  const bytes = Buffer.from(enclave.intel_quote, "hex");
+  bytes[600] ^= 1;
+  await assert.rejects(checkQuote(bytes.toString("hex"), enclave.collateral, BigInt(enclave.checked_at)));
 });

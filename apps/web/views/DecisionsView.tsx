@@ -9,6 +9,7 @@ import { ActivityList, filterOptions, filterProposals, type Filter } from "@/com
 import { Boot } from "@/components/Boot";
 import { LineReveal } from "@/components/LineReveal";
 import { Segmented } from "@/components/Segmented";
+import { downloadCsv, paymentsCsv } from "@/lib/csv";
 import styles from "./PageHead.module.css";
 
 const PAGE = 15;
@@ -16,7 +17,7 @@ const NEEDS = 5;
 
 /** Activity: what needs your decision first, then every payment, newest first. */
 export function DecisionsView() {
-  const { state } = useVault();
+  const { state, vaultId } = useVault();
   const { kept } = useKeptBlocked();
   const [filter, setFilter] = useState<Filter>("all");
   // Newest first, a page at a time: the list stays quick to open however many payments the vault has.
@@ -50,7 +51,24 @@ export function DecisionsView() {
         )}
 
         <section className={styles.section} aria-labelledby="all-title">
-          <h2 id="all-title" className={styles.sectionTitle}>All payments</h2>
+          <div className={styles.titleRow}>
+            <h2 id="all-title" className={styles.sectionTitle}>All payments</h2>
+            {matching.length > 0 && (
+              <Pill
+                variant="secondary"
+                size="sm"
+                icon="file"
+                onClick={() =>
+                  downloadCsv(
+                    `veto-payments-${vaultId ?? "vault"}-${new Date().toISOString().slice(0, 10)}.csv`,
+                    paymentsCsv(state, matching, window.location.origin, vaultId ?? ""),
+                  )
+                }
+              >
+                Download CSV
+              </Pill>
+            )}
+          </div>
           <div className={`${styles.tools} rise`} style={delay(140)}>
             <Segmented
               label="Filter payments"

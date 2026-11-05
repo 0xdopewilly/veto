@@ -9,6 +9,7 @@ import { Screen, BackLink, delay } from "@/components/Screen";
 import { Icon, type IconName } from "@/components/Icon";
 import { Boot } from "@/components/Boot";
 import { LineReveal } from "@/components/LineReveal";
+import { EnclaveCheck } from "@/components/EnclaveCheck";
 import styles from "./ProofView.module.css";
 
 export function ProofView({ id }: { id: string }) {
@@ -71,7 +72,7 @@ export function ProofView({ id }: { id: string }) {
       title: test ? "Screened by a test signer" : "Screened in an enclave",
       text: test
         ? "The sandbox's labelled test key signed this verdict because NEAR AI didn't answer in time. It did not run in an enclave."
-        : "NEAR AI Cloud ran the check inside an Intel TDX enclave. Intel Trust Authority attests the hardware.",
+        : "NEAR AI Cloud ran the check inside an Intel TDX enclave with NVIDIA confidential GPUs. Intel and NVIDIA attest the hardware; check it yourself on this page.",
       value: v.model_id,
     },
     {
@@ -130,6 +131,7 @@ export function ProofView({ id }: { id: string }) {
 
         <aside className={`${styles.side} rise`} style={delay(900)}>
           <h2 className={styles.h2}>Check it yourself</h2>
+          {!test && <EnclaveCheck model={v.model_id} signer={v.signer} />}
           {!test && (
             <a className={`${styles.linkRow} press`} href={verifierUrl(v.model_id)} target="_blank" rel="noreferrer">
               Open in the NEAR AI verifier <Icon name="external" size={16} />

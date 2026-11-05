@@ -15,11 +15,13 @@
     "./outlayer": "./src/outlayer.ts",
     "./shield": "./src/shield.ts",
     "./evm": "./src/evm.ts",
-    "./agentapi": "./src/agentapi.ts"
+    "./agentapi": "./src/agentapi.ts",
+    "./attest": "./src/attest.ts"
   },
   "dependencies": {
     "@noble/curves": "2.4.0",
     "@noble/hashes": "2.4.0",
+    "@phala/dcap-qvl-node": "0.3.3",
     "@scure/base": "2.4.0",
     "ethers": "6.17.0",
     "near-api-js": "7.4.0"

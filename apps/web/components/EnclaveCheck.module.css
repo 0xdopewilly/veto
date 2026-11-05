@@ -1,0 +1,204 @@
+/* "Check the enclave now" on the proof page: one button, then the checks as they came back. */
+
+.start {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 14px 16px 14px 14px;
+  border: 0;
+  border-radius: var(--r-tile);
+  background: var(--tile);
+  box-shadow: inset 0 0 0 1px rgba(0, 236, 151, 0.2);
+  color: var(--sand);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+@media (hover: hover) {
+  .start:hover {
+    background: var(--control);
+    box-shadow: inset 0 0 0 1px rgba(0, 236, 151, 0.38);
+  }
+}
+
+.startIcon {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--green-soft);
+  color: var(--green);
+  display: grid;
+  place-items: center;
+}
+
+.startText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.startText strong {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.startText span {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.chevron {
+  flex: none;
+  color: var(--muted);
+}
+
+.panel {
+  margin-bottom: 8px;
+  padding: 16px;
+  border-radius: var(--r-tile);
+  background: var(--tile);
+  box-shadow: inset 0 0 0 1px rgba(0, 236, 151, 0.14);
+}
+
+.checking {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--black);
+}
+
+.badge.ok {
+  background: var(--green);
+}
+
+.badge.bad {
+  background: var(--coral);
+}
+
+.meta {
+  font-size: 12.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.mark {
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--black);
+}
+
+.mark.ok {
+  background: var(--green);
+}
+
+.mark.bad {
+  background: var(--coral);
+}
+
+.itemBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.itemBody strong {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.itemBody span {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.foot {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.nonce {
+  min-width: 0;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.nonce :global(.mono) {
+  color: var(--muted);
+}
+
+.again {
+  flex: none;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--control);
+  color: var(--sand);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.error p {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--coral);
+}

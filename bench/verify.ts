@@ -2,12 +2,15 @@
 // stored request and response bytes, rebuilds the signed text, recovers the signer from the
 // signature, and checks it is the one key the run recorded for the model.
 //   node bench/verify.ts bench/results/Qwen_Qwen3-VL-30B-A3B-Instruct.json
-// With --attested it also asks NEAR AI's public attestation endpoint (no key needed) which key the
-// model's enclave holds now, and checks the run's signer is that key.
+// With --attested it also verifies NEAR AI's enclave from scratch, with a fresh nonce and no key: the
+// Intel TDX quote against Intel's certificates, the NVIDIA GPU evidence with NVIDIA's service, that
+// the quote binds the signing key and our nonce, that it runs its published app, the gateway's
+// enclave, and that the attested key is the run's signer.
 //   node bench/verify.ts bench/results/Qwen_Qwen3-VL-30B-A3B-Instruct.json --attested
 import { readFileSync } from "node:fs";
 import { verifyMessage } from "ethers";
-import { modelAttestation, parseVerdict, sha256Hex } from "@veto/core";
+import { parseVerdict, sha256Hex } from "@veto/core";
+import { verifyEnclave } from "@veto/core/attest";
 
 const file = process.argv.slice(2).find((a) => !a.startsWith("--"));
 const checkAttested = process.argv.includes("--attested");
@@ -48,15 +51,12 @@ console.log(`${ok}/${results.length} verdicts verified against ${summary.signer}
 for (const p of problems) console.log(`  ${p}`);
 
 if (checkAttested) {
-  // The attestation report binds the enclave's signing key to a TEE quote for this nonce.
-  const { nonce, report } = await modelAttestation(summary.model);
-  const keys = (report.model_attestations ?? []).filter((m: { request_nonce?: string; signing_algo?: string }) => m.request_nonce === nonce && m.signing_algo === "ecdsa");
-  const attested = keys.map((k: { signing_address: string }) => String(k.signing_address).toLowerCase());
-  if (attested.includes(summary.signer)) {
-    console.log(`NEAR AI's attestation for ${summary.model} reports ${summary.signer} now: the run's signer is the enclave's key.`);
-  } else {
-    console.log(`NEAR AI now attests ${attested.join(", ") || "no ecdsa key"} for ${summary.model}, not ${summary.signer}. An enclave restart rotates its key, so an older run can differ.`);
-    problems.push("signer is not the key attested now");
+  const enclave = await verifyEnclave(summary.model, { expectSigner: summary.signer });
+  console.log(`\nNEAR AI's enclave for ${summary.model}, checked now with nonce ${enclave.nonce.slice(0, 12)}…:`);
+  for (const c of enclave.checks) console.log(`  ${c.ok ? "✓" : "✗"} ${c.title}. ${c.detail}`);
+  if (!enclave.ok) {
+    if (enclave.signer && enclave.signer !== summary.signer) console.log("  An enclave restart rotates its key, so an older run can differ.");
+    problems.push("the enclave check failed");
   }
 }
 process.exitCode = problems.length ? 1 : 0;

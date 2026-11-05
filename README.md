@@ -30,7 +30,7 @@ pnpm install
 pnpm test
 ```
 
-You should see `ℹ pass 14` (TypeScript core), `test result: ok. 48 passed` (vault contract) and `test result: ok. 9 passed` (vault factory). The contract tests include a real executable 1Click quote and a real 1Click signature. They also pin the proposal hash that the TypeScript side must reproduce. A first run takes about four minutes on 8 cores: the contract and the factory are separate crates, so near-sdk's test dependencies compile twice.
+You should see `ℹ pass 16` (TypeScript core), `test result: ok. 48 passed` (vault contract) and `test result: ok. 9 passed` (vault factory). The core tests verify a real NEAR AI enclave quote offline against Intel's collateral (captured with it) and reject a tampered copy. The contract tests include a real executable 1Click quote and a real 1Click signature. They also pin the proposal hash that the TypeScript side must reproduce. A first run takes about four minutes on 8 cores: the contract and the factory are separate crates, so near-sdk's test dependencies compile twice.
 
 ```sh
 node bench/run.ts --screener policy   # Attacks caught 33/50, normal payments blocked 8/50
@@ -42,7 +42,7 @@ node bench/verify.ts bench/results/Qwen_Qwen3-VL-30B-A3B-Instruct.json --atteste
 
 - `policy` is what a policy wallet enforces on its own: an allowlist plus a cap. Every attack it misses pays a supplier already on the list.
 - `dev` is Veto's deterministic checks without a model.
-- The committed run of Qwen3-VL-30B in NEAR AI's enclave catches 50 of 50 attacks and blocks 8 of 50 honest payments (all 8 are new suppliers whose approval sits inside the email). `verify.ts` rehashes the stored request and response bytes of all 100 verdicts and recovers each signature; `--attested` also asks NEAR AI's public attestation endpoint which key the model's enclave holds now and checks it is the run's signer. Expect `100/100 verdicts verified` and a matching attested key.
+- The committed run of Qwen3-VL-30B in NEAR AI's enclave catches 50 of 50 attacks and blocks 8 of 50 honest payments (all 8 are new suppliers whose approval sits inside the email). `verify.ts` rehashes the stored request and response bytes of all 100 verdicts and recovers each signature. `--attested` then verifies NEAR AI's enclave from scratch, with a fresh random nonce and no key: the Intel TDX quote against Intel's certificates, the NVIDIA GPU evidence with NVIDIA's attestation service, that the quote binds the signing key and the nonce, that the enclave runs the app it publishes, the gateway's enclave, and that the attested key is the run's signer. Expect `100/100 verdicts verified` and eight ✓ lines (about 10 s; it calls Intel and NVIDIA).
 
 The two bench runs update their entries in `bench/results/`: new timestamps and timings, and a fresh throwaway signing key for `dev`. The scores stay the same.
 
@@ -74,6 +74,8 @@ https://veto-beta.vercel.app/app runs everything below with nothing to install. 
 | Switch **Pay from** to **Agent API** and repeat them | The same screen, then a real call to the NEAR Intents Agent API on mainnet with Veto's grant: a transfer to a supplier, or Tunde's salary as USDC withdrawn to Base. Amounts are scaled 1:2000, so each payment is a few cents of real USDC (the two examples that pass cost $0.09 and $0.075). A veto never reaches the API; a payment the owner's policy forbids is refused there even after a pass. Whenever the wallet holds no USDC, a pass is refused there with `insufficient_balance` |
 | Press **Write your own email** and write an invoice or a scam | A real AI agent on NEAR AI reads it and proposes what it asks for; Veto screens it like any other payment |
 | Open any decision → **Proof** | The request and response hashes, the signer, and the on-chain signature check |
+| On that page, press **Check the enclave now** | Eight checks of NEAR AI's enclave, run live with a fresh nonce: Intel TDX quote, NVIDIA GPUs, key and nonce bound into the quote, published app, gateway, and that the key is the one that signed this verdict |
+| **Activity** → **Download CSV** | One row per payment: date, payee, amount, status, reference, verdict and reasons, payout transaction and a link to its proof |
 | Open **/start**, connect a NEAR testnet wallet, name your business and sign | Your own vault, live in a few seconds. Its owner is your account, and every owner action needs your wallet. The shared sandbox, used above, lets anyone act as its owner |
 
 Verdicts come from Qwen3-VL-30B inside NEAR AI's enclave. If NEAR AI can't answer, the sandbox's verdicts are signed by a local test key it was told to trust, and the app labels every such decision "test signer". Vaults created through the factory trust only the enclave key: with no answer, the payment expires unpaid.
@@ -191,6 +193,7 @@ vault: ecrecover → approved model key → echoes this proposal's id and hash �
 | NEAR Intents Agent API wallet, with Veto holding its only grant | Live on mainnet: the owner's policy is in force and Veto screens and sends each request (supplier transfers, salaries withdrawn to Base). Whenever the wallet holds no USDC, a pass is refused there with `insufficient_balance` |
 | Agent inbox, guardian, owner actions in the app | Live on testnet |
 | Private screen on NEAR AI Cloud (Qwen3-VL-30B in a TDX enclave) | Live on testnet; about 1.5 s per verdict |
+| Enclave verification (Intel TDX quote, NVIDIA GPUs, key and nonce binding, gateway) | Live on every Proof page and in `verify.ts --attested`; tested offline on a captured real quote |
 | Veto Bench | Live: 50/50 attacks caught, 8/50 honest payments blocked, 100/100 signatures verified |
 | Payouts to other chains through NEAR Intents | Built; contract tested against a real executable quote; first mainnet payout needs funding |
 | Shield incident check before cross-chain payouts | Built; holds a payout while a NEAR Intents Shield incident touches its route. Runs when `SHIELD_JWT` is set |
@@ -200,7 +203,7 @@ vault: ecrecover → approved model key → echoes this proposal's id and hash �
 ```
 contract/          vault contract (near-sdk 5.29.1) and its tests
 factory/           creates vaults owned by their callers, from the global vault code
-packages/core/     proposal hashing, signals, prompt, NEAR AI client, pipeline, 1Click, OutLayer, Agent API, Chain Signatures
+packages/core/     proposal hashing, signals, prompt, NEAR AI client, enclave attestation check, pipeline, 1Click, OutLayer, Agent API, Chain Signatures
 packages/sdk/      agent SDK
 services/guardian/ the screening service
 apps/web/          the app and docs (/docs explains everything in plain words)
@@ -208,5 +211,19 @@ bench/             Veto Bench
 scripts/           testnet demo setup and agents, Agent API setup/fund, deployed-code check, mainnet setup/fund/pay
 test-token/        NEP-141 test USDC
 ```
+
+## Built at NEAR HACKATHON
+
+Everything in this repository was written during NEAR HACKATHON, starting with the first commit on 2026-10-29; there is no earlier code base.
+
+Built with:
+
+- **NEAR:** near-sdk 5.29.1 (Rust contracts), near-api-js 7.4.0, global contracts, Chain Signatures (MPC), function-call access keys, NEP-141 and NEP-413
+- **NEAR AI Cloud:** Qwen3-VL-30B-A3B-Instruct in a TEE, its signed responses and its attestation API
+- **NEAR Intents:** the 1Click API, the Agent API (agentsonintents.com) and intents.near
+- **OutLayer** agent wallets
+- **Attestation:** Intel's DCAP quote verification through `@phala/dcap-qvl-node` 0.3.3, NVIDIA's attestation service (NRAS), checked the way NEAR AI's own verifier does
+- **Contracts:** k256 (ecrecover), sha3, ed25519-dalek
+- **App and tools:** Next.js 16, React 19, motion, lenis, ethers 6, @noble/curves, @noble/hashes, @scure/base, @hot-labs/near-connect
 
 MIT licence.

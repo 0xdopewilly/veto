@@ -59,7 +59,7 @@ const GATES = [
 ] as const;
 
 const CHAIN = [
-  { title: "Enclave attestation", text: "Intel Trust Authority confirms the model runs in a genuine Intel TDX enclave.", value: "Qwen3-VL-30B" },
+  { title: "Enclave attestation", text: "Intel's TDX quote and NVIDIA's GPU evidence prove the model runs in a genuine enclave. Any Proof page re-checks both live, with a fresh nonce.", value: "Qwen3-VL-30B" },
   { title: "Model signature", text: "The enclave signs the request hash and the verdict with a key that never leaves it.", value: "0x2665…5462" },
   { title: "On-chain check", text: "The vault contract recovers the signer with ecrecover and refuses any verdict not signed by a model key the owner approved.", value: "ecrecover → 0x2665…5462" },
 ];
