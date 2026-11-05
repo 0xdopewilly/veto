@@ -281,6 +281,7 @@ function refusalText(code: string, message: string) {
   if (code === "policy_transaction_limit_exceeded") return "It's above the owner's per-payment limit, so the Agent API refused it.";
   if (code === "spend_budget_exceeded" || code === "policy_limit_exceeded") return "It's over the owner's daily limit, so the Agent API refused it.";
   if (code === "wallet_frozen") return "The owner froze this wallet.";
+  if (code === "vault_frozen") return "The owner froze the vault, so Veto sent nothing.";
   return message;
 }
 
@@ -292,7 +293,9 @@ function AgentApiVerdict({ outcome }: { outcome: AgentApiOutcome }) {
   const text = vetoed
     ? `${verdict.reasons[0] ? reasonText(verdict.reasons[0]) : "The screen said no."} Nothing was sent: Veto didn't use its grant.`
     : execution.kind === "refused"
-      ? `Veto sent it with its grant. ${refusalText(execution.code, execution.message)}`
+      ? execution.code === "vault_frozen"
+        ? `Passed, but ${refusalText(execution.code, execution.message).charAt(0).toLowerCase()}${refusalText(execution.code, execution.message).slice(1)}`
+        : `Veto sent it with its grant. ${refusalText(execution.code, execution.message)}`
       : paid
         ? outcome.request.chain === "near"
           ? "Veto sent it with its grant and the Agent API paid it on mainnet."

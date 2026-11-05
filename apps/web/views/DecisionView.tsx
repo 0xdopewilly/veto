@@ -253,7 +253,7 @@ function ProofSummary({ p }: { p: Proposal }) {
       </div>
       <p className={styles.proofText}>
         {test
-          ? "Signed by a local test key while the vault was being checked end to end, not by a NEAR AI enclave."
+          ? "Signed by the sandbox's labelled test key because NEAR AI didn't answer in time, not by a NEAR AI enclave."
           : "Screened privately inside a hardware enclave on NEAR AI Cloud. Your vault contract checked the model's signature before it acted."}
       </p>
       <dl className={styles.proofList}>

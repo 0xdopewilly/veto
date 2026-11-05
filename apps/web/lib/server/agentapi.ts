@@ -209,6 +209,11 @@ export async function runViaAgentApi(input: {
     execution: { kind: "skipped" },
   };
   if (!pass) return outcome;
+  // A frozen vault stops everything Veto would approve, this path included: nothing is sent.
+  if (config.frozen) {
+    outcome.execution = { kind: "refused", code: "vault_frozen", layer: "veto", message: "The owner froze the vault, so Veto sent nothing." };
+    return outcome;
+  }
 
   try {
     // The idempotency key is tied to this screening, so a retry can never send twice. On NEAR it's a

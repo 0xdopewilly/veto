@@ -61,7 +61,7 @@ const GATES = [
 const CHAIN = [
   { title: "Enclave attestation", text: "Intel Trust Authority confirms the model runs in a genuine Intel TDX enclave.", value: "Qwen3-VL-30B" },
   { title: "Model signature", text: "The enclave signs the request hash and the verdict with a key that never leaves it.", value: "0x2665…5462" },
-  { title: "On-chain check", text: "The vault contract recovers the signer with ecrecover and refuses any verdict not signed by the approved model key.", value: "ecrecover → 0x2665…5462" },
+  { title: "On-chain check", text: "The vault contract recovers the signer with ecrecover and refuses any verdict not signed by a model key the owner approved.", value: "ecrecover → 0x2665…5462" },
 ];
 
 const NEAR = [
@@ -69,7 +69,7 @@ const NEAR = [
   { title: "Chain Signatures", text: "The vault has its own address on Base. It builds each passed transfer itself and NEAR's MPC network signs exactly that, nothing else.", icon: "key" },
   { title: "NEAR AI Cloud", text: "Private inference inside TEEs, with every response signed by the model's enclave key.", icon: "shield" },
   { title: "NEAR accounts", text: "The agent is a sub-account whose function-call key can only propose payments; the guardian's can only record verdicts and settle payments.", icon: "bot" },
-  { title: "Intents Agent API", text: "An agent account on NEAR Intents whose owner-signed policy is the hard limit. Veto holds its only grant, so the agent can only ask, and a pass becomes a transfer or a salary paid out on Base.", icon: "wallet" },
+  { title: "Intents Agent API", text: "An agent account on NEAR Intents whose owner-signed policy is the hard limit. Veto holds its only grant, so the agent can only ask, and only a pass is sent: a transfer, or a salary paid out on Base.", icon: "wallet" },
   { title: "OutLayer agent wallets", text: "Veto is an approver on an OutLayer wallet's policy, so a TEE wallet it doesn't hold gets the same caps, screen and record.", icon: "lock" },
 ] as const;
 
@@ -119,7 +119,7 @@ export default function Landing() {
               <Parallax speed={-0.06}>
                 <div className={`${styles.circuitCard} rise`} style={{ animationDelay: "380ms" }}>
                   <Circuit ai="veto" paid={false} large delay={900} />
-                  <p className={styles.circuitCaption}>$300 fits in the $320 left of the $500 weekly cap. A plain spending limit would have paid it.</p>
+                  <p className={styles.circuitCaption}>$300 is under the $500 per-payment cap. A plain spending limit would have paid it.</p>
                 </div>
               </Parallax>
               <Parallax speed={0.05} className={styles.slamWrap}>
@@ -131,7 +131,7 @@ export default function Landing() {
                   <span className={styles.slamAmount}>
                     $300.00 <span>USDC</span>
                   </span>
-                  <span className={styles.slamReason}>Lookalike of Kano Cotton Mills&apos; address</span>
+                  <span className={styles.slamReason}>Lookalike of Ikeja Freight&apos;s address</span>
                   <span className={`mono ${styles.slamAddress}`}>0xA11c…D9F2 on Base</span>
                 </div>
               </Parallax>

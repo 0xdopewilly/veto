@@ -70,7 +70,7 @@ export function ProofView({ id }: { id: string }) {
       icon: "shield",
       title: test ? "Screened by a test signer" : "Screened in an enclave",
       text: test
-        ? "This verdict came from a local key used to check the vault before the model key was connected. It did not run in an enclave."
+        ? "The sandbox's labelled test key signed this verdict because NEAR AI didn't answer in time. It did not run in an enclave."
         : "NEAR AI Cloud ran the check inside an Intel TDX enclave. Intel Trust Authority attests the hardware.",
       value: v.model_id,
     },
@@ -85,7 +85,7 @@ export function ProofView({ id }: { id: string }) {
     {
       icon: "lock",
       title: "Checked by your vault",
-      text: "Your vault contract recovered the signer with ecrecover and matched it to the approved model key.",
+      text: test ? "Your vault contract recovered the signer with ecrecover and matched it to a key the owner approved: the sandbox's test key." : "Your vault contract recovered the signer with ecrecover and matched it to the model key the owner approved.",
       value: `response hash ${shortHash(v.response_hash)}`,
     },
     {
@@ -130,9 +130,11 @@ export function ProofView({ id }: { id: string }) {
 
         <aside className={`${styles.side} rise`} style={delay(900)}>
           <h2 className={styles.h2}>Check it yourself</h2>
-          <a className={`${styles.linkRow} press`} href={verifierUrl(v.model_id)} target="_blank" rel="noreferrer">
-            Open in the NEAR AI verifier <Icon name="external" size={16} />
-          </a>
+          {!test && (
+            <a className={`${styles.linkRow} press`} href={verifierUrl(v.model_id)} target="_blank" rel="noreferrer">
+              Open in the NEAR AI verifier <Icon name="external" size={16} />
+            </a>
+          )}
           <a className={`${styles.linkRow} press`} href={explorerAddress(vaultId ?? "")} target="_blank" rel="noreferrer">
             View the vault on NearBlocks <Icon name="external" size={16} />
           </a>

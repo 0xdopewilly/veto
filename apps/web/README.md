@@ -36,9 +36,10 @@ Open `/app` to see the testnet sandbox vault, read live. Anyone can browse it. T
 | `NEXT_PUBLIC_NETWORK` | `testnet` |
 | `NEXT_PUBLIC_VAULT_ID` | `treasury.veto-rhwe0krb.testnet` |
 | `NEXT_PUBLIC_VAULT_NAME` | `Lagoon Goods` (display name; vaults have no name on-chain) |
+| `NEXT_PUBLIC_FACTORY_ID` | `vaults.veto-rhwe0krb.testnet` (the factory whose vaults `/app?vault=<id>` opens) |
 | `NEXT_PUBLIC_RPC_URL` | FastNEAR public RPC for the network |
 
-No secrets are needed to browse. `pnpm demo:setup` writes the demo accounts' keys (each a function-call key limited to its vault) to `apps/web/.env.local`.
+No secrets are needed to browse. `pnpm demo:setup` writes the demo's keys to `apps/web/.env.local`: the agent's, the guardian's and the demo owner's function-call keys (each limited to its vault methods), the OutLayer approver's key and the OutLayer wallet's API key, and the labelled test signer's key.
 
 ## Bench results
 

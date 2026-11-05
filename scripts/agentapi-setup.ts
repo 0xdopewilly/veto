@@ -19,10 +19,17 @@ const USDC = "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36
 const USD = 1_000_000n;
 
 const rootEnv = new URL("../.env.local", import.meta.url);
+if (!existsSync(rootEnv)) {
+  console.error("Put NEAR_INTENTS_AGENT_API_KEY in .env.local at the repo root first (see .env.example).");
+  process.exit(1);
+}
 const envVar = (name: string) => readFileSync(rootEnv, "utf8").match(new RegExp(`^${name}=(.*)$`, "m"))?.[1]?.trim() ?? "";
 const url = envVar("NEAR_INTENTS_AGENT_API_URL") || "https://api.agentsonintents.com";
 const key = envVar("NEAR_INTENTS_AGENT_API_KEY");
-if (!key) throw new Error("Put NEAR_INTENTS_AGENT_API_KEY in the root .env.local first.");
+if (!key) {
+  console.error("Put NEAR_INTENTS_AGENT_API_KEY in .env.local at the repo root first (see .env.example).");
+  process.exit(1);
+}
 
 interface State {
   ownerKey?: string;

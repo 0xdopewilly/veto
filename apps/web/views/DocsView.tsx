@@ -26,14 +26,14 @@ const SECTIONS = [
   { id: "faq", label: "Questions" },
 ];
 
-type Status = "live" | "built" | "next";
-const STATUS_TEXT: Record<Status, string> = { live: "Live on testnet", built: "Built and tested", next: "Next" };
+type Status = "live" | "mainnet" | "built" | "next";
+const STATUS_TEXT: Record<Status, string> = { live: "Live on testnet", mainnet: "Live on mainnet", built: "Built and tested", next: "Next" };
 
 const STATUS: { part: string; status: Status; note: string }[] = [
   { part: "Vault contract: caps, verdict check, overrides, freeze", status: "live", note: "48 contract tests; deployed on NEAR testnet." },
   { part: "Your own vault, owned by your wallet", status: "live", note: "A factory creates a vault for any NEAR testnet account in one transaction its wallet signs. The vault code is deployed once as a NEAR global contract, so each new vault stores only its own state (about 1.6 KB). Its agent and screening accounts are its own too, each holding one key that can only call that vault. Every owner action is signed by the owner's wallet." },
   { part: "OutLayer agent wallets", status: "live", note: "Veto is an approver on an OutLayer wallet's policy. Pass, veto and override all run on testnet, settled against the wallet's real transactions." },
-  { part: "NEAR Intents Agent API wallet", status: "live", note: "An agent account on mainnet whose owner-signed policy is the hard limit. Veto holds its only grant, screens each request with the same enclave model, and sends only a pass: a transfer to a supplier, or a salary withdrawn to the worker's address on Base. Payments run once the wallet holds a few USDC." },
+  { part: "NEAR Intents Agent API wallet", status: "mainnet", note: "An agent account on mainnet whose owner-signed policy is the hard limit. Veto holds its only grant, screens each request with the same enclave model, and sends only a pass: a transfer to a supplier, or a salary withdrawn to the worker's address on Base. Payments run once the wallet holds a few USDC." },
   { part: "Payroll: staff paid on the chain they chose", status: "live", note: "Staff sit on the payee list with their own wallet and chain. The sandbox pays a salary in test ETH on Base from the vault's Chain Signatures address and vetoes a fake request to send it to a new wallet." },
   { part: "Agent inbox and guardian screening", status: "live", note: "Real proposals and verdicts on testnet, screened by Qwen3-VL-30B inside NEAR AI's enclave. If NEAR AI can't answer, a labelled test key signs instead, so the demo never stalls." },
   { part: "Owner actions in the app", status: "live", note: "In your own vault, only your wallet. In the shared sandbox, a demo-owner key limited to the owner methods, so anyone can try it without a wallet." },
@@ -68,7 +68,7 @@ const METHODS: { method: string; who: string; does: string }[] = [
 const FAQ: { q: string; a: string }[] = [
   {
     q: "Is this real, or a simulation?",
-    a: "Real, on NEAR testnet. Every vault is a deployed contract, every payment is a testnet transaction you can open on NearBlocks, and every verdict is signed inside NEAR AI's enclave and checked by the contract. The tokens are test tokens. The shared sandbox lets anyone act as its owner so it can be tried without a wallet; a vault you create belongs to your wallet, and nothing changes its rules without your signature.",
+    a: "Real, on NEAR testnet. Every vault is a deployed contract, every payment is a testnet transaction you can open on NearBlocks, and every verdict is signed inside NEAR AI's enclave (or, in the shared sandbox, by its labelled test key when NEAR AI doesn't answer) and checked by the contract. The tokens are test tokens. The shared sandbox lets anyone act as its owner so it can be tried without a wallet; a vault you create belongs to your wallet, and nothing changes its rules without your signature.",
   },
   {
     q: "Where do the payment requests come from?",
@@ -92,7 +92,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Can it run payroll?",
-    a: "Yes. Staff go on the payee list with the wallet and chain each one chose, and the agent pays salaries like any other payment: inside the caps, screened privately. In the sandbox, Tunde Bello is paid in test ETH on Base from the vault's own address, signed by NEAR's MPC network; on the Agent API path, the salary is USDC withdrawn through NEAR Intents and paid out on Base, to the one address the owner's policy allows for Tunde. The scam payroll attracts most, an email asking to send someone's salary to a new wallet, is vetoed: the address is new and imitates the saved one.",
+    a: "Yes. Staff go on the payee list with the wallet and chain each one chose, and the agent pays salaries like any other payment: inside the caps, screened privately. In the sandbox, Tunde Bello is paid in test ETH on Base from the vault's own address, signed by NEAR's MPC network; on the Agent API path, the salary is USDC withdrawn through NEAR Intents and paid out on Base, to the one address the owner's policy allows for Tunde, once the demo wallet holds USDC. The scam payroll attracts most, an email asking to send someone's salary to a new wallet, is vetoed: the address is new and imitates the saved one.",
   },
   {
     q: "Can Veto guard a swarm of agents?",
@@ -255,7 +255,7 @@ export function DocsView() {
             <ol className={styles.steps}>
               <li>Open the decision's <strong>Proof</strong> page in the app, or read it from the contract with <code>get_proposal</code>.</li>
               <li>The signer is the model's key, published in NEAR AI Cloud's attestation report and backed by an Intel TDX quote. The vault approved that key before any verdict.</li>
-              <li>The signature covers <code>model:sha256(request):sha256(response)</code>. The owner keeps the request bytes, so the exact prompt can be shown to an auditor and re-hashed.</li>
+              <li>The signature covers <code>model:sha256(request):sha256(response)</code>. The guardian keeps the request bytes in its private audit record, so the exact prompt can be shown to an auditor and re-hashed.</li>
               <li>NEAR AI's own verifier confirms the signature independently, and Veto Bench results can be re-checked offline with <code>node bench/verify.ts</code>.</li>
             </ol>
             <p className={styles.note}>
@@ -375,7 +375,7 @@ export function DocsView() {
             <h2>Try it on testnet</h2>
             <p>
               The live demo is at <a href="https://veto-beta.vercel.app/app">veto-beta.vercel.app</a>, with nothing to install. The shared sandbox is <a href={`${EXPLORER}/address/${VAULT_ID}`} target="_blank" rel="noreferrer" className={styles.mono}>{VAULT_ID}</a>,
-              a made-up business called Lagoon Goods that holds test USDC and pays two suppliers and a member of staff. Anyone can act as its owner. For a vault only you control, start with step 1.
+              a made-up business called Lagoon Goods that holds test USDC and pays three suppliers (two on NEAR, one on Base) and a member of staff. Anyone can act as its owner. For a vault only you control, start with step 1.
             </p>
             <ol className={styles.doSee}>
               <li><span>Do</span> open <Link href="/start/vault">Create your vault</Link>, connect a NEAR testnet wallet (Meteor Wallet at meteorwallet.app makes a testnet account for free; switch it to testnet first), name your business and sign. A new wallet starts with no NEAR, so Veto sends it 0.3 test NEAR for gas when it connects. <span>See</span> your own vault live in a few seconds, with $5,000 test USDC, two suppliers and its own test agent. From here on, overrides, freezes and rule changes need your wallet&apos;s signature.</li>

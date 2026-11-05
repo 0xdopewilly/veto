@@ -49,7 +49,7 @@ export function PayeesSection({ state, titleClass }: { state: VaultState; titleC
           <Icon name="plus" size={16} stroke={2.25} /> Add a payee
         </a>
       </div>
-      <p className={styles.lead}>Suppliers and staff, each at the address and on the chain they chose. Veto only pays these. A changed address is never trusted automatically.</p>
+      <p className={styles.lead}>Suppliers and staff, each at the address and on the chain they chose. Anyone else is screened as a new payee, and a changed address is never trusted automatically.</p>
 
       <div className={styles.table} role="table" aria-label="Saved payees">
         <div className={styles.head} role="row">

@@ -11,7 +11,7 @@ Each payment has to pass two gates before money moves:
 
 The AI can block a payment the caps would allow. It can never allow one the caps would block. The owner can override a veto, after a delay.
 
-The same screen also covers agents that pay from an **OutLayer** wallet. Veto is an approver on the wallet's policy, so OutLayer holds each payment until the vault has passed it.
+The same screen also covers agents that pay from an **OutLayer** wallet. Veto is an approver on the wallet's policy, so OutLayer holds each payment until Veto, or the owner, approves it.
 
 It also covers a **NEAR Intents Agent API** wallet on mainnet. The owner's signed policy is the hard limit, and Veto holds the account's only grant, so the AI agent can only ask: Veto screens each request and sends just what passes.
 
@@ -93,8 +93,8 @@ pnpm build && pnpm start            # http://localhost:3000, now with your own d
   - a test USDC token and the vault (caps $500 per payment, $3,000 a week);
   - an agent and a guardian. The app uses only their function-call keys, each limited to its role's vault methods. Setup also keeps full-access keys on the sandbox's accounts, the vault included, so it can redeploy them; a vault made by the factory has no access keys at all, so its code and funds move only through the contract;
   - test payees: two suppliers on NEAR, a lookalike account the scams use, and on Base Sepolia a freight supplier and a member of staff;
-  - an OutLayer agent wallet whose policy needs Veto's approval for every payment;
-  - the factory (`vaults.<root>`) that creates a vault for any testnet account. Each new vault runs the global vault code by hash, stores only its own state, and starts with $5,000 test USDC, the same caps and suppliers, and only the enclave model's key. It also gets its own agent (`<name>_agent`) and screening account (`<name>_guard`), each holding one function-call key that can only call that vault. Each vault costs the factory 0.9 test NEAR; send the factory more to sponsor more.
+  - an OutLayer agent wallet whose policy needs an approval, Veto's or the owner's, for every payment;
+  - the factory (`vaults.<root>`) that creates a vault for any testnet account. Each new vault runs the global vault code by hash, stores only its own state, and starts with $5,000 test USDC, caps of $500 a payment and $3,000 a week, the two NEAR suppliers, and only the enclave model's key. It also gets its own agent (`<name>_agent`) and screening account (`<name>_guard`), each holding one function-call key that can only call that vault. Each vault costs the factory 0.9 test NEAR; send the factory more to sponsor more.
 - **What it writes:** your state in `.veto-dev/` and the app's `apps/web/.env.local` (both gitignored).
 - **Base payouts (the payroll emails):** setup prints the vault's own Base Sepolia address. Send it about 0.01 Base Sepolia ETH from any faucet and the Base emails appear in the inbox.
 - **Keys that turn on the rest** (see [.env.example](.env.example)):
@@ -175,7 +175,7 @@ vault: ecrecover → approved model key → echoes this proposal's id and hash �
   2. The owner issues one grant, and Veto holds it. The AI agent holds none, so it can't spend.
   3. The agent asks; Veto screens the request with the same enclave model, against the business's mandate and payment history, and requires a signer the vault approves.
   4. Only a pass is sent with Veto's grant: a `transfer` to a supplier, or a `withdraw` that pays a salary out on Base, under an idempotency key tied to that screening, so a retry can never send twice. The owner's policy still refuses anything outside it, so a "new wallet" for a salary is refused there even if the screen missed it.
-- **Factory** ([factory/src/lib.rs](factory/src/lib.rs)): `create_vault(name, label, mandate?)` creates `<name>.<factory>` owned by the caller in one receipt (create account, use the global vault code, init). Then it creates the vault's agent and screening accounts, each with one function-call key limited to that vault, registers the vault with the token and sends starter funds. Up to 3 vaults per account on testnet. New testnet wallets often hold no NEAR, so `send_gas(account)` sends a wallet 0.3 test NEAR once; only the factory's own function-call key (held by the web app, limited to that method) can call it, and the app calls it when an empty wallet connects.
+- **Factory** ([factory/src/lib.rs](factory/src/lib.rs)): `create_vault(name, label, mandate?)` creates `<name>.<factory>` owned by the caller in one receipt (create account, use the global vault code, init). Then it creates the vault's agent and screening accounts, each with one function-call key limited to that vault, registers the vault with the token and sends starter funds. Up to 3 vaults per account on testnet. New testnet wallets often hold no NEAR, so `send_gas(account)` sends a wallet 0.3 test NEAR once; the contract only accepts it from the factory account itself, and the web app holds a key on that account limited to this one method, which it calls when an empty wallet connects.
 - **App** ([apps/web](apps/web)): Next.js, mobile and desktop, with the same four places on both: Home, Activity (what needs your decision, then every payment), Rules (mandate, limits, payees, freeze) and Agents. **Try it** (the V button on phones, the top of the sidebar on desktop) opens the agent's inbox. Open the shared sandbox or any vault the factory made (`/app?vault=<id>`); create one at `/start`. In your own vault, owner actions are signed by your wallet; in the sandbox, a demo-owner key limited to the owner methods lets anyone try them.
 - **SDK** ([packages/sdk](packages/sdk/src/index.ts)): `Veto` for vault agents and `VetoOutLayer` for agents with OutLayer wallets.
 

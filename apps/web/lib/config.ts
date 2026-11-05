@@ -8,7 +8,7 @@ export const SANDBOX_NAME = process.env.NEXT_PUBLIC_VAULT_NAME ?? "Lagoon Goods"
 export const SANDBOX_ID = process.env.NEXT_PUBLIC_VAULT_ID ?? "treasury.veto-rhwe0krb.testnet";
 
 /** Creates vaults owned by whoever calls it (the vault code is a NEAR global contract). */
-export const FACTORY_ID = process.env.NEXT_PUBLIC_FACTORY_ID ?? "";
+export const FACTORY_ID = process.env.NEXT_PUBLIC_FACTORY_ID ?? "vaults.veto-rhwe0krb.testnet";
 
 const FACTORY_VAULT = FACTORY_ID ? new RegExp(`^[a-z0-9]+(-[a-z0-9]+)*\\.${FACTORY_ID.replace(/[.-]/g, "\\$&")}$`) : null;
 

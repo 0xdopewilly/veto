@@ -68,8 +68,8 @@ export function RulesView() {
               <strong>{frozen ? "Every payment is stopped" : "Payments are flowing"}</strong>
               <span>
                 {frozen
-                  ? "Nothing pays, not even an override, until you unfreeze."
-                  : "Freezing stops every payment at once, including overrides. Use it if an agent or a key looks compromised."}
+                  ? "Veto approves nothing, not even an override, until you unfreeze."
+                  : "Freezing stops every payment Veto would approve at once, from the vault and from its agents' wallets, including overrides. Use it if an agent or a key looks compromised."}
               </span>
             </div>
             <Pill variant={frozen ? "primary" : "danger"} size="md" icon={frozen ? "unlock" : "lock"} onClick={openFreeze}>
