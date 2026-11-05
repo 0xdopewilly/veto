@@ -84,7 +84,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "What if the screening service is compromised?",
-    a: "The vault only accepts verdicts from the registered guardian account, signed by an approved model key, echoing this exact proposal. A compromised guardian still can't pay more than the caps allow, can't change payees or limits, and can't move money anywhere the agent didn't propose. Running the guardian itself inside a TEE is the next step that removes this trust.",
+    a: "The vault only accepts verdicts from the registered guardian account, signed by an approved model key, echoing this exact proposal. A compromised guardian still can't pay more than the caps allow, can't change payees or limits, and can't move money anywhere the agent didn't propose. The guardian does choose the evidence the model reads: the enclave proves which model judged which input, not that the input was the real email. In this demo one server runs both the demo agent and the guardian, so it holds both roles and could propose and pass a payment to any address inside the caps; an owner can close that by requiring listed payees on-chain (set_require_listed_payee). Running the guardian itself inside a TEE is the next step that removes this trust.",
   },
   {
     q: "How is this different from a policy wallet?",
@@ -104,7 +104,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Why NEAR?",
-    a: "Three things in one place: NEAR AI Cloud runs models inside TEEs and signs every answer, NEAR Intents pays out on almost any chain from one balance, and NEAR's account model lets each key do exactly one job (the agent can only propose, the guardian can only submit verdicts).",
+    a: "Three things in one place: NEAR AI Cloud runs models inside TEEs and signs every answer, NEAR Intents pays out on almost any chain from one balance, and NEAR's account model lets each key do one narrow job (the agent can only propose, the guardian can only record verdicts and settle payments).",
   },
   {
     q: "Who pays for gas?",
@@ -355,9 +355,9 @@ export function DocsView() {
               <div className={styles.tile}>
                 <h3>Private</h3>
                 <ul>
-                  <li>The emails, invoices and pages the agent acted on.</li>
+                  <li>The emails, invoices and pages the agent acted on. Only the guardian that sends them to the model, and the model in its enclave, read them.</li>
                   <li>The full prompt the model saw.</li>
-                  <li>Screening runs in a TEE: the host can't read it.</li>
+                  <li>Inference runs in a TEE: NEAR AI&apos;s hosts can&apos;t read it.</li>
                 </ul>
               </div>
               <div className={styles.tile}>
@@ -456,7 +456,7 @@ pnpm demo:setup                   # optional: your own testnet sandbox from the 
             <ul className={styles.bullets}>
               <li><strong>NEAR AI Cloud.</strong> Models in TEEs (Intel TDX and NVIDIA confidential GPUs) that sign every answer; the vault checks that signature on-chain.</li>
               <li><strong>NEAR Intents (1Click).</strong> Pays suppliers on other chains; the vault verifies the signed quote before sending.</li>
-              <li><strong>Access keys.</strong> Function-call keys that can call one method each: the agent can only propose, the guardian can only submit verdicts.</li>
+              <li><strong>Access keys.</strong> Function-call keys limited to one vault and a few methods: the agent can only propose, the guardian can only record verdicts and settle payments.</li>
               <li><strong>Global contracts.</strong> The vault code is deployed once (NEP-591); every vault the factory creates runs it by hash and stores only its own state.</li>
               <li><strong>Named accounts and sub-accounts.</strong> <code>treasury.</code>, <code>buyer.</code>, <code>guardian.</code> under one owner account, so roles are readable on-chain.</li>
               <li><strong>NEP-141 tokens and contract events.</strong> USDC payments, with every decision emitted as a NEP-297 event.</li>

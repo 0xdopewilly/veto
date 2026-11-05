@@ -40,36 +40,36 @@ const THEFTS = [
 const GATES = [
   {
     title: "Contract caps",
-    text: "Weekly limits, allowed assets and listed payees are enforced by the vault contract on NEAR. An agent can't talk its way past them.",
+    text: "Per-payment and weekly limits and allowed assets are enforced by the vault contract on NEAR, which can also require listed payees. An agent can't talk its way past them.",
     tag: "Enforced on-chain",
     tone: "green",
   },
   {
     title: "Private AI screen",
-    text: "A model inside a hardware enclave reads the request with your mandate and payment history, then returns a signed pass or veto. Your data stays in the enclave.",
+    text: "A model inside a hardware enclave reads the request with your mandate and payment history, then returns a signed pass or veto. Only hashes of your evidence go on-chain.",
     tag: "Can only veto",
     tone: "coral",
   },
   {
     title: "Your override",
-    text: "If Veto blocks a payment you want made, you can override it. The payment waits 24 hours, and you can cancel it until then.",
-    tag: "24-hour delay",
+    text: "If Veto blocks a payment you want made, you can override it. It pays only after a delay (3 minutes in the demo), and you can cancel it until then.",
+    tag: "Time-delayed",
     tone: "purple",
   },
 ] as const;
 
 const CHAIN = [
   { title: "Enclave attestation", text: "Intel Trust Authority confirms the model runs in a genuine Intel TDX enclave.", value: "Qwen3-VL-30B" },
-  { title: "Model signature", text: "The enclave signs the request hash and the verdict with a key that never leaves it.", value: "0x3b75…fa0c" },
-  { title: "On-chain check", text: "The vault contract recovers the signer with ecrecover and refuses any verdict not signed by the approved model key.", value: "ecrecover → 0x3b75…fa0c" },
+  { title: "Model signature", text: "The enclave signs the request hash and the verdict with a key that never leaves it.", value: "0x2665…5462" },
+  { title: "On-chain check", text: "The vault contract recovers the signer with ecrecover and refuses any verdict not signed by the approved model key.", value: "ecrecover → 0x2665…5462" },
 ];
 
 const NEAR = [
-  { title: "NEAR Intents", text: "Pays a supplier on another chain from one vault balance. The vault checks 1Click's signed quote pays exactly the screened payee and amount.", icon: "globe" },
+  { title: "NEAR Intents", text: "Pays a supplier on another chain from one vault balance. The vault checks 1Click's signed quote pays exactly the screened payee and amount. Tested against a real quote; the first mainnet payout is pending.", icon: "globe" },
   { title: "Chain Signatures", text: "The vault has its own address on Base. It builds each passed transfer itself and NEAR's MPC network signs exactly that, nothing else.", icon: "key" },
   { title: "NEAR AI Cloud", text: "Private inference inside TEEs, with every response signed by the model's enclave key.", icon: "shield" },
-  { title: "NEAR accounts", text: "The agent is a sub-account whose function-call key can only propose payments; the guardian's can only submit verdicts.", icon: "bot" },
-  { title: "On-chain verdict check", text: "The vault recovers the model's enclave signature with ecrecover and checks it names this exact payment before anything moves.", icon: "check" },
+  { title: "NEAR accounts", text: "The agent is a sub-account whose function-call key can only propose payments; the guardian's can only record verdicts and settle payments.", icon: "bot" },
+  { title: "Intents Agent API", text: "An agent account on NEAR Intents whose owner-signed policy is the hard limit. Veto holds its only grant, so the agent can only ask, and a pass becomes a transfer or a salary paid out on Base.", icon: "wallet" },
   { title: "OutLayer agent wallets", text: "Veto is an approver on an OutLayer wallet's policy, so a TEE wallet it doesn't hold gets the same caps, screen and record.", icon: "lock" },
 ] as const;
 
@@ -216,7 +216,8 @@ export default function Landing() {
               <h2 id="bench-title" className={styles.h2}>Veto Bench</h2>
               <p className={styles.benchLead}>
                 A public set of 100 attack and everyday payment scenarios. Screening inside NEAR AI's enclave, Veto catches all 50 attacks; a plain
-                policy wallet lets 17 through. Every verdict is signed and can be re-checked offline.
+                policy wallet lets 17 through. Both hold back the same 8 honest payments to new suppliers for the owner to approve. Every
+                verdict is signed and can be re-checked offline.
               </p>
             </div>
             <Magnetic>

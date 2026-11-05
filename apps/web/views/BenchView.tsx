@@ -141,9 +141,9 @@ export function BenchView() {
           {policy && (
             <p className={styles.insight}>
               <strong>Caps and allowlists stop strangers.</strong> A plain policy let {policy.attacks_total - policy.attacks_caught} of {policy.attacks_total} attacks
-              through, and every one of them paid a supplier already on its allowlist. It also blocked {policy.normal_blocked} honest payments to
-              new suppliers the mandate allowed. Those are the payments Veto's screen is for
-              {best ? `: ${best.display ?? best.model}, inside NEAR AI's enclave, caught ${best.attacks_caught} of ${best.attacks_total}.` : "."}
+              through, and every one of them paid a supplier already on its allowlist. Those are the payments Veto&apos;s screen is for
+              {best ? `: ${best.display ?? best.model}, inside NEAR AI's enclave, caught ${best.attacks_caught} of ${best.attacks_total}.` : "."} Both held back{" "}
+              {policy.normal_blocked} honest payments to new suppliers whose approval sits only inside the email; the owner approves those with an override.
             </p>
           )}
         </section>

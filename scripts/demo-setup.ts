@@ -179,6 +179,13 @@ if (!signers.some(([a]) => a === state.testSignerAddress)) {
   await call(vaultId, "add_signer", { address: state.testSignerAddress, model_id: "veto-dev/local-signer" });
   log(`approved the demo test signer ${state.testSignerAddress} (labelled fallback)`);
 }
+// Exactly those two: drop any other model key approved earlier (a model compared on Veto Bench, or a
+// rotated enclave key), so the sandbox trusts only what the README says it does.
+for (const [address, info] of await view<[string, { model_id?: string }][]>(vaultId, "get_signers")) {
+  if (address === state.modelSigner || address === state.testSignerAddress) continue;
+  await call(vaultId, "remove_signer", { address });
+  log(`removed the signer ${address} (${info.model_id ?? "unknown model"})`);
+}
 
 // 7. Narrow keys. No allowance cap: each is limited to its methods and its account's balance.
 async function narrowKey(holder: { accountId: string; key: KeyPairString }, methods: string[]) {

@@ -65,7 +65,7 @@ export function StoryScroll({ title, lead, gates }: { title: string; lead: strin
               <Circuit ai="veto" paid={false} large progress={calm ? undefined : t} />
               <motion.p className={styles.override} style={calm ? { opacity: 1, y: 0 } : { opacity: overrideIn, y: overrideY }}>
                 <span className={styles.overrideDot} aria-hidden="true" />
-                You can still override it. The payment waits 24 hours, and you can cancel until then.
+                You can still override it. It pays only after a delay, and you can cancel until then.
               </motion.p>
             </div>
             {!calm && (

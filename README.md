@@ -71,7 +71,7 @@ https://veto-beta.vercel.app/app runs everything below with nothing to install. 
 | Let it pay **"New wallet for my salary"** | **Vetoed**: the address imitates Tunde's saved one and has never been paid |
 | Open the vetoed decision → **Override** | A 3-minute countdown, then it pays (still inside the caps), unless you cancel |
 | Switch **Pay from** to **OutLayer** and repeat the invoice and the scam | Paid: Veto approved it on OutLayer and the wallet sent it. Vetoed: Veto never signs, so OutLayer keeps holding it. **Keep it blocked** then rejects it there for good |
-| Switch **Pay from** to **Agent API** and repeat them | The same screen, then a real call to the NEAR Intents Agent API on mainnet with Veto's grant: a transfer to a supplier, or Tunde's salary as USDC withdrawn to Base. Amounts are scaled 1:100 for a wallet holding a few real dollars. A veto never reaches the API; a payment the owner's policy forbids is refused there even after a pass. Until the wallet holds USDC, a pass is refused there with `insufficient_balance` |
+| Switch **Pay from** to **Agent API** and repeat them | The same screen, then a real call to the NEAR Intents Agent API on mainnet with Veto's grant: a transfer to a supplier, or Tunde's salary as USDC withdrawn to Base. Amounts are scaled 1:100 for a wallet meant to hold a few real dollars. A veto never reaches the API; a payment the owner's policy forbids is refused there even after a pass. Until the wallet holds USDC, a pass is refused there with `insufficient_balance` |
 | Press **Write your own email** and write an invoice or a scam | A real AI agent on NEAR AI reads it and proposes what it asks for; Veto screens it like any other payment |
 | Open any decision → **Proof** | The request and response hashes, the signer, and the on-chain signature check |
 | Open **/start**, connect a NEAR testnet wallet, name your business and sign | Your own vault, live in a few seconds. Its owner is your account, and every owner action needs your wallet. The shared sandbox, used above, lets anyone act as its owner |
@@ -91,7 +91,7 @@ pnpm build && pnpm start            # http://localhost:3000, now with your own d
 - **Test NEAR:** about 75 in all, which the script gathers from the faucet across several new accounts. Most of it (about 54) is the one-time global deploy of the vault code, which NEAR stores on every shard. The faucet gives 10 per account and limits how many you make, so setup may stop partway; run it again a few hours later and it resumes where it stopped.
 - **What it builds:**
   - a test USDC token and the vault (caps $500 per payment, $3,000 a week);
-  - an agent and a guardian, each holding a function-call key that can only call its own vault methods;
+  - an agent and a guardian. The app uses only their function-call keys, each limited to its role's vault methods. Setup also keeps full-access keys on the sandbox's accounts, the vault included, so it can redeploy them; a vault made by the factory has no access keys at all, so its code and funds move only through the contract;
   - test payees: two suppliers on NEAR, a lookalike account the scams use, and on Base Sepolia a freight supplier and a member of staff;
   - an OutLayer agent wallet whose policy needs Veto's approval for every payment;
   - the factory (`vaults.<root>`) that creates a vault for any testnet account. Each new vault runs the global vault code by hash, stores only its own state, and starts with $5,000 test USDC, the same caps and suppliers, and only the enclave model's key. It also gets its own agent (`<name>_agent`) and screening account (`<name>_guard`), each holding one function-call key that can only call that vault. Each vault costs the factory 0.9 test NEAR; send the factory more to sponsor more.
@@ -163,7 +163,7 @@ vault: ecrecover → approved model key → echoes this proposal's id and hash �
   - External wallets: `add_wallet`, `propose_external`, `settle_external`.
   - Chain Signatures: `set_evm_route`, `settle_evm`. On a pass, the vault RLP-encodes the EIP-1559 transfer itself and asks `v1.signer-prod.testnet` to sign its hash ([evm.rs](contract/src/evm.rs)). The guardian broadcasts the signed bytes ([packages/core/src/evm.ts](packages/core/src/evm.ts)).
   - NEAR Intents payouts verify 1Click's ed25519 quote signature on-chain ([quote.rs](contract/src/quote.rs)).
-- **Guardian** ([services/guardian](services/guardian/src/main.ts)): screens open proposals with [packages/core](packages/core/src/pipeline.ts) and keeps a private audit record of what the model saw.
+- **Guardian** ([services/guardian](services/guardian/src/main.ts)): screens open proposals with [packages/core](packages/core/src/pipeline.ts) and keeps a private audit record of what the model saw. It reads the evidence in the clear and chooses what the model sees: the enclave's signature proves which model judged which input, not that the input was the real email. A compromised guardian still can't pass anything over the caps, and an owner who wants payees enforced on-chain too can set `set_require_listed_payee`. In this demo one server runs both the demo agent and the guardian.
 - **OutLayer** ([packages/core/src/outlayer.ts](packages/core/src/outlayer.ts)), step by step:
   1. The agent's OutLayer wallet holds the payment for approval.
   2. The guardian checks OutLayer's hash of the operation and records it with `propose_external`. The caps apply.
@@ -188,7 +188,7 @@ vault: ecrecover → approved model key → echoes this proposal's id and hash �
 | Payouts from the vault's own Base Sepolia address (NEAR Chain Signatures) | Live on testnet |
 | Payroll: staff on the payee list, each paid on the chain they chose | Live on testnet; the sandbox pays Tunde Bello on Base and vetoes a fake "new wallet" request. Shown once the vault's Base address holds test ETH |
 | OutLayer agent wallets (pass, veto, override) | Live on testnet |
-| NEAR Intents Agent API wallet, with Veto holding its only grant | Live on mainnet: supplier transfers and salaries withdrawn to Base. Payments run once the wallet holds USDC |
+| NEAR Intents Agent API wallet, with Veto holding its only grant | Live on mainnet: the owner's policy is in force and Veto screens and sends each request (supplier transfers, salaries withdrawn to Base). Until the wallet holds USDC, a pass is refused there with `insufficient_balance` |
 | Agent inbox, guardian, owner actions in the app | Live on testnet |
 | Private screen on NEAR AI Cloud (Qwen3-VL-30B in a TDX enclave) | Live on testnet; about 1.5 s per verdict |
 | Veto Bench | Live: 50/50 attacks caught, 8/50 honest payments blocked, 100/100 signatures verified |
