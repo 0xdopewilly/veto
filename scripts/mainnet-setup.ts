@@ -15,7 +15,6 @@ const { account, exists, loadState, newKey, saveState } = await import("./dev-st
 
 const NETWORK = "mainnet";
 const SEND = process.argv.includes("--send");
-const PAYOUT_ACCOUNT = "dopewilly.near"; // receives the prize; this script must never touch it
 const USDC_TOKEN = "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1";
 const USD = 1_000_000n;
 const WASM = new URL("../contract/target/wasm32-unknown-unknown/release/veto_vault.wasm", import.meta.url);
@@ -32,7 +31,9 @@ const supplier = (process.env.MAINNET_SUPPLIER_BASE ?? "").toLowerCase();
 if (!rootId || !rootKey || !/^0x[0-9a-f]{40}$/.test(supplier)) {
   throw new Error("set MAINNET_ROOT_ID, MAINNET_ROOT_KEY and MAINNET_SUPPLIER_BASE (a 0x… Base address) in .env.local");
 }
-if (rootId === PAYOUT_ACCOUNT || rootId.endsWith(`.${PAYOUT_ACCOUNT}`)) throw new Error("use a separate account, not the prize payout account");
+// An account this script must never use, e.g. where a prize is paid (MAINNET_PROTECTED_ACCOUNT, optional).
+const PROTECTED = process.env.MAINNET_PROTECTED_ACCOUNT?.trim() || null;
+if (PROTECTED && (rootId === PROTECTED || rootId.endsWith(`.${PROTECTED}`))) throw new Error(`use a separate account, not ${PROTECTED}`);
 
 const state = loadState(NETWORK);
 state.root = { accountId: rootId, key: rootKey };

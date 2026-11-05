@@ -98,12 +98,21 @@ export function AgentInbox({ titleId = "inbox-title", compact = false, head = tr
         </div>
       )}
 
-      {demo.status === "unavailable" && (
+      {(demo.status === "unavailable" || demo.status === "off") && (
         <div className={styles.state}>
           <span className={styles.stateIcon}>
             <Icon name="bot" size={20} />
           </span>
-          <span>The demo agent isn't running right now. The vault, decisions and proofs below are all live on testnet.</span>
+          <span>
+            {demo.status === "off" ? (
+              <>
+                This copy of Veto has no demo agent set up yet (<span className="mono">pnpm demo:setup</span> makes one). The vault, decisions and proofs are
+                still read live from testnet, and the hosted demo at <a href="https://veto-beta.vercel.app/app">veto-beta.vercel.app</a> runs the agent.
+              </>
+            ) : (
+              "The demo agent isn't running right now. The vault, decisions and proofs below are all live on testnet."
+            )}
+          </span>
         </div>
       )}
 

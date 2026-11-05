@@ -78,7 +78,8 @@ export const OWNER_ACTIONS = [
 ] as const;
 
 interface DemoContextValue {
-  status: "loading" | "ready" | "unavailable";
+  /** "off": this copy of the app has no demo agent set up (no `pnpm demo:setup`); "unavailable": it didn't answer. */
+  status: "loading" | "ready" | "off" | "unavailable";
   info: DemoInfo | null;
   runs: Record<string, DemoRun>;
   payFrom: PayFrom;
@@ -130,8 +131,9 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         })
         .then((data) => {
           if (cancelled) return;
-          setInfo(data);
-          setStatus(data.enabled ? "ready" : "unavailable");
+          // A copy without a demo agent answers just { enabled: false }: nothing else in it is there.
+          setInfo(data.enabled ? data : null);
+          setStatus(data.enabled ? "ready" : "off");
         })
         .catch(() => {
           if (cancelled) return;

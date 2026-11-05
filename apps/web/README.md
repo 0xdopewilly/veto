@@ -12,37 +12,37 @@ pnpm --filter @veto/web dev      # http://localhost:3000
 pnpm --filter @veto/web build && pnpm --filter @veto/web start
 ```
 
-Open `/app` to see the testnet demo vault. Anyone can browse it read-only. Owner actions (override, cancel, freeze, mandate, payees, limits, agents) ask you to connect the owner's NEAR wallet; other accounts see why they can't act.
+Open `/app` to see the testnet sandbox vault, read live. Anyone can browse it. The agent's inbox (**Try it**) and the sandbox's owner actions need the demo accounts that `pnpm demo:setup` writes to `apps/web/.env.local`; without them the inbox says so, and everything else still works. In a vault you create at `/start`, owner actions (override, cancel, freeze, mandate, payees, limits, agents) are signed by your NEAR wallet.
 
 ## Pages
 
 | Path | What it shows |
 | --- | --- |
 | `/` | Landing page |
-| `/start`, `/start/vault` | Phone onboarding |
-| `/app` | Overview: decisions that need you, balance, this period's spend, activity |
-| `/app/decisions` | Every proposal, newest first |
+| `/docs` | How it works, step by step |
+| `/bench` | Veto Bench scenarios and results |
+| `/start`, `/start/vault` | Welcome, and creating your own vault with a NEAR wallet |
+| `/app` | Home: what needs your decision, balance, this period's spend, activity, the agent's inbox |
+| `/app/decisions` | Activity: what needs your decision, then every payment, newest first |
 | `/app/decisions/[id]` | One decision: vetoed, screening, override pending (with countdown), paid, or closed |
 | `/app/decisions/[id]/proof` | How the verdict was signed and checked, with links to verify it |
-| `/app/mandate` | The mandate, contract limits, time-locked raises |
-| `/app/payees` | Saved payees, adding and removing them, blocked lookalikes |
-| `/app/agents` | Agents, their vault-scoped keys and recent activity |
-| `/bench` | Veto Bench scenarios and results |
+| `/app/rules` | Rules: the mandate, contract limits and time-locked raises, payees and blocked lookalikes, freeze. `/app/mandate` and `/app/payees` redirect here |
+| `/app/agents` | Agents, their vault-scoped keys and recent activity, the OutLayer and Agent API wallets |
 
 ## Configuration
 
 | Variable | Default |
 | --- | --- |
 | `NEXT_PUBLIC_NETWORK` | `testnet` |
-| `NEXT_PUBLIC_VAULT_ID` | `treasury.veto-lagoon-dygj2w.testnet` |
+| `NEXT_PUBLIC_VAULT_ID` | `treasury.veto-rhwe0krb.testnet` |
 | `NEXT_PUBLIC_VAULT_NAME` | `Lagoon Goods` (display name; vaults have no name on-chain) |
 | `NEXT_PUBLIC_RPC_URL` | FastNEAR public RPC for the network |
 
-No secrets are needed.
+No secrets are needed to browse. `pnpm demo:setup` writes the demo accounts' keys (each a function-call key limited to its vault) to `apps/web/.env.local`.
 
 ## Bench results
 
-`/bench` shows `[Not run yet]` until `public/bench/results.json` exists. Its shape, with placeholder values:
+`/bench` reads `public/bench/results.json`, which `node bench/publish.ts` writes from `bench/results/`. A model with no results shows `[Not run yet]`. The file's shape:
 
 ```json
 {

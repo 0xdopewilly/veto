@@ -207,7 +207,7 @@ function Sidebar({ onFreeze, onVaults, onInbox }: { onFreeze: () => void; onVaul
         </span>
         <span className={styles.tryAgentText}>
           <strong>Try the agent</strong>
-          <span>Invoices and salaries</span>
+          <span>Invoices, payroll</span>
         </span>
         <Icon name="arrowRight" size={16} />
       </button>

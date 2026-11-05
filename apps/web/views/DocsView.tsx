@@ -442,10 +442,12 @@ const decision = await veto.decision(id); // Paid, Vetoed, Expired…`}</code>
             <h3 className={styles.h3}>Run it yourself</h3>
             <pre className={styles.code}>
               <code>{`pnpm install
-pnpm test                      # contract and core tests
-node scripts/demo-setup.ts     # your own testnet vault, funded from the faucet
-pnpm build && pnpm start       # the app on http://localhost:3000
-node bench/run.ts --screener dev && node bench/verify.ts bench/results/veto-dev_local-signer.json`}</code>
+pnpm test                         # core, contract and factory tests
+pnpm build:contracts              # the contracts, as wasm
+node scripts/check-deployed.ts    # the code on testnet is exactly this build
+node bench/verify.ts bench/results/Qwen_Qwen3-VL-30B-A3B-Instruct.json --attested
+pnpm build && pnpm start          # the app on http://localhost:3000, reading the live sandbox
+pnpm demo:setup                   # optional: your own testnet sandbox from the faucet (see the README)`}</code>
             </pre>
           </section>
 

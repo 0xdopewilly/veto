@@ -21,64 +21,92 @@ The vault can also pay on **Base** from its own address there, through **NEAR Ch
 
 **Many agents, one gate.** A vault takes any number of agents, each holding a key that can only propose. Agents in OutLayer or Agent API wallets go through the same caps and the same private AI review, and the owner can pause any one of them.
 
-## Check it in five minutes (no keys, no funds)
+## Check it yourself (no keys, no funds)
 
-Requires Node 24+, pnpm 11, and Rust with the `wasm32-unknown-unknown` target.
+Requires Node 24+, pnpm 11 and Rust through rustup. The repo's `rust-toolchain.toml` pins Rust 1.99.1 with the `wasm32-unknown-unknown` target; rustup installs both on first use (if yours doesn't, run `rustup toolchain install 1.99.1 --target wasm32-unknown-unknown`).
 
 ```sh
 pnpm install
 pnpm test
 ```
 
-You should see `ℹ pass 13` (TypeScript core), `test result: ok. 48 passed` (vault contract) and `test result: ok. 9 passed` (vault factory). The contract tests include a real executable 1Click quote and a real 1Click signature. They also pin the proposal hash that the TypeScript side must reproduce.
+You should see `ℹ pass 14` (TypeScript core), `test result: ok. 48 passed` (vault contract) and `test result: ok. 9 passed` (vault factory). The contract tests include a real executable 1Click quote and a real 1Click signature. They also pin the proposal hash that the TypeScript side must reproduce. A first run takes about four minutes on 8 cores: the contract and the factory are separate crates, so near-sdk's test dependencies compile twice.
 
 ```sh
 node bench/run.ts --screener policy   # Attacks caught 33/50, normal payments blocked 8/50
 node bench/run.ts --screener dev      # Attacks caught 41/50, normal payments blocked 8/50
+node bench/verify.ts bench/results/Qwen_Qwen3-VL-30B-A3B-Instruct.json --attested
 ```
 
 [Veto Bench](bench/) has 100 payment scenarios: 50 attacks and 50 ordinary payments.
 
 - `policy` is what a policy wallet enforces on its own: an allowlist plus a cap. Every attack it misses pays a supplier already on the list.
 - `dev` is Veto's deterministic checks without a model.
-- With a NEAR AI key, Qwen3-VL-30B running in NEAR AI's enclave catches 50 of 50 attacks and blocks 8 of 50 honest payments (all 8 are new suppliers whose approval sits inside the email). Every one of its 100 signatures re-verifies offline. See [With a NEAR AI key](#with-a-near-ai-key).
+- The committed run of Qwen3-VL-30B in NEAR AI's enclave catches 50 of 50 attacks and blocks 8 of 50 honest payments (all 8 are new suppliers whose approval sits inside the email). `verify.ts` rehashes the stored request and response bytes of all 100 verdicts and recovers each signature; `--attested` also asks NEAR AI's public attestation endpoint which key the model's enclave holds now and checks it is the run's signer. Expect `100/100 verdicts verified` and a matching attested key.
 
-## Run the whole thing on testnet (no keys, no funds)
+The two bench runs update their entries in `bench/results/`: new timestamps and timings, and a fresh throwaway signing key for `dev`. The scores stay the same.
 
 ```sh
-pnpm build:contracts
-pnpm demo:setup                 # creates your own vault on NEAR testnet from the faucet
-pnpm build && pnpm start        # http://localhost:3000
+pnpm build:contracts                # the vault, the factory and the test token, as wasm
+node scripts/check-deployed.ts      # ✓ for each: the code running on testnet is exactly this build
 ```
 
-`demo:setup` prints `Demo vault ready: https://testnet.nearblocks.io/address/treasury.veto-….testnet` and the vault's own Base Sepolia address. Send that address about 0.01 Base Sepolia ETH from any faucet to turn on the Base payout. It also writes `apps/web/.env.local` (gitignored). It builds:
+`check-deployed.ts` hashes the wasm you just built and compares it with the code deployed for the live demo: the sandbox vault, the vault code every factory vault runs, the factory and the test token. It reads testnet only.
 
-- a test USDC token and the vault (caps $500 per payment, $3,000 a week);
-- an agent, a guardian and two payees, each holding a function-call key that can only call its own vault methods;
-- an OutLayer agent wallet whose policy needs an approval for every payment;
-- the vault code deployed once as a NEAR global contract, and a factory (`vaults.<root>`) that creates a vault for any testnet account. Each new vault runs that code by hash, stores only its own state (about 1.6 KB), and starts with $5,000 test USDC, the same caps and suppliers, and only the enclave model's key. It also gets its own agent (`<name>_agent`) and screening account (`<name>_guard`), each holding one function-call key that can only call that vault, so the hosted app never holds a key that can do more. A global deploy stores the code on every shard, so it costs about 51 test NEAR; the faucet gives 10 per account and limits how many you make, so this step may need a second run a few hours later. Each vault costs the factory 0.9 test NEAR; send the factory more to sponsor more.
+```sh
+pnpm build && pnpm start            # http://localhost:3000
+```
 
-Then open http://localhost:3000/app and press **Try it** (the green V on a phone; **Try the agent** at the top of the sidebar on desktop):
+With no keys, the app reads the live sandbox vault on testnet: Home, Activity, every decision and its **Proof**, Rules, Agents, Docs and Bench all work. The agent's inbox needs the demo accounts that `pnpm demo:setup` creates, so locally it says so; the hosted demo has them.
+
+## Try the agent on the hosted demo
+
+https://veto-beta.vercel.app/app runs everything below with nothing to install. Press **Try it** (the green V on a phone; **Try the agent** at the top of the sidebar on desktop):
 
 | Do | See |
 | --- | --- |
-| Open **/start**, connect a testnet wallet, name your business and sign | Your own vault, live in a few seconds. Its owner is your account, and every owner action below needs your wallet. Skip this to use the shared sandbox, where anyone can act as the owner |
 | Let the agent pay **"Invoice INV-…: 72 bales of combed cotton"** | Agent proposed → Screening privately → **Paid**, with testnet tx links |
 | Let it pay **"Updated payment details for INV-…"** | **Vetoed**: a lookalike of an address you've paid before. The coral card appears on Home |
-| In the sandbox, let it pay **"Payroll PAY-…: … salary for Tunde Bello"** | **Paid** on Base, the chain Tunde chose, from the vault's own Base Sepolia address (NEAR Chain Signatures) |
+| Let it pay **"Payroll PAY-…: … salary for Tunde Bello"** | **Paid** on Base, the chain Tunde chose, from the vault's own Base Sepolia address (NEAR Chain Signatures) |
 | Let it pay **"New wallet for my salary"** | **Vetoed**: the address imitates Tunde's saved one and has never been paid |
 | Open the vetoed decision → **Override** | A 3-minute countdown, then it pays (still inside the caps), unless you cancel |
-| In the sandbox, switch **Pay from** to **OutLayer wallet** and repeat both | Paid: Veto approved it on OutLayer and the wallet sent it. Vetoed: Veto never signs, so OutLayer keeps holding it. **Keep it blocked** then rejects it there for good |
-| In the sandbox, switch **Pay from** to **Agent API** and repeat them | The same screen, then a real call to the NEAR Intents Agent API with Veto's grant: a transfer to a supplier, or Tunde's salary as USDC withdrawn to Base. Amounts are scaled 1:100 for a wallet holding a few real dollars. A veto never reaches the API; a payment the owner's policy forbids is refused there even after a pass. Until the wallet holds USDC, a pass is refused there with `insufficient_balance` |
+| Switch **Pay from** to **OutLayer** and repeat the invoice and the scam | Paid: Veto approved it on OutLayer and the wallet sent it. Vetoed: Veto never signs, so OutLayer keeps holding it. **Keep it blocked** then rejects it there for good |
+| Switch **Pay from** to **Agent API** and repeat them | The same screen, then a real call to the NEAR Intents Agent API on mainnet with Veto's grant: a transfer to a supplier, or Tunde's salary as USDC withdrawn to Base. Amounts are scaled 1:100 for a wallet holding a few real dollars. A veto never reaches the API; a payment the owner's policy forbids is refused there even after a pass. Until the wallet holds USDC, a pass is refused there with `insufficient_balance` |
 | Press **Write your own email** and write an invoice or a scam | A real AI agent on NEAR AI reads it and proposes what it asks for; Veto screens it like any other payment |
 | Open any decision → **Proof** | The request and response hashes, the signer, and the on-chain signature check |
+| Open **/start**, connect a NEAR testnet wallet, name your business and sign | Your own vault, live in a few seconds. Its owner is your account, and every owner action needs your wallet. The shared sandbox, used above, lets anyone act as its owner |
 
-With `NEARAI_API_KEY` set, verdicts come from Qwen3-VL-30B inside NEAR AI's enclave. Without it, or if NEAR AI can't answer, the sandbox's verdicts are signed by a local test key it was told to trust, and the app labels every such decision "test signer". Vaults created through the factory trust only the enclave key: with no answer, the payment expires unpaid.
+Verdicts come from Qwen3-VL-30B inside NEAR AI's enclave. If NEAR AI can't answer, the sandbox's verdicts are signed by a local test key it was told to trust, and the app labels every such decision "test signer". Vaults created through the factory trust only the enclave key: with no answer, the payment expires unpaid.
+
+## Run your own copy on testnet
+
+This deploys your own sandbox, factory and test token. It needs no keys, but it does need time and test funds:
+
+```sh
+pnpm build:contracts                # first: setup deploys these files
+pnpm demo:setup                     # collects test NEAR from the faucet and deploys everything
+pnpm build && pnpm start            # http://localhost:3000, now with your own demo agent
+```
+
+- **Test NEAR:** about 75 in all, which the script gathers from the faucet across several new accounts. Most of it (about 54) is the one-time global deploy of the vault code, which NEAR stores on every shard. The faucet gives 10 per account and limits how many you make, so setup may stop partway; run it again a few hours later and it resumes where it stopped.
+- **What it builds:**
+  - a test USDC token and the vault (caps $500 per payment, $3,000 a week);
+  - an agent and a guardian, each holding a function-call key that can only call its own vault methods;
+  - test payees: two suppliers on NEAR, a lookalike account the scams use, and on Base Sepolia a freight supplier and a member of staff;
+  - an OutLayer agent wallet whose policy needs Veto's approval for every payment;
+  - the factory (`vaults.<root>`) that creates a vault for any testnet account. Each new vault runs the global vault code by hash, stores only its own state, and starts with $5,000 test USDC, the same caps and suppliers, and only the enclave model's key. It also gets its own agent (`<name>_agent`) and screening account (`<name>_guard`), each holding one function-call key that can only call that vault. Each vault costs the factory 0.9 test NEAR; send the factory more to sponsor more.
+- **What it writes:** your state in `.veto-dev/` and the app's `apps/web/.env.local` (both gitignored).
+- **Base payouts (the payroll emails):** setup prints the vault's own Base Sepolia address. Send it about 0.01 Base Sepolia ETH from any faucet and the Base emails appear in the inbox.
+- **Keys that turn on the rest** (see [.env.example](.env.example)):
+  - `NEARAI_API_KEY`: the real model instead of the labelled test signer, **Write your own email**, and the agent for vaults made at `/start`. Run `pnpm demo:setup` again after adding it.
+  - `NEAR_INTENTS_AGENT_API_KEY`, then `node scripts/agentapi-setup.ts`: the **Agent API** path.
 
 ### The guardian and SDK on their own
 
+After `pnpm demo:setup`:
+
 ```sh
-VETO_SCREENER=dev pnpm guardian      # watches the demo vault, screens, submits verdicts
+VETO_SCREENER=dev pnpm guardian      # watches your vault, screens, submits verdicts
 node scripts/demo-agent.ts           # an agent using @veto/sdk: one invoice PAID, one scam VETOED
 node scripts/outlayer-agent.ts       # the same agent paying from its OutLayer wallet
 node scripts/evm-agent.ts            # a Base Sepolia supplier, paid from the vault's own address via Chain Signatures
@@ -93,27 +121,29 @@ Put `NEARAI_API_KEY=…` in `.env.local` at the repo root, then:
 ```sh
 pnpm demo:setup                       # copies the key to the app and approves the model's attested key on the vault
 pnpm bench --model Qwen/Qwen3-VL-30B-A3B-Instruct
-node bench/verify.ts bench/results/Qwen_Qwen3-VL-30B-A3B-Instruct.json   # re-checks every signature offline
+node bench/verify.ts bench/results/Qwen_Qwen3-VL-30B-A3B-Instruct.json --attested
 node bench/publish.ts                 # updates the /bench page
 ```
 
 ## Mainnet: a real payout to Base through NEAR Intents
 
-Both scripts are dry runs unless you pass `--send`.
+`mainnet-setup.ts` and `mainnet-pay.ts` only print what they would do unless you pass `--send`. `mainnet-fund.ts` asks 1Click for a deposit address, which moves nothing until you send USDC to it.
 
 ```sh
-node scripts/mainnet-setup.ts          # prints the plan and cost (about 5.6 NEAR)
-node scripts/mainnet-fund.ts --amount 10
-node scripts/mainnet-pay.ts --amount 2
+node scripts/mainnet-setup.ts                 # the plan and its cost (about 6 NEAR; it prints the exact figure)
+node scripts/mainnet-setup.ts --send          # deploys it
+node scripts/mainnet-fund.ts --amount 10      # where to send 10 USDC on Base to fund the vault
+node scripts/mainnet-pay.ts --amount 2        # what the payout would do
+node scripts/mainnet-pay.ts --amount 2 --send
 ```
 
 What each one does:
 
 - **`mainnet-setup.ts`** deploys a small vault ($25 per payment, $50 a week) with a route that pays USDC on Base.
-- **`mainnet-fund.ts`** gets a 1Click deposit address that turns USDC on Base into USDC in the vault.
+- **`mainnet-fund.ts`** gets a 1Click deposit address that turns USDC on Base into USDC in the vault; `--watch <address>` follows a deposit until it lands.
 - **`mainnet-pay.ts`** has the agent propose a payout. The model screens it. The vault checks 1Click's signed quote on-chain: exact payee, exact amount, refunds only to the vault, fees under the cap. Only then does it send the deposit. The script follows 1Click until USDC lands on Base.
 
-They need `MAINNET_ROOT_ID`, `MAINNET_ROOT_KEY`, `MAINNET_SUPPLIER_BASE` and `MAINNET_FUNDER_BASE` in `.env.local`. `ONECLICK_JWT` lowers 1Click's fee. With `SHIELD_JWT` set, a payout is held while a Shield incident touches its chain, bridge, token or payee, and it fails closed if the incident outlasts the screening deadline.
+They need `MAINNET_ROOT_ID`, `MAINNET_ROOT_KEY`, `MAINNET_SUPPLIER_BASE` and `MAINNET_FUNDER_BASE` in `.env.local`, plus `NEARAI_API_KEY` for the payout. `ONECLICK_JWT` lowers 1Click's fee. With `SHIELD_JWT` set, a payout is held while a Shield incident touches its chain, bridge, token or payee, and it fails closed if the incident outlasts the screening deadline.
 
 ## How it works
 
@@ -170,12 +200,12 @@ vault: ecrecover → approved model key → echoes this proposal's id and hash �
 ```
 contract/          vault contract (near-sdk 5.29.1) and its tests
 factory/           creates vaults owned by their callers, from the global vault code
-packages/core/     proposal hashing, signals, prompt, NEAR AI client, pipeline, 1Click, OutLayer
+packages/core/     proposal hashing, signals, prompt, NEAR AI client, pipeline, 1Click, OutLayer, Agent API, Chain Signatures
 packages/sdk/      agent SDK
 services/guardian/ the screening service
 apps/web/          the app and docs (/docs explains everything in plain words)
 bench/             Veto Bench
-scripts/           testnet demo, OutLayer agent, mainnet setup/fund/pay
+scripts/           testnet demo setup and agents, Agent API setup/fund, deployed-code check, mainnet setup/fund/pay
 test-token/        NEP-141 test USDC
 ```
 
