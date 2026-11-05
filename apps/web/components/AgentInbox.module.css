@@ -117,6 +117,8 @@
   padding: 16px 16px 14px;
   border-radius: var(--r-tile);
   background: var(--tile);
+  /* Room around a card that scrolls itself into view while its payment runs. */
+  scroll-margin-block: 16px;
 }
 
 .mailTop {

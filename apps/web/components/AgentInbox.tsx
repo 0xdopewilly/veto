@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import type { Proposal } from "@veto/core/proposal";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDemo, type AgentApiOutcome, type DemoRun, type DemoScenario, type PayFrom } from "@/lib/demoClient";
 import { metaOf, useVault } from "@/lib/vault";
 import { reasonText } from "@/lib/decision";
@@ -151,16 +151,28 @@ function ScenarioCard({ scenario: email, run, index, busy }: { scenario: DemoSce
   const proposal = run?.proposalId ? state?.proposals.find((p) => p.id === run.proposalId) : undefined;
   const sending = !!run && !run.proposalId && !run.agentapi && !run.error;
   const initial = scenario.from.trim()[0]?.toUpperCase() ?? "?";
+  const stage = `${run?.proposalId ?? (run ? "sending" : "idle")}:${run?.error ?? ""}:${proposal?.status ?? ""}`;
+
+  // The card grows as each stage lands, often past the bottom of the list, so it keeps itself in view
+  // until the verdict. Only the copy that was clicked: the desktop home shows the inbox twice.
+  const card = useRef<HTMLLIElement>(null);
+  const clicked = useRef(false);
+  useEffect(() => {
+    if (!clicked.current || stage.startsWith("idle")) return;
+    const settle = setTimeout(() => card.current?.scrollIntoView({ block: "nearest", behavior: calm ? "auto" : "smooth" }), 320);
+    return () => clearTimeout(settle);
+  }, [stage, calm]);
 
   return (
     <motion.li
+      ref={card}
       className={styles.card}
       initial={calm ? false : { opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ ...SPRING_UI, delay: 0.08 + index * 0.06 }}
       layout
       // Measure only when this card's own content can change size, not on every render.
-      layoutDependency={`${run?.proposalId ?? (run ? "sending" : "idle")}:${run?.error ?? ""}:${proposal?.status ?? ""}`}
+      layoutDependency={stage}
     >
       <div className={styles.mailTop}>
         <span className={styles.avatar} aria-hidden="true">{initial}</span>
@@ -182,7 +194,16 @@ function ScenarioCard({ scenario: email, run, index, busy }: { scenario: DemoSce
         <AnimatePresence initial={false}>
           {(!run || (run.error && !own)) && (
             <motion.span key="cta" className={styles.cta} exit={{ opacity: 0, scale: 0.94 }} transition={{ duration: 0.16 }}>
-              <Pill size="sm" variant="soft" icon="send" disabled={busy} onClick={() => demo.run(scenario.id)}>
+              <Pill
+                size="sm"
+                variant="soft"
+                icon="send"
+                disabled={busy}
+                onClick={() => {
+                  clicked.current = true;
+                  demo.run(scenario.id);
+                }}
+              >
                 Let the agent pay
               </Pill>
             </motion.span>
