@@ -1,7 +1,9 @@
 // Server-only: the demo's NEAR Intents Agent API path (mainnet). The agent account moves money only
 // inside its owner-signed policy, and Veto holds its only grant: the AI agent can't spend, it can
 // only ask. Veto screens the request with the same enclave model as the vault, and only a pass
-// becomes a transfer, which the owner's policy still limits (payees, per-payment and daily caps).
+// becomes a transfer (a supplier on NEAR) or a withdrawal through NEAR Intents (a salary paid out on
+// the chain the worker chose), which the owner's policy still limits (destinations, per-payment and
+// daily caps).
 //
 // The account lives on mainnet with a few real dollars, so the inbox's amounts are scaled 1:100
 // here ($180.00 → $1.80), and the sandbox's testnet suppliers map onto the account's mainnet ones.
@@ -24,6 +26,7 @@ import {
   type StatusResponse,
 } from "@veto/core";
 import { demo as sandboxDemo, demoAccounts } from "./demo";
+import { WORKER } from "./evm";
 
 const env = (key: string) => process.env[key]?.trim() ?? "";
 
@@ -43,15 +46,22 @@ export function agentApiDemo() {
   if (!agentId || !grant || !key || !env("NEARAI_API_KEY")) return null;
   api ??= new AgentApi(env("NEAR_INTENTS_AGENT_API_URL") || "https://api.agentsonintents.com", key);
   screener ??= new NearAiScreener(env("NEARAI_API_KEY"), env("NEARAI_MODEL") || DEFAULT_MODEL);
-  // "Kano Cotton Mills=<account>;Ibadan Dye Works=<account>": the payees the owner's policy allows.
+  // "Kano Cotton Mills=<account>;…;Tunde Bello=base:0x…": the destinations the owner's policy allows,
+  // NEAR Intents accounts for transfers and chain:address for payouts on another chain.
   const payees: Payee[] = env("DEMO_AGENTAPI_PAYEES")
     .split(";")
     .filter(Boolean)
     .map((pair) => {
-      const [name, address] = pair.split("=");
-      return { name, chain: "near", address, added_at: "0" };
+      const [name, target] = pair.split("=");
+      const onChain = /^([a-z]+):(.+)$/.exec(target);
+      return { name, chain: onChain ? onChain[1] : "near", address: onChain ? onChain[2] : target, added_at: "0" };
     });
   return { api, screener, agentId, grant, payees };
+}
+
+/** The payroll worker's address on Base mainnet, the one payout off NEAR the owner's policy allows. */
+export function agentApiWorker(): string | null {
+  return agentApiDemo()?.payees.find((p) => p.name === WORKER && p.chain === "base")?.address ?? null;
 }
 
 /**
@@ -65,8 +75,12 @@ export function scaleMoney(text: string, scale: bigint) {
   );
 }
 
-/** The sandbox's suppliers map onto the Agent API ones by name; any other address onto one the policy never lists. */
+/**
+ * The sandbox's suppliers map onto the Agent API ones by name; an address that is already one of the
+ * account's stays; any other onto one the policy never lists.
+ */
 function mapPayee(payee: string, payees: Payee[]): string {
+  if (payees.some((p) => p.address.toLowerCase() === payee.toLowerCase())) return payee;
   const known = [
     ["kano-cotton.", "Kano Cotton Mills"],
     ["ibadan-dye.", "Ibadan Dye Works"],
@@ -77,7 +91,8 @@ function mapPayee(payee: string, payees: Payee[]): string {
 
 export interface AgentApiOutcome {
   id: string;
-  request: { payee: string; payee_name: string | null; amount: string; asset: string };
+  /** `chain` is "near" for a transfer inside NEAR Intents, or the chain a withdrawal pays out on. */
+  request: { payee: string; payee_name: string | null; amount: string; asset: string; chain: string };
   verdict: { verdict: "PASS" | "VETO"; reasons: string[]; model: string; signer: string; approved_signer: boolean; ms: number };
   execution:
     | { kind: "skipped" }
@@ -94,6 +109,8 @@ export interface AgentApiOutcome {
 export async function runViaAgentApi(input: {
   payee: string;
   amount: string;
+  /** Where it pays out: "near" (default) for a transfer, or a chain such as "base" for a withdrawal. */
+  chain?: string;
   memo: string | null;
   evidence: { source: string; from: string; subject: string; body: string };
   scaled: boolean;
@@ -113,7 +130,8 @@ export async function runViaAgentApi(input: {
   const evidence = input.scaled
     ? { ...input.evidence, subject: mapText(scaleMoney(input.evidence.subject, AGENT_SCALE)), body: mapText(scaleMoney(input.evidence.body, AGENT_SCALE)) }
     : { ...input.evidence, body: mapText(input.evidence.body) };
-  const request = { chain: "near", asset: USDC_CONTRACT, payee: recipient, amount, memo: input.memo };
+  const chain = input.chain ?? "near";
+  const request = { chain, asset: USDC_CONTRACT, payee: recipient, amount, memo: input.memo };
   const id = `aa-${Date.now().toString(36)}`;
   const now = (BigInt(Date.now()) * 1_000_000n).toString();
   const proposal: Proposal = {
@@ -139,10 +157,11 @@ export async function runViaAgentApi(input: {
     input.books ?? sandbox.reader.proposals(0, 30),
   ]);
   const own: Proposal[] = recent.data
-    .filter((s) => s.type === "transfer" && s.status === "SUCCESS")
+    .filter((s) => (s.type === "transfer" || s.type === "withdraw") && s.status === "SUCCESS")
     .map((s, i) => {
-      const r = (s.details.request ?? {}) as { amount?: string; recipient?: string };
-      return { ...proposal, id: `aa-past-${i}`, status: "Paid", request: { chain: "near", asset: USDC_CONTRACT, payee: r.recipient ?? "", amount: r.amount ?? "0", memo: null } };
+      const r = (s.details.request ?? {}) as { amount?: string; recipient?: string; chain?: string };
+      const paidOn = s.type === "withdraw" ? (r.chain ?? "base") : "near";
+      return { ...proposal, id: `aa-past-${i}`, status: "Paid", request: { chain: paidOn, asset: USDC_CONTRACT, payee: r.recipient ?? "", amount: r.amount ?? "0", memo: null } };
     });
   const vaultBooks: Proposal[] = books
     .slice(0, 30)
@@ -175,10 +194,10 @@ export async function runViaAgentApi(input: {
   // Only a pass signed by a key the vault approves runs; anything else is a veto.
   const pass = result.verdict.verdict === "PASS" && approved;
 
-  const payeeName = demo.payees.find((p) => p.address === recipient)?.name ?? null;
+  const payeeName = demo.payees.find((p) => p.address.toLowerCase() === recipient.toLowerCase() && p.chain === chain)?.name ?? null;
   const outcome: AgentApiOutcome = {
     id,
-    request: { payee: recipient, payee_name: payeeName, amount, asset: AGENT_USDC },
+    request: { payee: recipient, payee_name: payeeName, amount, asset: AGENT_USDC, chain },
     verdict: {
       verdict: pass ? "PASS" : "VETO",
       reasons: approved ? result.verdict.reasons : ["UNAPPROVED_SIGNER", ...result.verdict.reasons],
@@ -192,8 +211,13 @@ export async function runViaAgentApi(input: {
   if (!pass) return outcome;
 
   try {
-    // The idempotency key is tied to this screening, so a retry can never send twice.
-    const sent = await demo.api.transfer(demo.agentId, demo.grant, { asset: AGENT_USDC, amount, recipient }, `veto-${hash.slice(0, 40)}`);
+    // The idempotency key is tied to this screening, so a retry can never send twice. On NEAR it's a
+    // transfer inside NEAR Intents; to another chain, a withdrawal that NEAR Intents pays out there.
+    const key = `veto-${hash.slice(0, 40)}`;
+    const sent =
+      chain === "near"
+        ? await demo.api.transfer(demo.agentId, demo.grant, { asset: AGENT_USDC, amount, recipient }, key)
+        : await demo.api.withdraw(demo.agentId, demo.grant, { asset: AGENT_USDC, amount, chain, recipient }, key);
     const settled = sent.status === "PROCESSING" || sent.status === "QUEUED" ? await demo.api.settle(sent.correlation_id, 45_000) : sent;
     outcome.execution = {
       kind: "sent",
@@ -231,7 +255,7 @@ export async function agentApiSnapshot() {
     in_force: policy.status === "APPLIED" && policy.provider_policy_synced,
     usdc: usdc?.available_raw ?? "0",
     grants: grants.data.filter((g) => !g.revoked_at).map((g) => ({ label: g.label, expires_at: g.expires_at })),
-    payees: demo.payees.map((p) => ({ name: p.name, address: p.address })),
+    payees: demo.payees.map((p) => ({ name: p.name, address: p.address, chain: p.chain })),
     scale: Number(AGENT_SCALE),
   };
 }

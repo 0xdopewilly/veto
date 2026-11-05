@@ -33,7 +33,7 @@ const STATUS: { part: string; status: Status; note: string }[] = [
   { part: "Vault contract: caps, verdict check, overrides, freeze", status: "live", note: "48 contract tests; deployed on NEAR testnet." },
   { part: "Your own vault, owned by your wallet", status: "live", note: "A factory creates a vault for any NEAR testnet account in one transaction its wallet signs. The vault code is deployed once as a NEAR global contract, so each new vault stores only its own state (about 1.6 KB). Its agent and screening accounts are its own too, each holding one key that can only call that vault. Every owner action is signed by the owner's wallet." },
   { part: "OutLayer agent wallets", status: "live", note: "Veto is an approver on an OutLayer wallet's policy. Pass, veto and override all run on testnet, settled against the wallet's real transactions." },
-  { part: "NEAR Intents Agent API wallet", status: "live", note: "An agent account on mainnet whose owner-signed policy is the hard limit. Veto holds its only grant, screens each request with the same enclave model, and sends only a pass. Payments run once the wallet holds a few USDC." },
+  { part: "NEAR Intents Agent API wallet", status: "live", note: "An agent account on mainnet whose owner-signed policy is the hard limit. Veto holds its only grant, screens each request with the same enclave model, and sends only a pass: a transfer to a supplier, or a salary withdrawn to the worker's address on Base. Payments run once the wallet holds a few USDC." },
   { part: "Payroll: staff paid on the chain they chose", status: "live", note: "Staff sit on the payee list with their own wallet and chain. The sandbox pays a salary in test ETH on Base from the vault's Chain Signatures address and vetoes a fake request to send it to a new wallet." },
   { part: "Agent inbox and guardian screening", status: "live", note: "Real proposals and verdicts on testnet, screened by Qwen3-VL-30B inside NEAR AI's enclave. If NEAR AI can't answer, a labelled test key signs instead, so the demo never stalls." },
   { part: "Owner actions in the app", status: "live", note: "In your own vault, only your wallet. In the shared sandbox, a demo-owner key limited to the owner methods, so anyone can try it without a wallet." },
@@ -92,7 +92,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Can it run payroll?",
-    a: "Yes. Staff go on the payee list with the wallet and chain each one chose, and the agent pays salaries like any other payment: inside the caps, screened privately. In the sandbox, Tunde Bello is paid in test ETH on Base from the vault's own address, signed by NEAR's MPC network; on mainnet the same payout can go through NEAR Intents from one USDC balance. The scam payroll attracts most, an email asking to send someone's salary to a new wallet, is vetoed: the address is new and imitates the saved one.",
+    a: "Yes. Staff go on the payee list with the wallet and chain each one chose, and the agent pays salaries like any other payment: inside the caps, screened privately. In the sandbox, Tunde Bello is paid in test ETH on Base from the vault's own address, signed by NEAR's MPC network; on the Agent API path, the salary is USDC withdrawn through NEAR Intents and paid out on Base, to the one address the owner's policy allows for Tunde. The scam payroll attracts most, an email asking to send someone's salary to a new wallet, is vetoed: the address is new and imitates the saved one.",
   },
   {
     q: "Can Veto guard a swarm of agents?",
@@ -331,12 +331,15 @@ export function DocsView() {
                 business's payment history, and Veto requires the verdict to be signed by a key the vault approves.
               </li>
               <li>
-                <strong>Only a pass becomes a transfer.</strong> Veto calls the API with its grant, under an idempotency key tied to that
+                <strong>Only a pass is sent.</strong> A supplier on NEAR gets a transfer; a salary is a withdrawal that NEAR Intents pays out
+                on the chain the worker chose, Base in the demo. Veto calls the API with its grant, under an idempotency key tied to that
                 screening, so a retry can never send twice. A veto never reaches the API.
               </li>
               <li>
                 <strong>The owner&apos;s policy still decides.</strong> Even after a pass, the API refuses anything the policy doesn&apos;t
-                allow: an unlisted payee, more than the per-payment or daily limit, or a frozen account.
+                allow: an unlisted payee, more than the per-payment or daily limit, or a frozen account. The demo&apos;s policy allows
+                withdrawals only to Tunde Bello&apos;s saved Base address, so a &ldquo;new wallet&rdquo; would be refused there even if the screen
+                missed it.
               </li>
             </ol>
             <p className={styles.note}>

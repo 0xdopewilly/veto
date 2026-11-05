@@ -188,10 +188,15 @@
   flex: 1;
   min-width: 0;
   font-size: 12.5px;
+  line-height: 1.35;
   color: var(--dim);
+  /* Up to two lines, so "Tunde Bello, on Base" or "an address the owner's policy doesn't list" reads whole. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .payee :global(.mono) {

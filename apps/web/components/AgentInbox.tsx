@@ -111,7 +111,7 @@ export function AgentInbox({ titleId = "inbox-title", compact = false, head = tr
 
       {demo.status === "ready" && demo.info && (
         <ul className={styles.list}>
-          {[...demo.composed, ...demo.info.scenarios.filter((s) => demo.payFrom !== "agentapi" || !s.symbol)].map((s, i) => (
+          {[...demo.composed, ...demo.info.scenarios.filter((s) => demo.payFrom !== "agentapi" || !s.symbol || s.agentapi)].map((s, i) => (
             <ScenarioCard
               key={s.id}
               scenario={s}
@@ -126,8 +126,11 @@ export function AgentInbox({ titleId = "inbox-title", compact = false, head = tr
   );
 }
 
-function ScenarioCard({ scenario, run, index, busy }: { scenario: DemoScenario; run?: DemoRun; index: number; busy: boolean }) {
+function ScenarioCard({ scenario: email, run, index, busy }: { scenario: DemoScenario; run?: DemoRun; index: number; busy: boolean }) {
   const demo = useDemo();
+  // On the Agent API path a payroll email is a USDC salary paid out on Base through NEAR Intents.
+  const variant = demo.payFrom === "agentapi" ? email.agentapi : undefined;
+  const scenario: DemoScenario = variant ? { ...email, ...variant, symbol: undefined } : email;
   const calm = useCalm();
   const { state } = useVault();
   const symbol = state ? metaOf(state, state.primaryAsset).symbol : "USDC";
@@ -162,7 +165,7 @@ function ScenarioCard({ scenario, run, index, busy }: { scenario: DemoScenario; 
         <span className={styles.payee}>
           Pays{" "}
           {demo.payFrom === "agentapi" && !own ? (
-            agentApiPayee(scenario.payee, run?.agentapi)
+            agentApiPayee(scenario.payee, run?.agentapi, variant?.payee_label)
           ) : (
             <span className="mono">{shortAddress(scenario.payee)}</span>
           )}
@@ -249,12 +252,18 @@ function Stage({ done, active, label, children }: { done: boolean; active: boole
 }
 
 /** On the Agent API path the sandbox's suppliers stand for the account's mainnet ones. */
-function agentApiPayee(payee: string, outcome?: AgentApiOutcome) {
-  if (outcome) return outcome.request.payee_name ?? "an address the owner's policy doesn't list";
+function agentApiPayee(payee: string, outcome?: AgentApiOutcome, label?: string) {
+  if (outcome) {
+    if (!outcome.request.payee_name) return "an address the owner's policy doesn't list";
+    return outcome.request.chain === "near" ? outcome.request.payee_name : `${outcome.request.payee_name}, on ${chainName(outcome.request.chain)}`;
+  }
+  if (label) return label;
   if (payee.startsWith("kano-cotton.")) return "Kano Cotton Mills";
   if (payee.startsWith("ibadan-dye.")) return "Ibadan Dye Works";
   return "an address the owner's policy doesn't list";
 }
+
+const chainName = (chain: string) => ({ base: "Base", arb: "Arbitrum", eth: "Ethereum", sol: "Solana", op: "Optimism" })[chain] ?? chain;
 
 /** What the Agent API's refusal means, in words; the owner's policy is the layer that says no. */
 function refusalText(code: string, message: string) {
@@ -276,7 +285,9 @@ function AgentApiVerdict({ outcome }: { outcome: AgentApiOutcome }) {
     : execution.kind === "refused"
       ? `Veto sent it with its grant. ${refusalText(execution.code, execution.message)}`
       : paid
-        ? `Veto sent it with its grant and the Agent API paid it on mainnet.`
+        ? outcome.request.chain === "near"
+          ? "Veto sent it with its grant and the Agent API paid it on mainnet."
+          : `Veto sent it with its grant and NEAR Intents paid it out on ${chainName(outcome.request.chain)}.`
         : execution.kind === "sent"
           ? `Veto sent it with its grant; the Agent API says ${execution.status.toLowerCase().replace(/_/g, " ")}.`
           : "Passed.";

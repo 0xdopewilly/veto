@@ -3,7 +3,7 @@ import { outlayerEnabled } from "@/lib/server/outlayer";
 import { buildScenarios } from "@/lib/server/scenarios";
 import { evmDemo } from "@/lib/server/evm";
 import { refusal, startPayment, units } from "@/lib/server/pay";
-import { agentApiDemo, runViaAgentApi } from "@/lib/server/agentapi";
+import { agentApiDemo, agentApiWorker, runViaAgentApi } from "@/lib/server/agentapi";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
 
   // The same window the inbox is built from (lib/server/state.ts), so the card and the run agree.
   const history = await accounts.reader.proposals(0, 100);
-  const chosen = buildScenarios(demo.root, history, accounts.sandbox ? await evmDemo() : null).find((s) => s.id === scenario);
+  const chosen = buildScenarios(demo.root, history, accounts.sandbox ? await evmDemo() : null, accounts.sandbox ? agentApiWorker() : null).find((s) => s.id === scenario);
   if (!chosen) return Response.json({ error: "unknown scenario" }, { status: 400 });
 
   try {
@@ -43,8 +43,20 @@ export async function POST(req: Request) {
       memo: chosen.memo,
     };
     if (via === "agentapi") {
-      if (request.chain !== "near") return Response.json({ error: "The Agent API wallet pays USDC on NEAR. ETH on Base Sepolia goes from the vault." }, { status: 422 });
-      return Response.json({ agentapi: await runViaAgentApi({ payee: request.payee, amount: request.amount, memo: request.memo ?? null, evidence, scaled: true, books: history }) });
+      // A payroll email reads as a USDC salary paid out on Base through NEAR Intents on this path.
+      const variant = chosen.agentapi;
+      if (!variant && request.chain !== "near") return Response.json({ error: "The Agent API wallet pays in USDC. ETH on Base Sepolia goes from the vault." }, { status: 422 });
+      return Response.json({
+        agentapi: await runViaAgentApi({
+          payee: variant?.payee ?? request.payee,
+          amount: variant ? units(variant.amount, 6) : request.amount,
+          chain: variant?.chain ?? "near",
+          memo: request.memo ?? null,
+          evidence: variant ? { ...evidence, subject: variant.subject, body: variant.body } : evidence,
+          scaled: true,
+          books: history,
+        }),
+      });
     }
     return Response.json(await startPayment(accounts, request, evidence, via));
   } catch (e) {

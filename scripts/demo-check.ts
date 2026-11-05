@@ -3,13 +3,14 @@
 // vetoes, every verdict signed by the model in its enclave (not the fallback test key). Exits
 // non-zero if anything is off. An Agent API pass counts once Veto has sent it with its grant: paid,
 // or refused only for lack of funds while the wallet holds no USDC.
-//   node scripts/demo-check.ts [https://veto-beta.vercel.app] [--vault <id>] [--only payroll,payroll-diverted]
+//   node scripts/demo-check.ts [https://veto-beta.vercel.app] [--vault <id>] [--only payroll,payroll-diverted] [--agentapi-only]
 // With --vault it checks a vault the factory created (the agent's inbox only; owned vaults have
 // no OutLayer wallet or Base route).
 const args = process.argv.slice(2);
 const vaultArg = args.includes("--vault") ? args[args.indexOf("--vault") + 1] : undefined;
-// --only runs just these inbox scenarios, through the vault.
+// --only runs just these inbox scenarios; --agentapi-only runs only the Agent API path.
 const only = args.includes("--only") ? args[args.indexOf("--only") + 1].split(",") : null;
+const agentApiOnly = args.includes("--agentapi-only");
 const base = args.find((a, i) => !a.startsWith("--") && args[i - 1] !== "--vault" && args[i - 1] !== "--only") ?? "http://localhost:3000";
 const query = vaultArg ? `?vault=${encodeURIComponent(vaultArg)}` : "";
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -46,12 +47,12 @@ const rpc = async (method: string, args: Record<string, unknown>) => {
 
 console.log(`${base}: vault ${info.vault}, screened by ${info.guardian.model}`);
 const plan: [string, "vault" | "outlayer", "pass" | "veto"][] = [];
-for (const s of info.scenarios) if (!only || only.includes(s.id)) plan.push([s.id, "vault", s.expect]);
-if (only && plan.length < only.length) {
+for (const s of info.scenarios) if (!agentApiOnly && (!only || only.includes(s.id))) plan.push([s.id, "vault", s.expect]);
+if (only && !agentApiOnly && plan.length < only.length) {
   console.log(`✗ not in the inbox: ${only.filter((id) => !plan.some(([s]) => s === id)).join(", ")}`);
   process.exit(1);
 }
-if (info.outlayer && !only) {
+if (info.outlayer && !only && !agentApiOnly) {
   plan.push(["invoice", "outlayer", "pass"]);
   plan.push(["injected-page", "outlayer", "veto"]);
 }
@@ -83,8 +84,18 @@ for (const [scenario, via, expect] of plan) {
   );
 }
 // The Agent API wallet (sandbox only): its result comes back in the response, no vault proposal.
-if (info.agentapi && !only) {
-  for (const [scenario, expect] of [["invoice", "pass"], ["wallet-changed", "veto"], ["duplicate", "veto"]] as const) {
+if (info.agentapi && (!only || agentApiOnly)) {
+  // The payroll pair runs here as a USDC salary withdrawn to Base through NEAR Intents.
+  const aaPlan = (
+    [
+      ["invoice", "pass"],
+      ["wallet-changed", "veto"],
+      ["duplicate", "veto"],
+      ["payroll", "pass"],
+      ["payroll-diverted", "veto"],
+    ] as const
+  ).filter(([id]) => info.scenarios.some((s) => s.id === id) && (!only || only.includes(id)));
+  for (const [scenario, expect] of aaPlan) {
     const started = Date.now();
     const res = await fetch(`${base}/api/demo/run`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scenario, via: "agentapi", vault: info.vault }) });
     const body = (await res.json()) as {
@@ -101,7 +112,8 @@ if (info.agentapi && !only) {
       failures++;
       continue;
     }
-    const sent = a.execution.kind === "sent" && a.execution.status === "SUCCESS";
+    // A withdrawal to another chain can still be on its way when the call returns.
+    const sent = a.execution.kind === "sent" && ["SUCCESS", "PROCESSING", "QUEUED"].includes(a.execution.status ?? "");
     const unfunded = a.execution.kind === "refused" && a.execution.code === "insufficient_balance";
     const ok = a.verdict.approved_signer && (expect === "pass" ? a.verdict.verdict === "PASS" && (sent || unfunded) : a.verdict.verdict === "VETO" && a.execution.kind === "skipped");
     if (!ok) failures++;

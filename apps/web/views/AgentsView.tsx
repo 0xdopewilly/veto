@@ -169,7 +169,7 @@ interface AgentApiView {
     destinations: { mode: string; list: unknown[] };
   } | null;
   grants: { label: string; expires_at: string }[];
-  payees: { name: string; address: string }[];
+  payees: { name: string; address: string; chain?: string }[];
 }
 
 const usd = (raw: string | undefined) => (raw ? `$${(Number(raw) / 1e6).toFixed(2)}` : "none");
@@ -215,7 +215,7 @@ function AgentApiCard({ style }: { style?: React.CSSProperties }) {
         <div className={styles.fact}>
           <dt>Owner&apos;s policy</dt>
           <dd>
-            {view.in_force ? "In force: " : "Syncing: "}USDC only, up to {usd(perPayment)} a payment and {usd(daily)} a day, to {view.policy?.destinations.list.length ?? 0} listed payees ({view.payees.map((p) => p.name).join(", ")}).
+            {view.in_force ? "In force: " : "Syncing: "}USDC only, up to {usd(perPayment)} a payment and {usd(daily)} a day, to {view.policy?.destinations.list.length ?? 0} listed payees ({view.payees.map((p) => (p.chain && p.chain !== "near" ? `${p.name}, paid out on ${p.chain === "base" ? "Base" : p.chain}` : p.name)).join("; ")}).
           </dd>
         </div>
         <div className={styles.fact}>

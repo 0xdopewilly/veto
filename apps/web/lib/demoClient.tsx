@@ -16,6 +16,8 @@ export interface DemoScenario {
   expect: "pass" | "veto";
   /** Set when the payout is in another coin, e.g. ETH on Base Sepolia. */
   symbol?: string;
+  /** How the email reads on the Agent API path when that differs: a USDC salary paid out on Base through NEAR Intents. */
+  agentapi?: { subject: string; preview: string; amount: string; payee: string; chain: string; payee_label?: string };
 }
 
 export interface DemoInfo {
@@ -42,7 +44,8 @@ export type PayFrom = "vault" | "outlayer" | "agentapi";
 /** What happened to a payment the agent asked its Agent API wallet to make (see lib/server/agentapi). */
 export interface AgentApiOutcome {
   id: string;
-  request: { payee: string; payee_name: string | null; amount: string; asset: string };
+  /** `chain` is "near" for a transfer inside NEAR Intents, or the chain a withdrawal pays out on. */
+  request: { payee: string; payee_name: string | null; amount: string; asset: string; chain: string };
   verdict: { verdict: "PASS" | "VETO"; reasons: string[]; model: string; signer: string; approved_signer: boolean; ms: number };
   execution:
     | { kind: "skipped" }

@@ -1,6 +1,7 @@
 // Sets up the demo's NEAR Intents Agent API wallet: an agent account that moves money only inside an
 // owner-signed policy, with Veto holding its only grant. The AI agent never gets a grant, so it can
-// only ask; Veto screens, and only a pass becomes a transfer.
+// only ask; Veto screens, and only a pass becomes a transfer (to a supplier on NEAR) or a withdrawal
+// (a salary paid out on the chain the worker chose).
 //
 //   node scripts/agentapi-setup.ts
 //
@@ -26,6 +27,8 @@ if (!key) throw new Error("Put NEAR_INTENTS_AGENT_API_KEY in the root .env.local
 interface State {
   ownerKey?: string;
   payees?: Record<string, { name: string; key: string; account: string }>;
+  /** Staff paid out on another chain: the policy lets the account withdraw to exactly these addresses. */
+  workers?: Record<string, { name: string; chain: string; key: string; address: string }>;
   pendingCreate?: GeneratedIntent;
   agentId?: string;
   wallet?: string;
@@ -56,25 +59,38 @@ if (!state.payees) {
   };
   state.payees = { "kano-cotton": payee("Kano Cotton Mills"), "ibadan-dye": payee("Ibadan Dye Works") };
 }
+// A member of staff paid in USDC on Base, the chain they chose, from a key we keep.
+state.workers ??= {};
+if (!state.workers["tunde-bello"]) {
+  const w = Wallet.createRandom();
+  state.workers["tunde-bello"] = { name: "Tunde Bello", chain: "base", key: w.privateKey, address: w.address.toLowerCase() };
+}
 save();
 const owner = evmOwner(state.ownerKey);
 
 /**
- * The owner's policy, the hard limit even for Veto: USDC only, to the two listed suppliers, at most
- * $25 a payment and $150 a day, $500 a week across everything. The inbox's examples are scaled 1:100
+ * The owner's policy, the hard limit even for Veto: USDC only, sent to the two listed suppliers or
+ * withdrawn to the listed worker's own address on Base, at most $25 a payment and $150 a day, $500 a
+ * week across everything. The inbox's examples are scaled 1:100
  * (at most $3), so a day of judging fits; an email someone writes for more than $25 meets the limit.
  */
 function desiredPolicy(): AgentPolicy {
   return {
     frozen: false,
-    actions: ["transfer"],
+    actions: ["transfer", "withdraw"],
     confidential: false,
     // Veto is the gate: it holds the only grant and screens before it calls.
     owner_approval: false,
     assets: [USDC],
     limits: { per_transaction: { [USDC]: String(25n * USD) }, daily: { [USDC]: String(150n * USD) } },
     max_actions_per_hour: 60,
-    destinations: { mode: "only", list: Object.values(state.payees!).map((p) => ({ action: "transfer" as const, address: p.account, confidential: false })) },
+    destinations: {
+      mode: "only",
+      list: [
+        ...Object.values(state.payees!).map((p) => ({ action: "transfer" as const, address: p.account, confidential: false })),
+        ...Object.values(state.workers!).map((w) => ({ action: "withdraw" as const, chain: w.chain, address: w.address, memo: null })),
+      ],
+    },
     budget: { daily_usd: "150", weekly_usd: "500", monthly_usd: null },
     timelock_ms: 0,
   };
@@ -167,6 +183,7 @@ log(`agent ${agent.name} (${agent.status}), wallet ${state.wallet}`);
 log(`policy revision ${policy.revision}: ${policy.status}${policy.provider_policy_synced ? ", in force" : ", syncing"}`);
 log(`USDC: ${usdc ? Number(usdc.available_raw) / 1e6 : 0}`);
 for (const p of Object.values(state.payees)) log(`allowed payee ${p.name}: ${p.account}`);
+for (const w of Object.values(state.workers)) log(`allowed payout ${w.name} on ${w.chain}: ${w.address}`);
 
 // 4. The web app's env (gitignored): which agent, and Veto's grant.
 const webEnv = new URL("../apps/web/.env.local", import.meta.url);
@@ -176,7 +193,11 @@ const upsert = (k: string, v: string) => {
 };
 upsert("DEMO_AGENTAPI_AGENT_ID", state.agentId);
 upsert("DEMO_AGENTAPI_GRANT", state.grantToken!);
-upsert("DEMO_AGENTAPI_PAYEES", Object.values(state.payees).map((p) => `${p.name}=${p.account}`).join(";"));
+// "Name=account" for a NEAR Intents account, "Name=chain:address" for a payout on another chain.
+upsert(
+  "DEMO_AGENTAPI_PAYEES",
+  [...Object.values(state.payees).map((p) => `${p.name}=${p.account}`), ...Object.values(state.workers).map((w) => `${w.name}=${w.chain}:${w.address}`)].join(";"),
+);
 writeFileSync(webEnv, text, { mode: 0o600 });
 log("wrote the agent id, Veto's grant and the payees to apps/web/.env.local");
 if (!usdc || BigInt(usdc.available_raw) === 0n) {

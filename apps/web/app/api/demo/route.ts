@@ -3,7 +3,7 @@ import { demo, vaultAccounts } from "@/lib/server/demo";
 import { buildScenarios } from "@/lib/server/scenarios";
 import { evmDemo } from "@/lib/server/evm";
 import { vaultSnapshot } from "@/lib/server/state";
-import { AGENT_SCALE, agentApiDemo } from "@/lib/server/agentapi";
+import { AGENT_SCALE, agentApiDemo, agentApiWorker } from "@/lib/server/agentapi";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,6 +34,9 @@ export async function GET(req: Request) {
     // A NEAR Intents Agent API wallet on mainnet whose only grant Veto holds (sandbox only).
     agentapi: sandbox && agentApiDemo() ? { agent_id: agentApiDemo()!.agentId, scale: Number(AGENT_SCALE) } : null,
     evm,
-    scenarios: buildScenarios(demo.root, history, evm).map(({ body: _body, memo: _memo, ...card }) => card),
+    scenarios: buildScenarios(demo.root, history, evm, sandbox ? agentApiWorker() : null).map(({ body: _body, memo: _memo, agentapi, ...card }) => ({
+      ...card,
+      ...(agentapi && { agentapi: { subject: agentapi.subject, preview: agentapi.preview, amount: agentapi.amount, payee: agentapi.payee, chain: agentapi.chain, payee_label: agentapi.payee_label } }),
+    })),
   });
 }
