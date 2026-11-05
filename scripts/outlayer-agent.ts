@@ -8,7 +8,7 @@ process.env.VETO_PROFILE ??= "demo3";
 const { loadState } = await import("./dev-state.ts");
 
 const state = loadState("testnet");
-if (!state.outlayer) throw new Error("no OutLayer wallet in this profile; run node scripts/demo-setup.ts first");
+if (!state.outlayer) { console.error("no OutLayer wallet in this profile; run node scripts/demo-setup.ts first"); process.exit(1); }
 const root = state.root!.accountId;
 // Its own invoice numbers, so running both demo agents never looks like paying an invoice twice.
 const inbox = JSON.parse(

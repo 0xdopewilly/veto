@@ -15,7 +15,7 @@ const { loadState } = await import("./dev-state.ts");
 const { values: args } = parseArgs({ options: { amount: { type: "string" }, watch: { type: "string" } } });
 loadEnv(new URL("../.env.local", import.meta.url));
 const state = loadState("mainnet");
-if (!state.vault) throw new Error("no mainnet vault yet; run node scripts/mainnet-setup.ts --send first");
+if (!state.vault) { console.error("no mainnet vault yet; run node scripts/mainnet-setup.ts --send first"); process.exit(1); }
 const vaultId = state.vault.accountId;
 const jwt = process.env.ONECLICK_JWT;
 
@@ -35,7 +35,7 @@ if (args.watch) {
 }
 
 const funder = (process.env.MAINNET_FUNDER_BASE ?? "").toLowerCase();
-if (!/^0x[0-9a-f]{40}$/.test(funder)) throw new Error("set MAINNET_FUNDER_BASE (the 0x… Base address you send from) in .env.local");
+if (!/^0x[0-9a-f]{40}$/.test(funder)) { console.error("set MAINNET_FUNDER_BASE (the 0x… Base address you send from) in .env.local"); process.exit(1); }
 const amount = BigInt(Math.round(Number(args.amount ?? "0") * 1e6));
 if (amount < 1_000_000n) throw new Error("pass --amount in USDC, at least 1");
 

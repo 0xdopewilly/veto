@@ -17,7 +17,7 @@ const { loadState } = await import("./dev-state.ts");
 const { values: args } = parseArgs({ options: { amount: { type: "string", default: "2" }, send: { type: "boolean", default: false } } });
 loadEnv(new URL("../.env.local", import.meta.url));
 const state = loadState("mainnet");
-if (!state.vault || !state.agentProposeKey || !state.guardianVerdictKey) throw new Error("run node scripts/mainnet-setup.ts --send first");
+if (!state.vault || !state.agentProposeKey || !state.guardianVerdictKey) { console.error("run node scripts/mainnet-setup.ts --send first"); process.exit(1); }
 const supplier = (process.env.MAINNET_SUPPLIER_BASE ?? "").toLowerCase();
 const amount = String(BigInt(Math.round(Number(args.amount) * 1e6)));
 const USDC_TOKEN = "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1";

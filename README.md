@@ -19,7 +19,7 @@ The vault can also pay on **Base** from its own address there, through **NEAR Ch
 
 **Payroll** runs through the same gate. Staff sit on the payee list with the wallet and chain each one chose. In the sandbox the agent pays Tunde Bello's salary on Base, and Veto vetoes the scam payroll attracts most: an email asking to send the salary to a "new wallet".
 
-**Many agents, one gate.** A vault takes any number of agents, each holding a key that can only propose. Agents in OutLayer or Agent API wallets go through the same caps and the same private AI review, and the owner can pause any one of them.
+**Many agents, one gate.** A vault takes any number of agents, each holding a key that can only propose, and the owner can pause any one of them without stopping the rest. Every agent's payment gets the same private AI review, whichever wallet it pays from: agents on the vault and OutLayer wallets also meet the vault's caps, and an Agent API wallet meets its owner's signed policy.
 
 ## Check it yourself (no keys, no funds)
 
@@ -127,7 +127,7 @@ node bench/publish.ts                 # updates the /bench page
 
 ## Mainnet: a real payout to Base through NEAR Intents
 
-`mainnet-setup.ts` and `mainnet-pay.ts` only print what they would do unless you pass `--send`. `mainnet-fund.ts` asks 1Click for a deposit address, which moves nothing until you send USDC to it.
+First put `MAINNET_ROOT_ID`, `MAINNET_ROOT_KEY`, `MAINNET_SUPPLIER_BASE` and `MAINNET_FUNDER_BASE` in `.env.local` (see [.env.example](.env.example)), plus `NEARAI_API_KEY` for the payout; without them each script stops and names what's missing. `mainnet-setup.ts` and `mainnet-pay.ts` only print what they would do unless you pass `--send`. `mainnet-fund.ts` asks 1Click for a deposit address, which moves nothing until you send USDC to it.
 
 ```sh
 node scripts/mainnet-setup.ts                 # the plan and its cost (about 6 NEAR; it prints the exact figure)
@@ -143,7 +143,7 @@ What each one does:
 - **`mainnet-fund.ts`** gets a 1Click deposit address that turns USDC on Base into USDC in the vault; `--watch <address>` follows a deposit until it lands.
 - **`mainnet-pay.ts`** has the agent propose a payout. The model screens it. The vault checks 1Click's signed quote on-chain: exact payee, exact amount, refunds only to the vault, fees under the cap. Only then does it send the deposit. The script follows 1Click until USDC lands on Base.
 
-They need `MAINNET_ROOT_ID`, `MAINNET_ROOT_KEY`, `MAINNET_SUPPLIER_BASE` and `MAINNET_FUNDER_BASE` in `.env.local`, plus `NEARAI_API_KEY` for the payout. `ONECLICK_JWT` lowers 1Click's fee. With `SHIELD_JWT` set, a payout is held while a Shield incident touches its chain, bridge, token or payee, and it fails closed if the incident outlasts the screening deadline.
+`ONECLICK_JWT` lowers 1Click's fee. With `SHIELD_JWT` set, a payout is held while a Shield incident touches its chain, bridge, token or payee, and it fails closed if the incident outlasts the screening deadline.
 
 ## How it works
 

@@ -96,7 +96,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Can Veto guard a swarm of agents?",
-    a: "Yes. A vault takes any number of agents, each with its own key that can only propose a payment, and agents running in OutLayer TEE wallets or NEAR Intents Agent API wallets go through the same gate. Every payment from any of them meets the same contract caps and the same private AI review, and the owner can pause one agent without stopping the rest. Separate budgets for each agent are next.",
+    a: "Yes. A vault takes any number of agents, each with its own key that can only propose a payment, and the owner can pause one without stopping the rest. Agents running in OutLayer TEE wallets or NEAR Intents Agent API wallets go through the same gate: every payment from any of them gets the same private AI review. Agents on the vault and OutLayer wallets also meet the vault's contract caps; an Agent API wallet meets its owner's signed policy instead. Separate budgets for each agent are next.",
   },
   {
     q: "Why not just use a card with limits?",

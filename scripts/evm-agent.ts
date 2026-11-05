@@ -8,7 +8,7 @@ process.env.VETO_PROFILE ??= "demo3";
 const { loadState } = await import("./dev-state.ts");
 
 const state = loadState("testnet");
-if (!state.evmPayee) throw new Error("no Base Sepolia route in this profile; run node scripts/demo-setup.ts first");
+if (!state.evmPayee) { console.error("no Base Sepolia route in this profile; run node scripts/demo-setup.ts first"); process.exit(1); }
 const veto = new Veto({
   vaultId: state.vault!.accountId,
   agentAccountId: state.agent!.accountId,

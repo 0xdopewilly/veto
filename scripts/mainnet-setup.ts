@@ -29,7 +29,7 @@ const rootId = process.env.MAINNET_ROOT_ID ?? "";
 const rootKey = (process.env.MAINNET_ROOT_KEY ?? "") as KeyPairString;
 const supplier = (process.env.MAINNET_SUPPLIER_BASE ?? "").toLowerCase();
 if (!rootId || !rootKey || !/^0x[0-9a-f]{40}$/.test(supplier)) {
-  throw new Error("set MAINNET_ROOT_ID, MAINNET_ROOT_KEY and MAINNET_SUPPLIER_BASE (a 0x… Base address) in .env.local");
+  { console.error("set MAINNET_ROOT_ID, MAINNET_ROOT_KEY and MAINNET_SUPPLIER_BASE (a 0x… Base address) in .env.local"); process.exit(1); }
 }
 // An account this script must never use, e.g. where a prize is paid (MAINNET_PROTECTED_ACCOUNT, optional).
 const PROTECTED = process.env.MAINNET_PROTECTED_ACCOUNT?.trim() || null;

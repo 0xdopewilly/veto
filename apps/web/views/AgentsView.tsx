@@ -59,7 +59,7 @@ export function AgentsView() {
     <Screen>
       <LineReveal as="h1" className={head.title} text="Agents" />
       <p className={`${head.lead} rise`} style={delay(60)}>
-        Every agent that spends from this vault, whatever wallet it runs in, passes the same limits and the same private AI check. Each has its own key: it can ask to pay, never change the rules.
+        Every agent here, whatever wallet it runs in, passes the same private AI check before it pays, and it can ask to pay, never change the rules. Agents on this vault and OutLayer wallets also meet the vault's limits; the Agent API wallet meets its owner's signed policy.
       </p>
 
       <div className={styles.list}>

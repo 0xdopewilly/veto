@@ -7,7 +7,7 @@ process.env.VETO_PROFILE ??= "demo3";
 const { loadState } = await import("./dev-state.ts");
 
 const state = loadState("testnet") as ReturnType<typeof loadState> & { token?: { accountId: string } };
-if (!state.root || !state.vault) throw new Error("no demo vault in this profile; run pnpm build:contracts and pnpm demo:setup first");
+if (!state.root || !state.vault) { console.error("no demo vault in this profile; run pnpm build:contracts and pnpm demo:setup first"); process.exit(1); }
 const root = state.root.accountId;
 const asset = state.token?.accountId ?? "near";
 const decimals = asset === "near" ? 24 : 6;
