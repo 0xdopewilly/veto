@@ -77,9 +77,10 @@ const owner = evmOwner(state.ownerKey);
 
 /**
  * The owner's policy, the hard limit even for Veto: USDC only, sent to the two listed suppliers or
- * withdrawn to the listed worker's own address on Base, at most $25 a payment and $150 a day, $500 a
- * week across everything. The inbox's examples are scaled 1:100
- * (at most $3), so a day of judging fits; an email someone writes for more than $25 meets the limit.
+ * withdrawn to the listed worker's own address on Base, at most $0.10 a payment, $2 a day and $10 a
+ * week across everything. The inbox's examples are scaled 1:2000 (the ones that pass cost 9 and 7.5
+ * cents), so a few dollars last the whole judging week; an email someone writes for more than $0.10
+ * meets the limit.
  */
 function desiredPolicy(): AgentPolicy {
   return {
@@ -89,7 +90,7 @@ function desiredPolicy(): AgentPolicy {
     // Veto is the gate: it holds the only grant and screens before it calls.
     owner_approval: false,
     assets: [USDC],
-    limits: { per_transaction: { [USDC]: String(25n * USD) }, daily: { [USDC]: String(150n * USD) } },
+    limits: { per_transaction: { [USDC]: String(USD / 10n) }, daily: { [USDC]: String(2n * USD) } },
     max_actions_per_hour: 60,
     destinations: {
       mode: "only",
@@ -98,7 +99,7 @@ function desiredPolicy(): AgentPolicy {
         ...Object.values(state.workers!).map((w) => ({ action: "withdraw" as const, chain: w.chain, address: w.address, memo: null })),
       ],
     },
-    budget: { daily_usd: "150", weekly_usd: "500", monthly_usd: null },
+    budget: { daily_usd: "2", weekly_usd: "10", monthly_usd: null },
     timelock_ms: 0,
   };
 }

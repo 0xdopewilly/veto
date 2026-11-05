@@ -119,7 +119,7 @@ if (info.agentapi && (!only || agentApiOnly)) {
     if (!ok) failures++;
     const what = a.execution.kind === "sent" ? `sent: ${a.execution.status}` : a.execution.kind === "refused" ? `refused: ${a.execution.code}` : "not sent";
     const why = a.verdict.reasons.length ? ` (${a.verdict.reasons.join(", ")})` : "";
-    console.log(`${ok ? "✓" : "✗"} ${`${scenario} via agentapi`.padEnd(30)} ${a.verdict.verdict.padEnd(8)}${why} $${(Number(a.request.amount) / 1e6).toFixed(2)}, ${what} ${((Date.now() - started) / 1000).toFixed(1)} s${unfunded ? "  [wallet not funded yet]" : ""}`);
+    console.log(`${ok ? "✓" : "✗"} ${`${scenario} via agentapi`.padEnd(30)} ${a.verdict.verdict.padEnd(8)}${why} $${(Number(a.request.amount) / 1e6).toFixed(6).replace(/0{1,4}$/, "")}, ${what} ${((Date.now() - started) / 1000).toFixed(1)} s${unfunded ? "  [the wallet holds no USDC]" : ""}`);
   }
 }
 

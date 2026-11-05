@@ -33,7 +33,7 @@ const STATUS: { part: string; status: Status; note: string }[] = [
   { part: "Vault contract: caps, verdict check, overrides, freeze", status: "live", note: "48 contract tests; deployed on NEAR testnet." },
   { part: "Your own vault, owned by your wallet", status: "live", note: "A factory creates a vault for any NEAR testnet account in one transaction its wallet signs. The vault code is deployed once as a NEAR global contract, so each new vault stores only its own state (about 1.6 KB). Its agent and screening accounts are its own too, each holding one key that can only call that vault. Every owner action is signed by the owner's wallet." },
   { part: "OutLayer agent wallets", status: "live", note: "Veto is an approver on an OutLayer wallet's policy. Pass, veto and override all run on testnet, settled against the wallet's real transactions." },
-  { part: "NEAR Intents Agent API wallet", status: "mainnet", note: "An agent account on mainnet whose owner-signed policy is the hard limit. Veto holds its only grant, screens each request with the same enclave model, and sends only a pass: a transfer to a supplier, or a salary withdrawn to the worker's address on Base. Payments run once the wallet holds a few USDC." },
+  { part: "NEAR Intents Agent API wallet", status: "mainnet", note: "An agent account on mainnet whose owner-signed policy is the hard limit. Veto holds its only grant, screens each request with the same enclave model, and sends only a pass: a transfer to a supplier, or a salary withdrawn to the worker's address on Base. Each payment is a few cents of real USDC, and runs while the wallet holds some." },
   { part: "Payroll: staff paid on the chain they chose", status: "live", note: "Staff sit on the payee list with their own wallet and chain. The sandbox pays a salary in test ETH on Base from the vault's Chain Signatures address and vetoes a fake request to send it to a new wallet." },
   { part: "Agent inbox and guardian screening", status: "live", note: "Real proposals and verdicts on testnet, screened by Qwen3-VL-30B inside NEAR AI's enclave. If NEAR AI can't answer, a labelled test key signs instead, so the demo never stalls." },
   { part: "Owner actions in the app", status: "live", note: "In your own vault, only your wallet. In the shared sandbox, a demo-owner key limited to the owner methods, so anyone can try it without a wallet." },
@@ -92,7 +92,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Can it run payroll?",
-    a: "Yes. Staff go on the payee list with the wallet and chain each one chose, and the agent pays salaries like any other payment: inside the caps, screened privately. In the sandbox, Tunde Bello is paid in test ETH on Base from the vault's own address, signed by NEAR's MPC network; on the Agent API path, the salary is USDC withdrawn through NEAR Intents and paid out on Base, to the one address the owner's policy allows for Tunde, once the demo wallet holds USDC. The scam payroll attracts most, an email asking to send someone's salary to a new wallet, is vetoed: the address is new and imitates the saved one.",
+    a: "Yes. Staff go on the payee list with the wallet and chain each one chose, and the agent pays salaries like any other payment: inside the caps, screened privately. In the sandbox, Tunde Bello is paid in test ETH on Base from the vault's own address, signed by NEAR's MPC network; on the Agent API path, the salary is USDC withdrawn through NEAR Intents and paid out on Base, to the one address the owner's policy allows for Tunde, once the demo wallet holds USDC. The most common payroll scam, an email asking to send someone's salary to a new wallet, is vetoed: the address is new and imitates the saved one.",
   },
   {
     q: "Can Veto guard a swarm of agents?",
@@ -343,7 +343,7 @@ export function DocsView() {
               </li>
             </ol>
             <p className={styles.note}>
-              The demo&apos;s account lives on mainnet and holds a few real dollars, so the inbox&apos;s amounts are scaled 1:100 on this path. The
+              The demo&apos;s account lives on mainnet and holds a few real dollars, so the inbox&apos;s amounts are scaled 1:2000 on this path: the examples that pass cost $0.09 and $0.075, and the owner&apos;s policy allows at most $0.10 a payment. The
               sandbox vault is on testnet, so these decisions aren&apos;t recorded on it; the enclave&apos;s signed verdict and the API&apos;s own
               operation record are the trail.
             </p>

@@ -172,7 +172,7 @@ interface AgentApiView {
   payees: { name: string; address: string; chain?: string }[];
 }
 
-const usd = (raw: string | undefined) => (raw ? `$${(Number(raw) / 1e6).toFixed(2)}` : "none");
+const usd = (raw: string | undefined) => (raw ? formatAmount(raw, { symbol: "USDC", decimals: 6 }) : "none");
 
 /** The NEAR Intents Agent API wallet (mainnet) whose only grant Veto holds; read live from the API. */
 function AgentApiCard({ style }: { style?: React.CSSProperties }) {

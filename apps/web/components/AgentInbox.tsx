@@ -8,7 +8,7 @@ import { metaOf, useVault } from "@/lib/vault";
 import { reasonText } from "@/lib/decision";
 import { EXPLORER } from "@/lib/config";
 import { SPRING_BOUNCE, SPRING_UI, useCalm } from "@/lib/motion";
-import { shortAddress } from "@/lib/format";
+import { scaleDollars, shortAddress } from "@/lib/format";
 import { CORAL, useOpenDecision } from "./DecisionCard";
 import { Icon } from "./Icon";
 import { Pill } from "./Pill";
@@ -26,7 +26,7 @@ function InboxSub() {
   if (demo.info?.agentapi && demo.payFrom === "agentapi") {
     return (
       <>
-        The agent asks its NEAR Intents Agent API wallet on mainnet to pay. The agent holds no grant; Veto holds the only one and sends just what passes. Amounts are scaled 1:{demo.info.agentapi.scale} for a wallet holding a few real dollars.
+        The agent asks its NEAR Intents Agent API wallet on mainnet to pay. The agent holds no grant; Veto holds the only one and sends just what passes. Amounts are scaled 1:{demo.info.agentapi.scale}, so each payment is a few cents of real USDC.
       </>
     );
   }
@@ -146,7 +146,7 @@ function ScenarioCard({ scenario: email, run, index, busy }: { scenario: DemoSce
   const coin = scenario.symbol ?? symbol;
   const own = scenario.id.startsWith("mail-");
   const scale = demo.payFrom === "agentapi" && !own && coin.toUpperCase().includes("USD") ? (demo.info?.agentapi?.scale ?? 1) : 1;
-  const shown = scale > 1 && /^[\d.,]+$/.test(scenario.amount) ? (Number(scenario.amount.replace(/,/g, "")) / scale).toFixed(2) : scenario.amount;
+  const shown = scale > 1 && /^[\d.,]+$/.test(scenario.amount) ? scaleDollars(scenario.amount, scale) : scenario.amount;
   const amount = /^[\d.,]+$/.test(shown) ? (coin.toUpperCase().includes("USD") ? `$${shown}` : `${shown} ${coin}`) : shown;
   const proposal = run?.proposalId ? state?.proposals.find((p) => p.id === run.proposalId) : undefined;
   const sending = !!run && !run.proposalId && !run.agentapi && !run.error;
@@ -276,7 +276,7 @@ const chainName = (chain: string) => ({ base: "Base", arb: "Arbitrum", eth: "Eth
 
 /** What the Agent API's refusal means, in words; the owner's policy is the layer that says no. */
 function refusalText(code: string, message: string) {
-  if (code === "insufficient_balance") return "The wallet holds no USDC yet, so the Agent API stopped it. Nothing was charged.";
+  if (code === "insufficient_balance") return "The demo wallet is out of USDC right now, so the Agent API stopped it. Nothing was charged.";
   if (code === "policy_destination_denied") return "The owner's policy doesn't allow this payee, so the Agent API refused it.";
   if (code === "policy_transaction_limit_exceeded") return "It's above the owner's per-payment limit, so the Agent API refused it.";
   if (code === "spend_budget_exceeded" || code === "policy_limit_exceeded") return "It's over the owner's daily limit, so the Agent API refused it.";
@@ -378,9 +378,12 @@ function Composer({ vault, compact }: { vault: string; compact: boolean }) {
   const [open, setOpen] = useState(false);
   const [from, setFrom] = useState("accounts@kanocottonmills.ng");
   const [subject, setSubject] = useState("Invoice INV-3001: 40 bales of combed cotton");
-  const [body, setBody] = useState(
-    `Good morning. Please pay invoice INV-3001 for 40 bales of combed cotton. Amount due: $120.00 USDC to our usual account kano-cotton.${root}. Thank you.`,
-  );
+  // Real USDC on the Agent API path is paid as written, so its sample asks for cents, inside the owner's cap.
+  // The sample follows the path until someone edits it.
+  const sampleDue = demo.payFrom === "agentapi" && demo.info?.agentapi ? "$0.06" : "$120.00";
+  const [edited, setBody] = useState<string | null>(null);
+  const body =
+    edited ?? `Good morning. Please pay invoice INV-3001 for 40 bales of combed cotton. Amount due: ${sampleDue} USDC to our usual account kano-cotton.${root}. Thank you.`;
   const busy = Object.values(demo.runs).some((r) => r.proposalId === undefined && !r.error);
 
   if (!open) {
@@ -419,7 +422,13 @@ function Composer({ vault, compact }: { vault: string; compact: boolean }) {
         <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={compact ? 5 : 4} maxLength={4000} />
       </label>
       <p className={styles.composeHint}>
-        USDC goes to a NEAR account (like <span className="mono">kano-cotton.{root}</span>); ETH goes to a 0x address on Base Sepolia.
+        {demo.payFrom === "agentapi" && demo.info?.agentapi ? (
+          <>Your email is paid as written, in real USDC on mainnet. The owner&apos;s policy allows at most $0.10 a payment, to its listed payees, so anything bigger is refused there.</>
+        ) : (
+          <>
+            USDC goes to a NEAR account (like <span className="mono">kano-cotton.{root}</span>); ETH goes to a 0x address on Base Sepolia.
+          </>
+        )}
       </p>
       <div className={styles.composeActions}>
         <Pill type="submit" size="sm" icon="send" disabled={busy || body.trim().length < 10}>

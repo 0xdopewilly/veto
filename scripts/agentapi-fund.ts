@@ -14,7 +14,10 @@ const chain = (process.argv[2] ?? "near").toLowerCase();
 const rootEnv = new URL("../.env.local", import.meta.url);
 const envVar = (name: string) => readFileSync(rootEnv, "utf8").match(new RegExp(`^${name}=(.*)$`, "m"))?.[1]?.trim() ?? "";
 const stateFile = new URL("../.veto-dev/agentapi.json", import.meta.url);
-if (!existsSync(stateFile)) throw new Error("Run scripts/agentapi-setup.ts first.");
+if (!existsSync(stateFile)) {
+  console.error("No .veto-dev/agentapi.json: run scripts/agentapi-setup.ts first.");
+  process.exit(1);
+}
 const state = JSON.parse(readFileSync(stateFile, "utf8")) as { agentId: string; wallet?: string };
 const api = new AgentApi(envVar("NEAR_INTENTS_AGENT_API_URL") || "https://api.agentsonintents.com", envVar("NEAR_INTENTS_AGENT_API_KEY"));
 
@@ -36,4 +39,4 @@ if (d.min_amount) console.log(`  Minimum:  ${Number(d.min_amount) / 10 ** origin
 if (d.expires_at) console.log(`  Expires:  ${d.expires_at}`);
 console.log(`  Status:   ${op.status} (${op.correlation_id})`);
 if (!d.deposit_address) console.log(`\n${JSON.stringify(d, null, 2)}`);
-console.log("\nA few dollars is plenty: the inbox's examples pay $1.80 to $3.00 each. Check the balance on the app's Agents page.");
+console.log("\nA few dollars is plenty: the inbox's examples that pass cost 9 and 7.5 cents each. Check the balance on the app's Agents page.");

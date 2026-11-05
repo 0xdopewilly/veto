@@ -16,11 +16,16 @@ function split(raw: bigint, decimals: number, places: number) {
   return { negative, whole, frac };
 }
 
-/** Dollars keep cents; other coins show their significant digits (0.0001 ETH, never 0.00 ETH). */
+/** At least two places, more only when the amount has them: $300.00, $0.075, 0.0001 ETH (never $0.07 or 0.00 ETH). */
 function placesFor(raw: bigint, meta: AssetMeta) {
-  if (isDollar(meta)) return 2;
   const frac = ((raw < 0n ? -raw : raw) % 10n ** BigInt(meta.decimals)).toString().padStart(meta.decimals, "0").slice(0, 6).replace(/0+$/, "");
   return Math.max(2, frac.length);
+}
+
+/** A dollar figure divided down for the Agent API demo, to the digit: "180.00" at 1:2000 is "0.09", "150.00" is "0.075". */
+export function scaleDollars(amount: string, scale: number): string {
+  const [whole, frac = ""] = (Number(amount.replace(/,/g, "")) / scale).toFixed(6).replace(/0+$/, "").split(".");
+  return `${whole}.${frac.padEnd(2, "0")}`;
 }
 
 /** "$300.00" for dollar tokens, "0.30 NEAR" or "0.0001 ETH" otherwise. */

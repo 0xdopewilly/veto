@@ -5,8 +5,8 @@
 // the chain the worker chose), which the owner's policy still limits (destinations, per-payment and
 // daily caps).
 //
-// The account lives on mainnet with a few real dollars, so the inbox's amounts are scaled 1:100
-// here ($180.00 → $1.80), and the sandbox's testnet suppliers map onto the account's mainnet ones.
+// The account lives on mainnet with a few real dollars, so the inbox's amounts are scaled 1:2000
+// here ($180.00 → $0.09), and the sandbox's testnet suppliers map onto the account's mainnet ones.
 // The screen sees the business's payment history from the sandbox vault, mapped the same way, so it
 // still catches a duplicate invoice. The sandbox vault is on testnet, so this path doesn't record on
 // it; the enclave's signed verdict and the Agent API's own operation record are the trail.
@@ -27,14 +27,15 @@ import {
 } from "@veto/core";
 import { demo as sandboxDemo, demoAccounts } from "./demo";
 import { WORKER } from "./evm";
+import { scaleDollars } from "@/lib/format";
 
 const env = (key: string) => process.env[key]?.trim() ?? "";
 
 /** USDC on NEAR, as the Agent API names it, and the token contract the screen sees. */
 export const AGENT_USDC = "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1";
 const USDC_CONTRACT = AGENT_USDC.slice("nep141:".length);
-/** The inbox's amounts, scaled for a wallet holding a few real dollars. */
-export const AGENT_SCALE = 100n;
+/** The inbox's amounts, scaled to cents so a few real dollars cover a whole judging week. */
+export const AGENT_SCALE = 2000n;
 
 let api: AgentApi | null = null;
 let screener: NearAiScreener | null = null;
@@ -65,11 +66,11 @@ export function agentApiWorker(): string | null {
 }
 
 /**
- * The example emails' money, scaled like their payments ("$180.00" or "180.00 USDC" → "$1.80"), so
+ * The example emails' money, scaled like their payments ("$180.00" or "180.00 USDC" → "$0.09"), so
  * what the agent reads and what it asks for agree. Without it the screen sees a mismatch.
  */
 export function scaleMoney(text: string, scale: bigint) {
-  const scaled = (n: string) => (Number(n.replace(/,/g, "")) / Number(scale)).toFixed(2);
+  const scaled = (n: string) => scaleDollars(n, Number(scale));
   return text.replace(/\$\s?(\d[\d,]*(?:\.\d+)?)(\s?USDC)?|(\d[\d,]*(?:\.\d+)?)(\s?USDC)/g, (_m, a, aUnit, b, bUnit) =>
     a !== undefined ? `$${scaled(a)}${aUnit ?? ""}` : `${scaled(b)}${bUnit}`,
   );
@@ -103,7 +104,7 @@ export interface AgentApiOutcome {
 /**
  * Screens one payment the agent asks its Agent API wallet to make, and runs it with Veto's grant
  * only if the screen passes. `amount` is in USDC's 6-decimal units. With `scaled`, an inbox
- * example: its amount and the money in its text are scaled 1:100. An email someone writes is taken
+ * example: its amount and the money in its text are scaled 1:2000. An email someone writes is taken
  * as written, so a large amount meets the owner's per-payment limit.
  */
 export async function runViaAgentApi(input: {
