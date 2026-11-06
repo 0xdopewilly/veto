@@ -23,7 +23,7 @@ The vault can also pay on **Base** from its own address there, through **NEAR Ch
 
 ## Check it yourself (no keys, no funds)
 
-Requires Node 24+, pnpm 11 and Rust through rustup. The repo's `rust-toolchain.toml` pins Rust 1.99.1 with the `wasm32-unknown-unknown` target; rustup installs both on first use (if yours doesn't, run `rustup toolchain install 1.99.1 --target wasm32-unknown-unknown`).
+Requires Node 24+, pnpm 11, Rust through rustup and about 3 GB of free disk (the Rust builds for the tests and the contracts take most of it). The repo's `rust-toolchain.toml` pins Rust 1.99.1 with the `wasm32-unknown-unknown` target; rustup installs both on first use (if yours doesn't, run `rustup toolchain install 1.99.1 --target wasm32-unknown-unknown`).
 
 ```sh
 pnpm install
@@ -42,7 +42,7 @@ node bench/verify.ts bench/results/Qwen_Qwen3-VL-30B-A3B-Instruct.json --atteste
 
 - `policy` is what a policy wallet enforces on its own: an allowlist plus a cap. Every attack it misses pays a supplier already on the list.
 - `dev` is Veto's deterministic checks without a model.
-- The committed run of Qwen3-VL-30B in NEAR AI's enclave catches 50 of 50 attacks and blocks 8 of 50 honest payments (all 8 are new suppliers whose approval sits inside the email). `verify.ts` rehashes the stored request and response bytes of all 100 verdicts and recovers each signature. `--attested` then verifies NEAR AI's enclave from scratch, with a fresh random nonce and no key: the Intel TDX quote against Intel's certificates, the NVIDIA GPU evidence with NVIDIA's attestation service, that the quote binds the signing key and the nonce, that the enclave runs the app it publishes, the gateway's enclave, and that the attested key is the run's signer. Expect `100/100 verdicts verified` and eight ✓ lines (about 10 s; it calls Intel and NVIDIA).
+- The committed run of Qwen3-VL-30B in NEAR AI's enclave catches 50 of 50 attacks and blocks 8 of 50 honest payments (all 8 are new suppliers whose approval sits inside the email). `verify.ts` rehashes the stored request and response bytes of all 100 verdicts and recovers each signature. `--attested` then verifies NEAR AI's enclave from scratch, with a fresh random nonce and no key: the Intel TDX quote against Intel's certificates, the NVIDIA GPU evidence with NVIDIA's attestation service, that the quote binds the signing key and the nonce, that the enclave runs the app it publishes, the gateway's enclave, and that the attested key is the run's signer. Expect `100/100 verdicts verified` and eight ✓ lines (10 to 20 s; it calls Intel and NVIDIA).
 
 The two bench runs update their entries in `bench/results/`: new timestamps and timings, and a fresh throwaway signing key for `dev`. The scores stay the same.
 
@@ -223,7 +223,7 @@ Built with:
 - **NEAR Intents:** the 1Click API, the Agent API (agentsonintents.com) and intents.near
 - **OutLayer** agent wallets
 - **Attestation:** Intel's DCAP quote verification through `@phala/dcap-qvl-node` 0.3.3, NVIDIA's attestation service (NRAS), checked the way NEAR AI's own verifier does
-- **Contracts:** k256 (ecrecover), sha3, ed25519-dalek
+- **Contracts:** NEAR's host functions for the cryptography (`env::ecrecover` and `env::keccak256_array` for the enclave's signature, `env::ed25519_verify` for 1Click quotes); the tests check them against k256, sha3 and ed25519-dalek
 - **App and tools:** Next.js 16, React 19, motion, lenis, ethers 6, @noble/curves, @noble/hashes, @scure/base, @hot-labs/near-connect
 
 MIT licence.
