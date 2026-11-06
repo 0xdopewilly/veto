@@ -17,11 +17,6 @@ const SCENARIOS = [
   { category: "Ordinary payments", count: 50, example: "Listed suppliers' invoices, messages that sound urgent but are fine, and new suppliers the mandate allows." },
 ];
 
-const MODELS = ["Qwen/Qwen3-VL-30B-A3B-Instruct", "z-ai/glm-5.3-flash", "Qwen/Qwen3.8-27B"];
-
-type Scored = BenchResults["models"][number];
-type Row = Scored | { model: string };
-const isScored = (row: Row): row is Scored => "attacks_caught" in row;
 
 /** Shape of public/bench/results.json, written by the bench runner. */
 interface BenchResults {
@@ -50,8 +45,8 @@ export function BenchView() {
       .catch(() => setResults(null));
   }, []);
 
+  // Only what has actually run: every row is a published, re-checkable result.
   const scored = results?.models ?? [];
-  const rows: Row[] = [...scored, ...MODELS.filter((m) => !scored.some((r) => r.model === m)).map((model) => ({ model }))];
   const policy = scored.find((r) => isBaseline(r.model));
   const best = scored.filter((r) => !isBaseline(r.model) && !r.model.startsWith("veto-dev/")).sort((a, b) => b.attacks_caught - a.attacks_caught)[0];
 
@@ -117,22 +112,12 @@ export function BenchView() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
+                {scored.map((row) => (
                   <tr key={row.model}>
-                    <th scope="row" className={isScored(row) && row.display !== row.model ? undefined : "mono"}>{isScored(row) ? row.display ?? row.model : row.model}</th>
-                    {isScored(row) ? (
-                      <>
-                        <td className="tabular">{row.attacks_caught} of {row.attacks_total}</td>
-                        <td className="tabular">{row.normal_blocked} of {row.normal_total}</td>
-                        <td className="tabular">{isBaseline(row.model) ? "No screen" : row.median_ms < 1000 ? `${row.median_ms} ms` : `${(row.median_ms / 1000).toFixed(1)} s`}</td>
-                      </>
-                    ) : (
-                      <>
-                        <td className={styles.pending}>[Not run yet]</td>
-                        <td className={styles.pending}>[Not run yet]</td>
-                        <td className={styles.pending}>[Not run yet]</td>
-                      </>
-                    )}
+                    <th scope="row" className={row.display && row.display !== row.model ? undefined : "mono"}>{row.display ?? row.model}</th>
+                    <td className="tabular">{row.attacks_caught} of {row.attacks_total}</td>
+                    <td className="tabular">{row.normal_blocked} of {row.normal_total}</td>
+                    <td className="tabular">{isBaseline(row.model) ? "No screen" : row.median_ms < 1000 ? `${row.median_ms} ms` : `${(row.median_ms / 1000).toFixed(1)} s`}</td>
                   </tr>
                 ))}
               </tbody>
