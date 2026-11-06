@@ -16,6 +16,9 @@ import { createHash, randomBytes } from "node:crypto";
 import { NEARAI_BASE_URL } from "./nearai.ts";
 
 const INTEL_PCCS = "https://api.trustedservices.intel.com/tdx/certification/v4";
+// Phala's public mirror of Intel's collateral, used when Intel's service doesn't answer. A mirror can
+// only serve Intel's collateral, not forge it: js_verify checks every signature in it up to Intel's root.
+const MIRROR_PCCS = "https://pccs.phala.network/tdx/certification/v4";
 const NVIDIA_NRAS = "https://nras.attestation.nvidia.com/v3/attest/gpu";
 
 export type EnclaveCheckId = "fresh" | "tdx" | "key_bound" | "nonce_bound" | "gpu" | "software" | "gateway" | "signer";
@@ -73,9 +76,29 @@ type Dcap = { js_get_collateral(url: string, quote: Uint8Array): Promise<unknown
 let dcap: Promise<Dcap> | null = null;
 const loadDcap = () => (dcap ??= import("@phala/dcap-qvl-node").then((m) => ((m as { default?: Dcap }).default ?? (m as unknown as Dcap))));
 
-/** Intel's signed collateral (certificates, revocation lists, TCB info) for a quote's platform. */
+/** dcap-qvl rejects with plain strings ("Failed to get collateral"); keep the reason readable. */
+const reason = (e: unknown) => (e instanceof Error ? e.message : String(e));
+/** Intel's collateral couldn't be fetched: the quote wasn't checked, which is not the same as failing. */
+class Unavailable extends Error {}
+/** What a failed quote check says: why it couldn't be checked, or why it didn't verify. */
+const quoteFailure = (e: Error | null) => (e instanceof Unavailable ? e.message : `The quote didn't verify: ${e?.message}`);
+
+/**
+ * Intel's signed collateral (certificates, revocation lists, TCB info) for a quote's platform, from
+ * Intel, or from the mirror when Intel's service is down.
+ */
 export async function quoteCollateral(quoteHex: string): Promise<unknown> {
-  return (await loadDcap()).js_get_collateral(INTEL_PCCS, Buffer.from(quoteHex, "hex"));
+  const dcap = await loadDcap();
+  const quote = Buffer.from(quoteHex, "hex");
+  try {
+    return await once(() => dcap.js_get_collateral(INTEL_PCCS, quote));
+  } catch (intel) {
+    try {
+      return await dcap.js_get_collateral(MIRROR_PCCS, quote);
+    } catch (mirror) {
+      throw new Unavailable(`Intel's certificate service and its mirror didn't answer (${reason(intel)}; ${reason(mirror)}), so the quote couldn't be checked. Try again in a minute.`);
+    }
+  }
 }
 
 /**
@@ -97,7 +120,7 @@ export async function checkQuote(quoteHex: string, collateral: unknown, now = Bi
   };
 }
 
-const verifyQuote = async (quoteHex: string) => checkQuote(quoteHex, await once(() => quoteCollateral(quoteHex)));
+const verifyQuote = async (quoteHex: string) => checkQuote(quoteHex, await quoteCollateral(quoteHex));
 
 /** Whether a verified quote's report data is this signing address (left-aligned in 32 bytes) followed by this nonce. */
 export function quoteBinding(reportData: Buffer, address: string, nonce: string) {
@@ -165,7 +188,7 @@ export async function verifyEnclave(model: string, opts: { expectSigner?: string
 
   // Intel (model and gateway quotes) and NVIDIA answer independently, so ask them at once.
   const gateway = report.gateway_attestation;
-  const settle = <T,>(p: Promise<T>) => p.then((value) => ({ value, error: null }), (error: Error) => ({ value: null, error }));
+  const settle = <T,>(p: Promise<T>) => p.then((value) => ({ value, error: null }), (error: unknown) => ({ value: null, error: error instanceof Error ? error : new Error(reason(error)) }));
   const [quoted, gpu, gate] = await Promise.all([
     settle(verifyQuote(attested.intel_quote)),
     attested.nvidia_payload ? settle(verifyGpu(attested.nvidia_payload, nonce)) : Promise.resolve(null),
@@ -190,7 +213,7 @@ export async function verifyEnclave(model: string, opts: { expectSigner?: string
       composeHash ? `The enclave's config hash commits to its published app (sha256 ${short(composeHash)}).` : "The enclave published no app config.",
     );
   } else {
-    add("tdx", false, "A genuine Intel TDX enclave", `The quote didn't verify: ${quoted.error?.message}`);
+    add("tdx", false, "A genuine Intel TDX enclave", quoteFailure(quoted.error));
   }
 
   if (!gpu) add("gpu", false, "Genuine NVIDIA confidential-computing GPUs", "The report carried no GPU evidence.");
@@ -212,7 +235,7 @@ export async function verifyEnclave(model: string, opts: { expectSigner?: string
         "The gateway runs in an enclave too",
         `NEAR AI's gateway, which receives the request first, passes the same checks (Intel TDX ${gate.value.status}, key and nonce bound).`,
       );
-    } else add("gateway", false, "The gateway runs in an enclave too", `Its quote didn't verify: ${gate.error?.message}`);
+    } else add("gateway", false, "The gateway runs in an enclave too", quoteFailure(gate.error).replace("The quote", "Its quote"));
   }
 
   if (want) {

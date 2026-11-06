@@ -222,7 +222,7 @@ Built with:
 - **NEAR AI Cloud:** Qwen3-VL-30B-A3B-Instruct in a TEE, its signed responses and its attestation API
 - **NEAR Intents:** the 1Click API, the Agent API (agentsonintents.com) and intents.near
 - **OutLayer** agent wallets
-- **Attestation:** Intel's DCAP quote verification through `@phala/dcap-qvl-node` 0.3.3, NVIDIA's attestation service (NRAS), checked the way NEAR AI's own verifier does
+- **Attestation:** Intel's DCAP quote verification through `@phala/dcap-qvl-node` 0.3.3 (collateral from Intel's PCS, or from Phala's public PCCS mirror when Intel's service is down; its signatures are checked up to Intel's root either way), NVIDIA's attestation service (NRAS), checked the way NEAR AI's own verifier does
 - **Contracts:** NEAR's host functions for the cryptography (`env::ecrecover` and `env::keccak256_array` for the enclave's signature, `env::ed25519_verify` for 1Click quotes); the tests check them against k256, sha3 and ed25519-dalek
 - **App and tools:** Next.js 16, React 19, motion, lenis, ethers 6, @noble/curves, @noble/hashes, @scure/base, @hot-labs/near-connect
 
