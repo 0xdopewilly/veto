@@ -78,6 +78,7 @@ https://veto-beta.vercel.app/app runs everything below with nothing to install. 
 | Switch **Pay from** to **Agent API** and repeat them | The same screen, then a real call to the NEAR Intents Agent API on mainnet with Veto's grant: a transfer to a supplier, or Tunde's salary as USDC withdrawn to Base. Amounts are scaled 1:2000, so each payment is a few cents of real USDC (the two examples that pass cost $0.09 and $0.075). A veto never reaches the API; a payment the owner's policy forbids is refused there even after a pass. Whenever the wallet holds no USDC, a pass is refused there with `insufficient_balance` |
 | Press **Write your own email** and write an invoice or a scam | A real AI agent on NEAR AI reads it and proposes what it asks for; Veto screens it like any other payment |
 | Open any decision → **Proof** | The request and response hashes, the signer, and the on-chain signature check |
+| On that page, scroll to **The exact bytes the model saw** | **Matches the chain**, with three checks your browser runs on the published bytes: the request hashes to what the enclave signed, the response to what the vault checked, and the email the model read to the hash the agent put on-chain when it proposed the payment, before any screening. The email itself is shown. By hand: `curl -s https://axon0nurb8ormdne.public.blob.vercel-storage.com/proofs/treasury.veto-rhwe0krb.testnet/<id>/request.json \| sha256sum` prints the decision's request hash (decisions from 8 Nov 2026 on) |
 | On that page, press **Check the enclave now** | Eight checks of NEAR AI's enclave, run live with a fresh nonce: Intel TDX quote, NVIDIA GPUs, key and nonce bound into the quote, published app, gateway, and that the key is the one that signed this verdict |
 | **Activity** → **Download CSV** | One row per payment: date, payee, amount, status, reference, verdict and reasons, payout transaction and a link to its proof |
 | Open **/start**, connect a NEAR testnet wallet, name your business and sign | Your own vault, live in a few seconds. Its owner is your account, and every owner action needs your wallet. The shared sandbox, used above, lets anyone act as its owner |
@@ -171,7 +172,7 @@ vault: ecrecover → approved model key → echoes this proposal's id and hash �
   - External wallets: `add_wallet`, `propose_external`, `settle_external`.
   - Chain Signatures: `set_evm_route`, `settle_evm`. On a pass, the vault RLP-encodes the EIP-1559 transfer itself and asks `v1.signer-prod.testnet` to sign its hash ([evm.rs](contract/src/evm.rs)). The guardian broadcasts the signed bytes ([packages/core/src/evm.ts](packages/core/src/evm.ts)).
   - NEAR Intents payouts verify 1Click's ed25519 quote signature on-chain ([quote.rs](contract/src/quote.rs)).
-- **Guardian** ([services/guardian](services/guardian/src/main.ts)): screens open proposals with [packages/core](packages/core/src/pipeline.ts) and keeps a private audit record of what the model saw. It reads the evidence in the clear and chooses what the model sees: the enclave's signature proves which model judged which input, not that the input was the real email. A compromised guardian still can't pass anything over the caps, and an owner who wants payees enforced on-chain too can set `set_require_listed_payee`. In this demo one server runs both the demo agent and the guardian.
+- **Guardian** ([services/guardian](services/guardian/src/main.ts)): screens open proposals with [packages/core](packages/core/src/pipeline.ts) and keeps a private audit record of what the model saw. It reads the evidence in the clear. The agent commits the evidence's hash on-chain when it proposes, before any screening, and that hash is part of the proposal hash the model must echo, so the guardian can't swap the email afterwards. In the sandbox the exact request bytes are published, so anyone can check the model judged exactly that email ([lib/server/proofs.ts](apps/web/lib/server/proofs.ts)); a vault someone owns keeps them private. What no signature can prove is that the email the agent committed is the one that really arrived. A compromised guardian still can't pass anything over the caps, and an owner who wants payees enforced on-chain too can set `set_require_listed_payee`. In this demo one server runs both the demo agent and the guardian.
 - **OutLayer** ([packages/core/src/outlayer.ts](packages/core/src/outlayer.ts)), step by step:
   1. The agent's OutLayer wallet holds the payment for approval.
   2. The guardian checks OutLayer's hash of the operation and records it with `propose_external`. The caps apply.
@@ -199,6 +200,7 @@ vault: ecrecover → approved model key → echoes this proposal's id and hash �
 | NEAR Intents Agent API wallet, with Veto holding its only grant | Live on mainnet: the owner's policy is in force and Veto screens and sends each request (supplier transfers, salaries withdrawn to Base). Whenever the wallet holds no USDC, a pass is refused there with `insufficient_balance` |
 | Agent inbox, guardian, owner actions in the app | Live on testnet |
 | Private screen on NEAR AI Cloud (Qwen3-VL-30B in a TDX enclave) | Live on testnet; about 1.5 s per verdict |
+| The sandbox's exact verdict bytes, published and re-hashed on every Proof page (request, response, and the email against the hash committed on-chain) | Live on testnet for decisions from 8 Nov 2026 |
 | Enclave verification (Intel TDX quote, NVIDIA GPUs, key and nonce binding, gateway) | Live on every Proof page and in `verify.ts --attested`; tested offline on a captured real quote |
 | Veto Bench | Live: on our 100 scenarios, 50/50 attacks caught, 8/50 honest payments blocked, 100/100 signatures verified |
 | Payouts to other chains through NEAR Intents | Built; contract tested against a real executable quote; first mainnet payout needs funding |
@@ -220,7 +222,7 @@ test-token/        NEP-141 test USDC
 
 ## Built at NEAR HACKATHON
 
-Everything in this repository was written during NEAR HACKATHON, starting with the first commit on 2026-10-29; there is no earlier code base.
+Everything in this repository was written during NEAR HACKATHON, starting with the first commit on 2026-10-29, inside the window that opened with the 2026-10-19 announcement (rule Q-001); there is no earlier code base.
 
 Built with:
 
@@ -230,6 +232,6 @@ Built with:
 - **OutLayer** agent wallets
 - **Attestation:** Intel's DCAP quote verification through `@phala/dcap-qvl-node` 0.3.3 (collateral from Intel's PCS, or from Phala's public PCCS mirror when Intel's service is down; its signatures are checked up to Intel's root either way), NVIDIA's attestation service (NRAS), checked the way NEAR AI's own verifier does
 - **Contracts:** NEAR's host functions for the cryptography (`env::ecrecover` and `env::keccak256_array` for the enclave's signature, `env::ed25519_verify` for 1Click quotes); the tests check them against k256, sha3 and ed25519-dalek
-- **App and tools:** Next.js 16, React 19, motion, lenis, ethers 6, @noble/curves, @noble/hashes, @scure/base, @hot-labs/near-connect
+- **App and tools:** Next.js 16, React 19, motion, lenis, ethers 6, @noble/curves, @noble/hashes, @scure/base, @hot-labs/near-connect, @vercel/blob 2.8.2 (the sandbox's published proof bytes)
 
 MIT licence.

@@ -29,6 +29,8 @@ export const RPC_UPSTREAM =
 export const RPC_URL = typeof window === "undefined" ? RPC_UPSTREAM : `${window.location.origin}/api/rpc`;
 
 export const EXPLORER = NETWORK === "testnet" ? "https://testnet.nearblocks.io" : "https://nearblocks.io";
+/** Public store of the sandbox's published proof bytes (lib/server/proofs.ts). Anyone can read it. */
+export const PROOF_BASE = process.env.NEXT_PUBLIC_PROOF_BASE ?? "https://axon0nurb8ormdne.public.blob.vercel-storage.com";
 
 export const GITHUB_URL = "https://github.com/0xdopewilly/veto";
 

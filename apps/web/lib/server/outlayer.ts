@@ -14,6 +14,7 @@ import {
   type Proposal,
 } from "@veto/core";
 import { demo, demoAccounts } from "./demo";
+import { publishProof } from "./proofs";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -66,7 +67,8 @@ export async function recordOnVault(approvalId: string, evidence: unknown) {
 export async function screenAndVote(id: string, evidence: unknown, requestId?: string) {
   const { reader, guardian, screener } = demoAccounts();
   const proposal = await reader.proposal(id);
-  if (proposal?.status === "Screening") await screenAndSubmit({ vault: reader, guardian, screener, proposal, evidence });
+  // OutLayer wallets are the sandbox's, so its verdict bytes are published like any sandbox payment's.
+  if (proposal?.status === "Screening") await publishProof(demo.vaultId, id, await screenAndSubmit({ vault: reader, guardian, screener, proposal, evidence }), evidence);
   const after = await reader.proposal(id);
   if (after?.status === "Executing") await approveAndSettle(after, requestId);
 }

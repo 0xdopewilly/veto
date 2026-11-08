@@ -6,6 +6,7 @@ import { actions, teraToGas } from "near-api-js";
 import { canonicalJson, payoutIfSigned, screenAndSubmit, sha256Hex, type PaymentRequest } from "@veto/core";
 import type { VaultAccounts } from "./demo";
 import { recordOnVault, requestPayment, screenAndVote } from "./outlayer";
+import { publishProof } from "./proofs";
 
 export type Evidence = { source: string; from: string; subject: string; body: string };
 
@@ -30,7 +31,11 @@ export async function startPayment(accounts: VaultAccounts, request: PaymentRequ
   after(async () => {
     try {
       const proposal = await reader.proposal(id);
-      if (proposal?.status === "Screening") await screenAndSubmit({ vault: reader, guardian, screener, proposal, evidence });
+      if (proposal?.status === "Screening") {
+        const screened = await screenAndSubmit({ vault: reader, guardian, screener, proposal, evidence });
+        // The sandbox publishes the exact bytes the verdict was signed over; an owned vault keeps them private.
+        if (accounts.sandbox) await publishProof(vaultId, id, screened, evidence);
+      }
       // A Base payout from the vault's own address: broadcast what the MPC network signed.
       const signed = await reader.proposal(id);
       if (signed?.evm) await payoutIfSigned({ vault: reader, guardian, proposal: signed });

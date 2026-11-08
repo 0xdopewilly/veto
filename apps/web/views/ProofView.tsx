@@ -3,13 +3,14 @@
 import { metaOf, useVault } from "@/lib/vault";
 import { useProposal } from "@/lib/useProposal";
 import { isTestSigner, requesterLabel } from "@/lib/decision";
-import { explorerAddress, verifierUrl } from "@/lib/config";
+import { explorerAddress, SANDBOX_ID, verifierUrl } from "@/lib/config";
 import { formatAmount, formatWhen, shortAddress, shortHash, chainLabel } from "@/lib/format";
 import { Screen, BackLink, delay } from "@/components/Screen";
 import { Icon, type IconName } from "@/components/Icon";
 import { Boot } from "@/components/Boot";
 import { LineReveal } from "@/components/LineReveal";
 import { EnclaveCheck } from "@/components/EnclaveCheck";
+import { ProofBytes } from "@/components/ProofBytes";
 import styles from "./ProofView.module.css";
 
 export function ProofView({ id }: { id: string }) {
@@ -127,6 +128,18 @@ export function ProofView({ id }: { id: string }) {
               </li>
             ))}
           </ol>
+
+          {(vaultId ?? SANDBOX_ID) === SANDBOX_ID && (
+            <section className={`${styles.bytes} rise`} style={delay(160 + steps.length * 140)} aria-labelledby="bytes-title">
+              <h2 id="bytes-title" className={styles.h2}>
+                The exact bytes the model saw
+              </h2>
+              <p className={styles.note}>
+                The shared sandbox publishes every verdict&apos;s request and response, and the email the agent read. Your browser hashes them and compares the results with the chain.
+              </p>
+              <ProofBytes vault={SANDBOX_ID} proposal={p} />
+            </section>
+          )}
         </div>
 
         <aside className={`${styles.side} rise`} style={delay(900)}>

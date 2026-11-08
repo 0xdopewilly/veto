@@ -203,7 +203,7 @@ export function DocsView() {
             <ol className={styles.steps}>
               <li>
                 <strong>The agent proposes.</strong> It calls <code>propose</code> on the vault with the payee, amount and invoice number,
-                and sends the evidence behind it (the email, the invoice) privately to the guardian. Only a hash of that evidence goes on-chain.
+                and sends the evidence behind it (the email, the invoice) privately to the guardian. Only a hash of that evidence goes on-chain (the shared sandbox, whose emails are made up, also publishes them).
               </li>
               <li>
                 <strong>The contract checks the hard limits.</strong> Per-payment and weekly caps, listed assets, agent allowed, vault not
@@ -258,7 +258,7 @@ export function DocsView() {
               <li>Open the decision's <strong>Proof</strong> page in the app, or read it from the contract with <code>get_proposal</code>.</li>
               <li>The signer is the model's key, published in NEAR AI Cloud's attestation report and backed by an Intel TDX quote. The vault approved that key before any verdict.</li>
               <li>On the Proof page, <strong>Check the enclave now</strong> verifies that from scratch with a fresh random nonce: the TDX quote against Intel&apos;s certificates, the GPU evidence with NVIDIA&apos;s attestation service, that the quote binds the key and the nonce, the app the enclave runs, NEAR AI&apos;s gateway, and that the attested key signed this verdict. <code>node bench/verify.ts --attested</code> runs the same checks from a terminal.</li>
-              <li>The signature covers <code>model:sha256(request):sha256(response)</code>. The guardian keeps the request bytes in its private audit record, so the exact prompt can be shown to an auditor and re-hashed.</li>
+              <li>The signature covers <code>model:sha256(request):sha256(response)</code>. In the shared sandbox the exact request and response bytes are published, and the Proof page re-hashes them in your browser: they match what the enclave signed and the vault checked, and the email inside the request matches the hash the agent put on-chain before screening. A vault someone owns keeps them private; the standalone guardian (<code>services/guardian</code>) keeps them in a private audit record, so an owner can show the exact prompt to an auditor.</li>
               <li>NEAR AI's own verifier confirms the signature independently, and Veto Bench results can be re-checked offline with <code>node bench/verify.ts</code>.</li>
             </ol>
             <p className={styles.note}>
@@ -385,7 +385,7 @@ export function DocsView() {
               <li><span>Do</span> open <Link href="/app">the app</Link> and press <strong>Try it</strong> (the green V on a phone, <strong>Try the agent</strong> at the top of the sidebar on desktop). <span>See</span> the agent's inbox: a real invoice, a real salary and four scams that look ordinary.</li>
               <li><span>Do</span> let the agent pay the real Kano Cotton Mills invoice. <span>See</span> "Agent proposed", "Screening privately", then <strong>Paid</strong>, with testnet transaction links.</li>
               <li><span>Do</span> let it pay "Updated payment details". <span>See</span> <strong>Vetoed</strong>: a lookalike address, a new payee and changed payout details, while the payment was inside the weekly limit.</li>
-              <li><span>Do</span> open the decision, then <strong>Proof</strong>. <span>See</span> the signer, the hashes and the on-chain check.</li>
+              <li><span>Do</span> open the decision, then <strong>Proof</strong>. <span>See</span> the signer, the hashes and the on-chain check, then the exact bytes the model saw, re-hashed in your browser.</li>
               <li><span>Do</span> on that page, press <strong>Check the enclave now</strong>. <span>See</span> eight checks of NEAR AI&apos;s enclave run live: Intel&apos;s quote, NVIDIA&apos;s GPUs and the key that signed the verdict.</li>
               <li><span>Do</span> open <strong>Activity</strong> and press <strong>Download CSV</strong>. <span>See</span> one row per payment, ready for an accountant: date, payee, amount, status, reference, verdict and reasons, the payout transaction and a link to its proof.</li>
               <li><span>Do</span> press <strong>Override</strong> (your wallet signs it in your own vault; in the sandbox anyone can). <span>See</span> a countdown; the override pays only after the delay and can be cancelled.</li>

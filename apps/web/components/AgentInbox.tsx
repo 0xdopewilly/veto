@@ -465,6 +465,7 @@ function Composer({ vault, compact }: { vault: string; compact: boolean }) {
         ) : (
           <>
             USDC goes to a NEAR account (like <span className="mono">kano-cotton.{root}</span>); ETH goes to a 0x address on Base Sepolia.
+            {demo.info?.sandbox && <> The shared sandbox publishes what you write with its proof, so keep it made up.</>}
           </>
         )}
       </p>
