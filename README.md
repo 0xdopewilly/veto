@@ -2,6 +2,10 @@
 
 A NEAR vault where every payment an AI agent makes needs a second signer that can only say no.
 
+**The problem.** An agent that pays invoices reads email, and email can lie. A message from a lookalike domain, or from a supplier's real but hacked mailbox, asks for a "corrected" amount or a new account. Spending limits don't stop it when the amount is under the cap and the payee is already on the list: on [Veto Bench](bench/), a policy wallet with an allowlist and a cap pays 17 of 50 such attacks. Veto adds a check that reads the evidence behind each payment, inside an enclave, and can only say no.
+
+**Contents:** [Check it yourself](#check-it-yourself-no-keys-no-funds) · [Try the hosted demo](#try-the-agent-on-the-hosted-demo) · [Run your own copy](#run-your-own-copy-on-testnet) · [With a NEAR AI key](#with-a-near-ai-key) · [Mainnet payout](#mainnet-a-real-payout-to-base-through-near-intents) · [How it works](#how-it-works) · [Status](#status) · [Layout](#layout) · [Built at NEAR HACKATHON](#built-at-near-hackathon). Judging? [JUDGES.md](JUDGES.md) is the short path.
+
 **Live demo (NEAR testnet):** https://veto-beta.vercel.app. Open the app and press **Try it** in the shared sandbox, with nothing to install. Or connect a NEAR testnet wallet and create your own vault: one transaction, and from then on only your wallet can change its rules or override a veto.
 
 Each payment has to pass two gates before money moves:
@@ -42,9 +46,9 @@ node bench/verify.ts bench/results/Qwen_Qwen3-VL-30B-A3B-Instruct.json --atteste
 
 - `policy` is what a policy wallet enforces on its own: an allowlist plus a cap. Every attack it misses pays a supplier already on the list.
 - `dev` is Veto's deterministic checks without a model.
-- The committed run of Qwen3-VL-30B in NEAR AI's enclave catches 50 of 50 attacks and blocks 8 of 50 honest payments (all 8 are new suppliers whose approval sits inside the email). `verify.ts` rehashes the stored request and response bytes of all 100 verdicts and recovers each signature. `--attested` then verifies NEAR AI's enclave from scratch, with a fresh random nonce and no key: the Intel TDX quote against Intel's certificates, the NVIDIA GPU evidence with NVIDIA's attestation service, that the quote binds the signing key and the nonce, that the enclave runs the app it publishes, the gateway's enclave, and that the attested key is the run's signer. Expect `100/100 verdicts verified` and eight ✓ lines (10 to 20 s; it calls Intel and NVIDIA).
+- The committed run of Qwen3-VL-30B in NEAR AI's enclave catches 50 of 50 attacks and blocks 8 of 50 honest payments (all 8 are new suppliers whose approval sits inside the email). The scenarios and the screening prompt were written by the same team, so read this as a result on this set, not a general catch rate. `verify.ts` rehashes the stored request and response bytes of all 100 verdicts and recovers each signature. `--attested` then verifies NEAR AI's enclave from scratch, with a fresh random nonce and no key: the Intel TDX quote against Intel's certificates, the NVIDIA GPU evidence with NVIDIA's attestation service, that the quote binds the signing key and the nonce, that the enclave runs the app it publishes, the gateway's enclave, and that the attested key is the run's signer. Expect `100/100 verdicts verified` and eight ✓ lines (10 to 20 s; it calls Intel and NVIDIA).
 
-The two bench runs update their entries in `bench/results/`: new timestamps and timings, and a fresh throwaway signing key for `dev`. The scores stay the same.
+The two bench runs write to `bench/runs/`, which git ignores, so the committed results in `bench/results/` stay untouched and `git status` stays clean. (`--publish` writes to `bench/results/` instead.)
 
 ```sh
 pnpm build:contracts                # the vault, the factory and the test token, as wasm
@@ -78,7 +82,9 @@ https://veto-beta.vercel.app/app runs everything below with nothing to install. 
 | **Activity** → **Download CSV** | One row per payment: date, payee, amount, status, reference, verdict and reasons, payout transaction and a link to its proof |
 | Open **/start**, connect a NEAR testnet wallet, name your business and sign | Your own vault, live in a few seconds. Its owner is your account, and every owner action needs your wallet. The shared sandbox, used above, lets anyone act as its owner |
 
-Verdicts come from Qwen3-VL-30B inside NEAR AI's enclave. If NEAR AI can't answer, the sandbox's verdicts are signed by a local test key it was told to trust, and the app labels every such decision "test signer". Vaults created through the factory trust only the enclave key: with no answer, the payment expires unpaid.
+Verdicts come from Qwen3-VL-30B inside NEAR AI's enclave. The sandbox and every vault created through the factory trust only the enclave key: with no answer, the payment expires unpaid. (Until 8 Nov 2026 the sandbox also trusted a labelled test key as a fallback; the 8 decisions it signed are labelled "test signer".) Anyone can act as the sandbox's owner, so it goes back to its default rules (unfrozen, the usual mandate and suppliers) for each new visitor.
+
+The sandbox keeps the $500 per-payment cap the scam story relies on. Its weekly cap is raised to $50,000 so a busy week of visitors can't use it up (`node scripts/demo-health.ts --fix`); a vault you create starts at $500 a payment and $3,000 a week. Each visitor can start 15 payments every 10 minutes.
 
 ## Run your own copy on testnet
 
@@ -100,7 +106,7 @@ pnpm build && pnpm start            # http://localhost:3000, now with your own d
 - **What it writes:** your state in `.veto-dev/` and the app's `apps/web/.env.local` (both gitignored).
 - **Base payouts (the payroll emails):** setup prints the vault's own Base Sepolia address. Send it about 0.01 Base Sepolia ETH from any faucet and the Base emails appear in the inbox.
 - **Keys that turn on the rest** (see [.env.example](.env.example)):
-  - `NEARAI_API_KEY`: the real model instead of the labelled test signer, **Write your own email**, and the agent for vaults made at `/start`. Run `pnpm demo:setup` again after adding it.
+  - `NEARAI_API_KEY`: the real model instead of the labelled test signer (setup then removes the test key from your sandbox), **Write your own email**, and the agent for vaults made at `/start`. Run `pnpm demo:setup` again after adding it.
   - `NEAR_INTENTS_AGENT_API_KEY`, then `node scripts/agentapi-setup.ts`: the **Agent API** path.
 
 ### The guardian and SDK on their own
@@ -194,7 +200,7 @@ vault: ecrecover → approved model key → echoes this proposal's id and hash �
 | Agent inbox, guardian, owner actions in the app | Live on testnet |
 | Private screen on NEAR AI Cloud (Qwen3-VL-30B in a TDX enclave) | Live on testnet; about 1.5 s per verdict |
 | Enclave verification (Intel TDX quote, NVIDIA GPUs, key and nonce binding, gateway) | Live on every Proof page and in `verify.ts --attested`; tested offline on a captured real quote |
-| Veto Bench | Live: 50/50 attacks caught, 8/50 honest payments blocked, 100/100 signatures verified |
+| Veto Bench | Live: on our 100 scenarios, 50/50 attacks caught, 8/50 honest payments blocked, 100/100 signatures verified |
 | Payouts to other chains through NEAR Intents | Built; contract tested against a real executable quote; first mainnet payout needs funding |
 | Shield incident check before cross-chain payouts | Built; holds a payout while a NEAR Intents Shield incident touches its route. Runs when `SHIELD_JWT` is set |
 
