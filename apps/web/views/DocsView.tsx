@@ -47,7 +47,7 @@ const STATUS: { part: string; status: Status; note: string }[] = [
 ];
 
 const METHODS: { method: string; who: string; does: string }[] = [
-  { method: "factory: create_vault(name, label, mandate?)", who: "Anyone", does: "Creates <name>.<factory>, owned by the caller, with starter test funds, caps, suppliers and the enclave model's key, plus its own agent and screening accounts whose keys can only call it." },
+  { method: "factory: create_vault(name, label, mandate?)", who: "Anyone", does: "Creates <name>.<factory>, owned by the caller, with starter test funds, caps, suppliers and the enclave model's key, plus its own agent and screening accounts, holding the hosted app's agent and guardian keys as function-call keys that can only call this vault." },
   { method: "factory: send_gas(account)", who: "The factory's own key", does: "Sends an empty testnet wallet 0.3 test NEAR for gas, once per wallet. The web app holds a key that can call only this, and calls it when an empty wallet connects." },
   { method: "propose(request, context_hash)", who: "Agent", does: "Asks to pay. Checked against the caps at once; then waits for the screen." },
   { method: "submit_verdict(id, model_id, chat_id, request_hash, response, signature, quote?)", who: "Guardian", does: "Records the signed verdict. PASS pays if the caps still allow it; VETO blocks." },
@@ -58,7 +58,7 @@ const METHODS: { method: string; who: string; does: string }[] = [
   { method: "freeze() / unfreeze()", who: "Owner", does: "Stops every payment and cancels pending overrides." },
   { method: "set_policy(asset, policy)", who: "Owner", does: "Lowering a limit applies now; raising one waits for the raise delay." },
   { method: "set_mandate, add_payee, remove_payee, add_agent, set_agent_active", who: "Owner", does: "What the agent may do, in plain words and as lists." },
-  { method: "add_signer(address, model_id)", who: "Owner", does: "Approves a model key after checking its TEE attestation." },
+  { method: "add_signer(address, model_id)", who: "Owner", does: "Approves a model's signing key. Check its TEE attestation first (every Proof page and verify.ts --attested do it); the contract itself doesn't." },
   { method: "set_route(chain, route)", who: "Owner", does: "Lets the vault pay suppliers on another chain through NEAR Intents." },
   { method: "set_evm_route(chain, route)", who: "Owner", does: "Lets the vault pay on an EVM chain from its own Chain Signatures address, with a cap on gas fees." },
   { method: "settle_evm(id, tx_hash)", who: "Guardian", does: "Records the chain's transaction once the guardian has broadcast a payout the MPC network signed." },
@@ -70,7 +70,7 @@ const METHODS: { method: string; who: string; does: string }[] = [
 const FAQ: { q: string; a: string }[] = [
   {
     q: "Is this real, or a simulation?",
-    a: "Real, on NEAR testnet. Every vault is a deployed contract, every payment is a testnet transaction you can open on NearBlocks, and every verdict is signed inside NEAR AI's enclave and checked by the contract. The tokens are test tokens. The shared sandbox lets anyone act as its owner so it can be tried without a wallet, and goes back to its default rules for each new visitor; a vault you create belongs to your wallet, and nothing changes its rules without your signature.",
+    a: "Real, on NEAR testnet. Every vault is a deployed contract, every payment is a testnet transaction you can open on NearBlocks, and every verdict's signature is checked by the contract against a key the owner approved: NEAR AI's enclave key, the only one the sandbox and your vaults trust. The tokens are test tokens. The shared sandbox lets anyone act as its owner so it can be tried without a wallet, and goes back to its default rules for each new visitor; a vault you create belongs to your wallet, and nothing changes its rules without your signature.",
   },
   {
     q: "Where do the payment requests come from?",
@@ -98,7 +98,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Can Veto guard a swarm of agents?",
-    a: "Yes. A vault takes any number of agents, each with its own key that can only propose a payment, and the owner can pause one without stopping the rest. Agents running in OutLayer TEE wallets or NEAR Intents Agent API wallets go through the same gate: every payment from any of them gets the same private AI review. Agents on the vault and OutLayer wallets also meet the vault's contract caps; an Agent API wallet meets its owner's signed policy instead. Separate budgets for each agent are next.",
+    a: "Yes. A vault takes any number of agents (the sandbox runs one), each with its own key that can only propose a payment, and the owner can pause one without stopping the rest. Agents running in OutLayer TEE wallets or NEAR Intents Agent API wallets go through the same gate: every payment from any of them gets the same private AI review. Agents on the vault and OutLayer wallets also meet the vault's contract caps; an Agent API wallet meets its owner's signed policy instead. Separate budgets for each agent are next.",
   },
   {
     q: "Why not just use a card with limits?",
@@ -395,7 +395,7 @@ export function DocsView() {
               <li><span>Do</span> let it pay <strong>&ldquo;New wallet for my salary&rdquo;</strong>. <span>See</span> <strong>Vetoed</strong>: the address imitates Tunde&apos;s saved one, it has never been paid, and the request came from outside the company.</li>
             </ol>
             <p className={styles.note}>
-              Every verdict is signed by Qwen3-VL-30B inside NEAR AI's enclave, and the decision's Proof page shows which key signed it. The sandbox and the vaults
+              Verdicts are signed by Qwen3-VL-30B inside NEAR AI's enclave, and each decision's Proof page shows which key signed it (a few early sandbox decisions were signed by a labelled test key). The sandbox and the vaults
               you create trust only the enclave key, so without an answer the payment expires unpaid.
             </p>
           </section>

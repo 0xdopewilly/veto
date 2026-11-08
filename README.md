@@ -23,7 +23,7 @@ The vault can also pay on **Base** from its own address there, through **NEAR Ch
 
 **Payroll** runs through the same gate. Staff sit on the payee list with the wallet and chain each one chose. In the sandbox the agent pays Tunde Bello's salary on Base, and Veto vetoes the scam payroll attracts most: an email asking to send the salary to a "new wallet".
 
-**Many agents, one gate.** A vault takes any number of agents, each holding a key that can only propose, and the owner can pause any one of them without stopping the rest. Every agent's payment gets the same private AI review, whichever wallet it pays from: agents on the vault and OutLayer wallets also meet the vault's caps, and an Agent API wallet meets its owner's signed policy.
+**Many agents, one gate.** A vault takes any number of agents (the sandbox runs one), each holding a key that can only propose, and the owner can pause any one of them without stopping the rest. Every agent's payment gets the same private AI review, whichever wallet it pays from: agents on the vault and OutLayer wallets also meet the vault's caps, and an Agent API wallet meets its owner's signed policy.
 
 ## Check it yourself (no keys, no funds)
 
@@ -84,7 +84,7 @@ https://veto-beta.vercel.app/app runs everything below with nothing to install. 
 
 Verdicts come from Qwen3-VL-30B inside NEAR AI's enclave. The sandbox and every vault created through the factory trust only the enclave key: with no answer, the payment expires unpaid. (Until 8 Nov 2026 the sandbox also trusted a labelled test key as a fallback; the 8 decisions it signed are labelled "test signer".) Anyone can act as the sandbox's owner, so it goes back to its default rules (unfrozen, the usual mandate and suppliers) for each new visitor.
 
-The sandbox keeps the $500 per-payment cap the scam story relies on. Its weekly cap is raised to $50,000 so a busy week of visitors can't use it up (`node scripts/demo-health.ts --fix`); a vault you create starts at $500 a payment and $3,000 a week. Each visitor can start 15 payments every 10 minutes.
+The sandbox keeps the $500 per-payment cap the scam story relies on. Its weekly cap is raised to $50,000 so a busy week of visitors can't use it up (`node scripts/demo-health.ts --fix`); a vault you create starts at $500 a payment and $3,000 a week. Runs are limited per visitor, to about 15 every 10 minutes.
 
 ## Run your own copy on testnet
 
@@ -102,7 +102,7 @@ pnpm build && pnpm start            # http://localhost:3000, now with your own d
   - an agent and a guardian. The app uses only their function-call keys, each limited to its role's vault methods. Setup also keeps full-access keys on the sandbox's accounts, the vault included, so it can redeploy them; a vault made by the factory has no access keys at all, so its code and funds move only through the contract;
   - test payees: two suppliers on NEAR, a lookalike account the scams use, and on Base Sepolia a freight supplier and a member of staff;
   - an OutLayer agent wallet whose policy needs an approval, Veto's or the owner's, for every payment;
-  - the factory (`vaults.<root>`) that creates a vault for any testnet account. Each new vault runs the global vault code by hash, stores only its own state, and starts with $5,000 test USDC, caps of $500 a payment and $3,000 a week, the two NEAR suppliers, and only the enclave model's key. It also gets its own agent (`<name>_agent`) and screening account (`<name>_guard`), each holding one function-call key that can only call that vault. Each vault costs the factory 0.9 test NEAR; send the factory more to sponsor more.
+  - the factory (`vaults.<root>`) that creates a vault for any testnet account. Each new vault runs the global vault code by hash, stores only its own state, and starts with $5,000 test USDC, caps of $500 a payment and $3,000 a week, the two NEAR suppliers, and only the enclave model's key. It also gets its own agent (`<name>_agent`) and screening account (`<name>_guard`). The hosted app is the agent and the guardian for every factory vault, so these accounts hold the app's two keys, each as a function-call key that can only call its own vault. Each vault costs the factory 0.9 test NEAR; send the factory more to sponsor more.
 - **What it writes:** your state in `.veto-dev/` and the app's `apps/web/.env.local` (both gitignored).
 - **Base payouts (the payroll emails):** setup prints the vault's own Base Sepolia address. Send it about 0.01 Base Sepolia ETH from any faucet and the Base emails appear in the inbox.
 - **Keys that turn on the rest** (see [.env.example](.env.example)):
@@ -128,7 +128,7 @@ Put `NEARAI_API_KEY=…` in `.env.local` at the repo root, then:
 
 ```sh
 pnpm demo:setup                       # copies the key to the app and approves the model's attested key on the vault
-pnpm bench --model Qwen/Qwen3-VL-30B-A3B-Instruct
+pnpm bench --model Qwen/Qwen3-VL-30B-A3B-Instruct --publish   # --publish writes to bench/results/, which the next two lines read
 node bench/verify.ts bench/results/Qwen_Qwen3-VL-30B-A3B-Instruct.json --attested
 node bench/publish.ts                 # updates the /bench page
 ```

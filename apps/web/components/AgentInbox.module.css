@@ -255,6 +255,13 @@
   flex: 1;
 }
 
+.slow {
+  padding-left: 34px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
 .tx {
   display: inline-flex;
   align-items: center;

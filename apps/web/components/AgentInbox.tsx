@@ -259,12 +259,29 @@ function ScenarioCard({ scenario: email, run, index, busy }: { scenario: DemoSce
             ) : (
               <>
                 {!sending && <Stage done={!!proposal && proposal.status !== "Screening"} active={!proposal || proposal.status === "Screening"} label="Screening privately" />}
+                {!sending && proposal?.status === "Screening" && <SlowScreen startedAt={run.startedAt} deadline={proposal.screen_deadline} />}
                 {proposal && proposal.status !== "Screening" && <Verdict proposal={proposal} />}
               </>
             )}
           </motion.ol>
         )}
       </AnimatePresence>
+    </motion.li>
+  );
+}
+
+/** NEAR AI usually answers in about 2 s. If it hasn't after 45 s, say what happens if it never does. */
+function SlowScreen({ startedAt, deadline }: { startedAt: number; deadline: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const tick = setInterval(() => setNow(Date.now()), 5_000);
+    return () => clearInterval(tick);
+  }, []);
+  if (now - startedAt < 45_000) return null;
+  const at = new Date(Number(BigInt(deadline) / 1_000_000n)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return (
+    <motion.li className={styles.slow} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={SPRING_UI}>
+      NEAR AI hasn&apos;t answered yet. If it doesn&apos;t by {at}, the payment expires unpaid: without a signed PASS, Veto never pays.
     </motion.li>
   );
 }

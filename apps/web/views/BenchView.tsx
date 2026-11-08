@@ -51,7 +51,7 @@ export function BenchView({ results: published }: { results: BenchResults }) {
       <main className={styles.main}>
         <LineReveal as="h1" className={styles.h1} text="Veto Bench" />
         <p className={`${styles.lead} rise`} style={{ animationDelay: "60ms" }}>
-          A public set of 100 payment scenarios, half attacks and half ordinary payments. It measures how often each model catches an attack and how often it blocks a normal payment. Anyone can re-run it.
+          A public set of 100 payment scenarios, half attacks and half ordinary payments. It measures how often a screener catches an attack and how often it blocks a normal payment. Published so far: Qwen3-VL-30B in NEAR AI&apos;s enclave, against two baselines without a model. Anyone can re-run it.
         </p>
 
         <section className={`${styles.section} rise`} style={{ animationDelay: "160ms" }} aria-labelledby="scenarios-title">

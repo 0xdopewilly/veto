@@ -54,10 +54,9 @@ export function Odometer({
               animate={{ y: play || calm ? `${-n * 10}%` : "0%" }}
               transition={calm ? { duration: 0 } : { type: "spring", stiffness: 120, damping: 19, mass: 1, delay: delay / 1000 + order * 0.045 }}
             >
+              {/* Drawn by CSS from data-d, so the page's text holds the value once, not 0–9 per digit. */}
               {DIGITS.split("").map((d) => (
-                <span key={d} className={styles.digit}>
-                  {d}
-                </span>
+                <span key={d} className={styles.digit} data-d={d} />
               ))}
             </motion.span>
           </span>

@@ -1,9 +1,16 @@
 // Server-only: puts the shared sandbox's owner settings back the way demo:setup left them, so a
 // freeze, a rewritten mandate or a removed supplier from one visitor doesn't greet the next. Only the
-// settings a visitor can change through /api/demo/owner are restored; payments and history stay.
+// settings a visitor can change through /api/demo/owner are restored, and vetoes older than a day
+// that nobody decided on are kept blocked; payments and history stay.
 import { teraToGas } from "near-api-js";
-import { SANDBOX_MANDATE, SANDBOX_SUPPLIERS } from "@veto/core";
+import { SANDBOX_MANDATE, SANDBOX_SUPPLIERS, type Proposal } from "@veto/core";
 import { demo, demoAccounts } from "./demo";
+import { rejectHeld } from "./outlayer";
+
+/** Vetoes nobody decided on for this long are closed (kept blocked), so the queue holds recent ones. */
+const STALE_VETO_NS = 24n * 3_600n * 1_000_000_000n;
+/** Closed per visit, so one reset stays well inside the function's time limit. */
+const CLOSE_PER_VISIT = 10;
 
 /** Someone who acted as the owner this recently is probably mid-test: leave their changes alone. */
 const BUSY_MS = 3 * 60_000;
@@ -25,7 +32,16 @@ export async function restoreSandbox(): Promise<string[]> {
   for (const s of suppliers) if (!payees.some((p) => p.chain === "near" && p.address === s.address)) calls.push(["add_payee", { name: s.name, chain: "near", address: s.address }]);
   for (const [agent, info] of agents) if (!info.active) calls.push(["set_agent_active", { agent, active: true }]);
 
+  // Old vetoes from earlier visitors: close the oldest few, so "Needs your decision" shows recent ones.
+  const all: Proposal[] = [];
+  for (let from = 0; from < Number(config.proposal_count); from += 100) all.push(...(await reader.proposals(from, 100)));
+  const cutoff = BigInt(Date.now()) * 1_000_000n - STALE_VETO_NS;
+  const stale = all.filter((p) => p.status === "Vetoed" && BigInt(p.created_at) < cutoff).slice(0, CLOSE_PER_VISIT);
+  for (const p of stale) calls.push(["keep_blocked", { id: p.id }]);
+
   // One transaction each: the demo owner's function-call key can sign only a single call at a time.
   for (const [methodName, args] of calls) await owner.callFunction({ contractId: demo.vaultId, methodName, args, gas: teraToGas("30") });
+  // A closed veto on an OutLayer wallet is rejected there too, as Keep it blocked does.
+  for (const p of stale) if (p.external) await rejectHeld(p).catch((e) => console.error(`OutLayer reject for ${p.id} failed:`, (e as Error).message));
   return calls.map(([m]) => m);
 }

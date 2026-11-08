@@ -13,7 +13,7 @@ Open https://veto-beta.vercel.app/app and press **Try it** (the green V on a pho
 | Open the vetoed decision → **Proof** → **Check the enclave now** | Eight live checks of NEAR AI's enclave: Intel TDX quote, NVIDIA GPUs, key and nonce bound into the quote, the published app, the gateway, and that the key is the one that signed this verdict. **Check again** runs a new check with a new nonce |
 | **Activity** → **Download CSV** | One row per payment, with its verdict, reasons, transaction and proof link |
 
-The sandbox is shared, and anyone can act as its owner, so it goes back to its default rules for each new visitor. Each visitor can start 15 payments every 10 minutes.
+The sandbox is shared, and anyone can act as its owner, so it goes back to its default rules for each new visitor. Runs are limited per visitor, to about 15 every 10 minutes.
 
 ## On your machine (no keys, no funds)
 

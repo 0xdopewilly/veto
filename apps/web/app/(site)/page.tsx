@@ -68,7 +68,7 @@ const NEAR = [
   { title: "NEAR Intents", text: "Pays a supplier on another chain from one vault balance. The vault checks 1Click's signed quote pays exactly the screened payee and amount. Tested against a real quote; the first mainnet payout is pending.", icon: "globe" },
   { title: "Chain Signatures", text: "The vault has its own address on Base. It builds each passed transfer itself and NEAR's MPC network signs exactly that, nothing else.", icon: "key" },
   { title: "NEAR AI Cloud", text: "Private inference inside TEEs, with every response signed by the model's enclave key.", icon: "shield" },
-  { title: "NEAR accounts", text: "The agent is a sub-account whose function-call key can only propose payments; the guardian's can only record verdicts and settle payments.", icon: "bot" },
+  { title: "NEAR accounts", text: "In a vault you create, the agent's only key is a function-call key that can only propose payments; the guardian's can only record verdicts and settle payments.", icon: "bot" },
   { title: "Intents Agent API", text: "An agent account on NEAR Intents whose owner-signed policy is the hard limit. Veto holds its only grant, so the agent can only ask, and only a pass is sent: a transfer, or a salary paid out on Base.", icon: "wallet" },
   { title: "OutLayer agent wallets", text: "Veto is an approver on an OutLayer wallet's policy, so a TEE wallet it doesn't hold gets the same caps, screen and record.", icon: "lock" },
 ] as const;
@@ -172,7 +172,7 @@ export default function Landing() {
           <div className={`${styles.panel} ${styles.proofGrid}`}>
             <div>
               <LineReveal as="h2" id="proof-title" className={`${styles.h2} ${styles.lines}`} text="Proof you can check" />
-              <p className={`${styles.lead} ${styles.reveal}`} data-reveal>Every verdict carries evidence that anyone can check without trusting us.</p>
+              <p className={`${styles.lead} ${styles.reveal}`} data-reveal>Anyone can check, without trusting us, which model signed each verdict and that it ran in NEAR AI&apos;s enclave.</p>
               <a className={`${styles.pillLink} ${styles.reveal} press`} href="https://cloud.near.ai/verify" target="_blank" rel="noreferrer" data-reveal>
                 Open the NEAR AI verifier <Icon name="external" size={16} />
               </a>
