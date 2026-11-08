@@ -29,8 +29,13 @@ const spendable = async (id: string) => {
 
 // What the factory sends with each vault: 0.5 for the vault, 0.1 and 0.3 for its agent and guardian.
 const PER_VAULT = nearToYocto("0.9");
-const FACTORY_LOW = 5n;
-const FACTORY_FILL = 12n;
+const FACTORY_LOW = 15n;
+const FACTORY_FILL = 30n;
+// The sandbox vault pays for its own storage, about 700 bytes a payment (1e19 yocto a byte). Below
+// 2 NEAR free (about 280 payments) --fix tops it up to 6 (about 850), so a busy week can't fill it.
+const VAULT_LOW = nearToYocto("2");
+const VAULT_FILL = nearToYocto("6");
+const PAYMENT_BYTES = 700n;
 
 const gas: [string, string, bigint][] = [
   ["agent", state.agent!.accountId, nearToYocto("0.5")],
@@ -56,6 +61,8 @@ if (factory) {
   const count = await rpc.callFunction({ contractId: factory, method: "count", args: {} });
   console.log(`  vault factory    ${count} vaults created, room for ${factoryRoom} more${factoryRoom < FACTORY_LOW ? "  (low)" : ""}`);
 }
+const vaultFree = await spendable(vault.vaultId);
+console.log(`  vault storage    ${fmt(vaultFree, 24, 3)} NEAR free, room for about ${vaultFree / 10n ** 19n / PAYMENT_BYTES} more payments${vaultFree < VAULT_LOW ? "  (low)" : ""}`);
 console.log(`  root             ${fmt(await spendable(state.root!.accountId), 24, 3)} NEAR spendable`);
 if (!FIX) process.exit(0);
 
@@ -78,6 +85,16 @@ if (BigInt(spend.period_limit) < WEEKLY) {
   await new Promise((r) => setTimeout(r, (delay + 5) * 1000));
   await root.callFunction({ contractId: vault.vaultId, methodName: "apply_policy", args: { asset: token }, gas: teraToGas("30") });
   console.log("  applied the new weekly cap");
+}
+if (vaultFree < VAULT_LOW) {
+  const need = VAULT_FILL - vaultFree;
+  try {
+    await ensureRootYocto(state, need + nearToYocto("1"), (s) => console.log(`  ${s}`));
+    await root.transfer({ receiverId: vault.vaultId, amount: need });
+    console.log(`  sent ${fmt(need, 24)} NEAR to the vault for storage (room for about ${VAULT_FILL / 10n ** 19n / PAYMENT_BYTES} payments)`);
+  } catch (e) {
+    console.log(`  couldn't top up the vault's storage: ${(e as Error).message}`);
+  }
 }
 if (factory && factoryRoom < FACTORY_LOW) {
   const need = (FACTORY_FILL - factoryRoom) * PER_VAULT;
