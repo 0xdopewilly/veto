@@ -7,7 +7,7 @@ import { metaOf, useVault, type VaultState } from "@/lib/vault";
 import { useProposal } from "@/lib/useProposal";
 import { useKeptBlocked } from "@/lib/dismissed";
 import { useNow } from "@/lib/useNow";
-import { STATUS_TEXT, evmTxUrl, imitated, isTestSigner, listedPayee, payeeHistory, payeeLabel, reasonText, requesterLabel } from "@/lib/decision";
+import { evmTxUrl, imitated, isTestSigner, listedPayee, payeeHistory, payeeLabel, payoutTxUrl, reasonText, requesterLabel, STATUS_TEXT } from "@/lib/decision";
 import {
   formatAmount,
   formatDuration,
@@ -440,7 +440,14 @@ function Paid({ state, p }: { state: VaultState; p: Proposal }) {
             <div className={styles.checkRow}>
               <div>
                 <span className={styles.checkName}>OutLayer wallet</span>
-                <span className={styles.checkDetail}>Held the payment until both checks passed, then sent it on Veto's approval.</span>
+                <span className={styles.checkDetail}>
+                  Held the payment until both checks passed, then sent it on Veto&apos;s approval.{" "}
+                  {p.external.tx_hash && (
+                    <a href={payoutTxUrl(p)!} target="_blank" rel="noreferrer">
+                      View it on the explorer
+                    </a>
+                  )}
+                </span>
               </div>
               <span className={styles.passBadge}>Sent</span>
             </div>

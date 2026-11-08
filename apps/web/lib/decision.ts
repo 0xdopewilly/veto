@@ -1,6 +1,7 @@
 import type { Payee, Proposal, Status } from "@veto/core/proposal";
 import { REASON_TEXT, type ReasonCode } from "@veto/core/prompt";
 import { computeSignals, lookalike } from "@veto/core/signals";
+import { EXPLORER } from "./config";
 import { shortAddress } from "./format";
 
 export type Tone = "pass" | "veto" | "pending" | "neutral";
@@ -81,6 +82,10 @@ const EVM_EXPLORER: Record<string, string> = {
 };
 export const evmTxUrl = (p: Proposal) =>
   p.evm?.tx_hash && EVM_EXPLORER[p.evm.chain_id] ? `${EVM_EXPLORER[p.evm.chain_id]}/tx/${p.evm.tx_hash}` : null;
+
+/** The payout's transaction: the Base transfer, or the NEAR transaction an OutLayer wallet sent. */
+export const payoutTxUrl = (p: Proposal) =>
+  evmTxUrl(p) ?? (p.external?.tx_hash ? `${EXPLORER}/txns/${p.external.tx_hash}` : null);
 
 /** Who asked for the payment: the agent's account, or the OutLayer wallet it pays from. */
 export const requesterLabel = (p: Proposal) => (p.external ? `${shortAddress(p.external.wallet)} (OutLayer wallet)` : p.agent);

@@ -82,6 +82,9 @@ const STORE_KEY = "veto.vault";
 const labelKey = (id: string) => `veto.label.${id}`;
 
 /** Remembers which vault to open next time (and its name, so it shows before the chain answers). */
+/** The vault's whole payment history, newest first (the live state holds only the newest 100). */
+export const loadAllProposals = (vaultId: string) => readerFor(vaultId).allProposals();
+
 export function rememberVault(id: string, label?: string) {
   try {
     if (id === SANDBOX_ID) localStorage.removeItem(STORE_KEY);

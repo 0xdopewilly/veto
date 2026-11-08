@@ -36,6 +36,17 @@ export class VaultReader {
   openProposals = () => this.view<Proposal[]>("get_open_proposals");
   proposal = (id: string) => this.view<Proposal | null>("get_proposal", { id });
   proposals = (fromIndex = 0, limit = 50) => this.view<Proposal[]>("get_proposals", { from_index: String(fromIndex), limit });
+  /** Every proposal, newest first, a page of 100 (the contract's maximum) at a time. */
+  allProposals = async (): Promise<Proposal[]> => {
+    const seen = new Map<string, Proposal>();
+    for (let from = 0; ; from += 100) {
+      const page = await this.proposals(from, 100);
+      // A proposal made while paging shifts the pages by one; the map drops the repeat.
+      for (const p of page) if (!seen.has(p.id)) seen.set(p.id, p);
+      if (page.length < 100) break;
+    }
+    return [...seen.values()].sort((a, b) => Number(b.id) - Number(a.id));
+  };
   proposalHash = (id: string) => this.view<string>("get_proposal_hash", { id });
 }
 

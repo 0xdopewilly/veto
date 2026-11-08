@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { Proposal } from "@veto/core/proposal";
 import { Pill } from "@/components/Pill";
-import { needsDecision, useVault } from "@/lib/vault";
+import { loadAllProposals, needsDecision, useVault } from "@/lib/vault";
 import { useKeptBlocked } from "@/lib/dismissed";
 import { Screen, delay } from "@/components/Screen";
 import { ActivityList, filterOptions, filterProposals, type Filter } from "@/components/ActivityList";
@@ -22,9 +23,25 @@ export function DecisionsView() {
   const [filter, setFilter] = useState<Filter>("all");
   // Newest first, a page at a time: the list stays quick to open however many payments the vault has.
   const [shown, setShown] = useState(PAGE);
+  // The live state holds the newest 100 payments. A vault with more loads the rest here, so the list,
+  // its filter counts and the CSV cover the whole history.
+  const [older, setOlder] = useState<Proposal[]>([]);
+  const loaded = state?.proposals ?? [];
+  const oldest = loaded.length ? Math.min(...loaded.map((p) => Number(p.id))) : 0;
+  useEffect(() => {
+    if (!vaultId || oldest === 0) return setOlder([]);
+    let live = true;
+    loadAllProposals(vaultId)
+      .then((all) => live && setOlder(all.filter((p) => Number(p.id) < oldest)))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [vaultId, oldest]);
   if (!state) return <Boot loading caption="Loading activity" />;
-  const attention = needsDecision(state.proposals, kept);
-  const matching = filterProposals(state.proposals, filter);
+  const history = older.length ? [...state.proposals, ...older.filter((p) => Number(p.id) < oldest)] : state.proposals;
+  const attention = needsDecision(history, kept);
+  const matching = filterProposals(history, filter);
   return (
     <Boot>
       <Screen wide>
@@ -72,7 +89,7 @@ export function DecisionsView() {
           <div className={`${styles.tools} rise`} style={delay(140)}>
             <Segmented
               label="Filter payments"
-              options={filterOptions(state.proposals)}
+              options={filterOptions(history)}
               value={filter}
               onChange={(f) => {
                 setFilter(f);

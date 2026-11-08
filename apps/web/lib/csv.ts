@@ -1,7 +1,7 @@
 // Activity as a CSV an accountant can open as is: one row per payment, plain numbers, UTC times, and
 // a link to each payment's proof.
 import type { Proposal } from "@veto/core/proposal";
-import { evmTxUrl, payeeLabel, reasonText, STATUS_TEXT } from "./decision";
+import { payeeLabel, payoutTxUrl, reasonText, STATUS_TEXT } from "./decision";
 import { chainLabel, nsToDate } from "./format";
 import { metaOf, type VaultState } from "./vault";
 
@@ -62,7 +62,7 @@ export function paymentsCsv(state: VaultState, proposals: Proposal[], origin: st
       verdict,
       (p.verdict?.reasons ?? []).map(reasonText).join("; "),
       p.status === "Paid" ? utc(p.settled_at) : "",
-      evmTxUrl(p) ?? "",
+      payoutTxUrl(p) ?? "",
       `${origin}/app/decisions/${p.id}/proof?vault=${encodeURIComponent(vaultId)}`,
     ];
   });
