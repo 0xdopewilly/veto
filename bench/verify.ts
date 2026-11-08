@@ -51,7 +51,7 @@ console.log(`${ok}/${results.length} verdicts verified against ${summary.signer}
 for (const p of problems) console.log(`  ${p}`);
 
 if (checkAttested) {
-  const enclave = await verifyEnclave(summary.model, { expectSigner: summary.signer });
+  const enclave = await verifyEnclave(summary.model, { expectSigner: summary.signer, signerFrom: "run" });
   console.log(`\nNEAR AI's enclave for ${summary.model}, checked now with nonce ${enclave.nonce.slice(0, 12)}…:`);
   for (const c of enclave.checks) console.log(`  ${c.ok ? "✓" : "✗"} ${c.title}. ${c.detail}`);
   if (!enclave.ok) {

@@ -20,10 +20,11 @@ export function EnclaveCheck({ model, signer }: { model: string; signer: string 
   const calm = useCalm();
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
-  const run = async () => {
+  // The first look may share a check another viewer ran in the last minute; Check again always runs a new one.
+  const run = async (fresh = false) => {
     setStatus({ kind: "checking" });
     try {
-      const res = await fetch(`/api/attestation?model=${encodeURIComponent(model)}&signer=${encodeURIComponent(signer)}`);
+      const res = await fetch(`/api/attestation?model=${encodeURIComponent(model)}&signer=${encodeURIComponent(signer)}${fresh ? "&fresh=1" : ""}`);
       const body = (await res.json()) as EnclaveVerification & { error?: string };
       if (!res.ok || body.error) throw new Error(body.error ?? `the check answered ${res.status}`);
       setStatus({ kind: "done", result: body });
@@ -34,7 +35,7 @@ export function EnclaveCheck({ model, signer }: { model: string; signer: string 
 
   if (status.kind === "idle") {
     return (
-      <button type="button" className={`${styles.start} press`} onClick={run}>
+      <button type="button" className={`${styles.start} press`} onClick={() => run()}>
         <span className={styles.startIcon} aria-hidden="true">
           <Icon name="shield" size={17} stroke={2.25} />
         </span>
@@ -59,7 +60,7 @@ export function EnclaveCheck({ model, signer }: { model: string; signer: string 
         {status.kind === "error" && (
           <motion.div key="error" className={styles.error} initial={calm ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             <p>{status.message}</p>
-            <button type="button" className={`${styles.again} press`} onClick={run}>
+            <button type="button" className={`${styles.again} press`} onClick={() => run()}>
               Try again
             </button>
           </motion.div>
@@ -103,7 +104,7 @@ export function EnclaveCheck({ model, signer }: { model: string; signer: string 
               <span className={styles.nonce}>
                 Nonce <span className="mono">{status.result.nonce.slice(0, 10)}…{status.result.nonce.slice(-6)}</span>
               </span>
-              <button type="button" className={`${styles.again} press`} onClick={run}>
+              <button type="button" className={`${styles.again} press`} onClick={() => run(true)}>
                 Check again
               </button>
             </div>

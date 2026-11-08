@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { BenchView } from "@/views/BenchView";
+import { BenchView, type BenchResults } from "@/views/BenchView";
+// Built into the page, so the numbers are in its HTML (bench/publish.ts writes this file).
+import results from "@/public/bench/results.json";
 
 export const metadata: Metadata = {
   title: "Veto Bench",
@@ -7,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <BenchView />;
+  return <BenchView results={results as BenchResults} />;
 }

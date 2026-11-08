@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { LineReveal } from "@/components/LineReveal";
 import { SmoothScroll } from "@/components/SmoothScroll";
 import { RevealOnScroll } from "@/components/RevealOnScroll";
@@ -19,7 +18,7 @@ const SCENARIOS = [
 
 
 /** Shape of public/bench/results.json, written by the bench runner. */
-interface BenchResults {
+export interface BenchResults {
   ran_at: string;
   models: {
     model: string;
@@ -35,15 +34,8 @@ interface BenchResults {
 
 const isBaseline = (model: string) => model.startsWith("baseline/");
 
-export function BenchView() {
-  const [results, setResults] = useState<BenchResults | null>(null);
-
-  useEffect(() => {
-    fetch("/bench/results.json", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: BenchResults | null) => setResults(data?.models?.length ? data : null))
-      .catch(() => setResults(null));
-  }, []);
+export function BenchView({ results: published }: { results: BenchResults }) {
+  const results = published.models?.length ? published : null;
 
   // Only what has actually run: every row is a published, re-checkable result.
   const scored = results?.models ?? [];

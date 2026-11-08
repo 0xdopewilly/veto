@@ -156,8 +156,11 @@ async function verifyGpu(payloadJson: string, nonce: string) {
   };
 }
 
-/** One full, fresh verification of the model's enclave. `expectSigner` is the key a vault approved. */
-export async function verifyEnclave(model: string, opts: { expectSigner?: string; baseUrl?: string } = {}): Promise<EnclaveVerification> {
+/**
+ * One full, fresh verification of the model's enclave. `expectSigner` is the key the caller trusts:
+ * the key a vault approved (`signerFrom: "vault"`, the default) or the key that signed a bench run.
+ */
+export async function verifyEnclave(model: string, opts: { expectSigner?: string; signerFrom?: "vault" | "run"; baseUrl?: string } = {}): Promise<EnclaveVerification> {
   const nonce = randomBytes(32).toString("hex");
   const checked_at = new Date().toISOString();
   const want = opts.expectSigner?.toLowerCase();
@@ -239,11 +242,16 @@ export async function verifyEnclave(model: string, opts: { expectSigner?: string
   }
 
   if (want) {
+    const run = opts.signerFrom === "run";
     add(
       "signer",
       signer === want,
-      "It's the key the vault approved",
-      signer === want ? `The attested key ${short(signer)} is the one the vault checks every verdict against.` : `NEAR AI attests ${short(signer)}, not the vault's key ${short(want)}.`,
+      run ? "It's the key that signed this run" : "It's the key the vault approved",
+      signer === want
+        ? run
+          ? `The attested key ${short(signer)} is the one that signed every verdict in this run.`
+          : `The attested key ${short(signer)} is the one the vault checks every verdict against.`
+        : `NEAR AI attests ${short(signer)}, not ${run ? "this run's" : "the vault's"} key ${short(want)}.`,
     );
   }
 

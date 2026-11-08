@@ -4,8 +4,9 @@
 //   node bench/run.ts --screener dev                  (no key; checks the harness only)
 //   node bench/run.ts --screener policy               (no key; a policy wallet on its own)
 //
-// Results land in bench/results/<model>.json with every signed request and response,
-// so anyone can re-check the signatures offline with `node bench/verify.ts`.
+// Results land in bench/runs/<model>.json (gitignored) with every signed request and response, so
+// anyone can re-check the signatures offline with `node bench/verify.ts`. `--publish` writes them to
+// bench/results/ instead: the committed runs the Bench page and the README show.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import {
@@ -28,6 +29,7 @@ const { values: args } = parseArgs({
     screener: { type: "string", default: "nearai" },
     limit: { type: "string" },
     concurrency: { type: "string", default: "3" },
+    publish: { type: "boolean", default: false },
   },
 });
 loadEnv(new URL("../.env.local", import.meta.url));
@@ -143,10 +145,11 @@ const summary = {
   by_category: byCategory,
 };
 
-mkdirSync(new URL("results/", import.meta.url), { recursive: true });
+const outDir = args.publish ? "results/" : "runs/";
+mkdirSync(new URL(outDir, import.meta.url), { recursive: true });
 const slug = model.replace(/[^a-z0-9.-]+/gi, "_");
-writeFileSync(new URL(`results/${slug}.json`, import.meta.url), JSON.stringify({ summary, results }, null, 2));
-const index = new URL("results/summary.json", import.meta.url);
+writeFileSync(new URL(`${outDir}${slug}.json`, import.meta.url), JSON.stringify({ summary, results }, null, 2));
+const index = new URL(`${outDir}summary.json`, import.meta.url);
 const all = existsSync(index) ? JSON.parse(readFileSync(index, "utf8")) : {};
 all[model] = summary;
 writeFileSync(index, JSON.stringify(all, null, 2));

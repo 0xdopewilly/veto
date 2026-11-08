@@ -2,8 +2,9 @@
 // against Intel's certificates, NVIDIA's GPU evidence, that the quote binds the signing key and the
 // nonce, the published app, the gateway, and that the attested key is the one a verdict was signed
 // by. Keyless; the proof page calls it. A result is shared for a minute, so a crowd of viewers asks
-// Intel and NVIDIA once.
+// Intel and NVIDIA once; `fresh=1` (the panel's Check again) always runs a new check with a new nonce.
 import { verifyEnclave, type EnclaveVerification } from "@veto/core/attest";
+import { allow, visitor } from "@/lib/server/demo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,7 +22,11 @@ export async function GET(req: Request) {
 
   const key = `${model}|${signer}`;
   const hit = cache.get(key);
-  if (!hit || Date.now() - hit.at > FRESH_MS) {
+  const fresh = url.searchParams.get("fresh") === "1";
+  if (fresh && !allow(`attest:${visitor(req)}`, 6, 10 * 60_000)) {
+    return Response.json({ error: "You've run several fresh checks just now. Try again in a few minutes." }, { status: 429 });
+  }
+  if (fresh || !hit || Date.now() - hit.at > FRESH_MS) {
     const result = verifyEnclave(model, { expectSigner: signer || undefined });
     cache.set(key, { at: Date.now(), result });
     // A failed run shouldn't be served to the next viewer.
