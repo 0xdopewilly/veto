@@ -1,6 +1,7 @@
 import { after } from "next/server";
 import { teraToGas } from "near-api-js";
-import { allow, demo, demoAccounts } from "@/lib/server/demo";
+import { allow, demo, demoAccounts, visitor } from "@/lib/server/demo";
+import { noteOwnerAction } from "@/lib/server/sandbox";
 import { evmParamsFor, payoutIfSigned, quoteFor } from "@veto/core";
 import { approveAndSettle, rejectHeld } from "@/lib/server/outlayer";
 
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
   const build = action ? ACTIONS[action] : undefined;
   const parsed = build?.(args ?? {});
   if (!action || !parsed) return Response.json({ error: "unknown action or bad arguments" }, { status: 400 });
-  if (!allow("owner", 30, 10 * 60_000)) return Response.json({ error: "too many demo actions; try again in a few minutes" }, { status: 429 });
+  if (!allow(`owner:${visitor(req)}`, 20, 10 * 60_000) || !allow("owner", 60, 10 * 60_000)) return Response.json({ error: "too many demo actions; try again in a few minutes" }, { status: 429 });
 
   const { owner, reader } = demoAccounts();
   if (!owner) return Response.json({ error: "no demo owner is configured" }, { status: 404 });
@@ -51,6 +52,7 @@ export async function POST(req: Request) {
         }
       }
     }
+    noteOwnerAction();
     const outcome = await owner.signAndSendTransaction({
       receiverId: demo.vaultId,
       actions: [(await import("near-api-js")).actions.functionCall(action, parsed, teraToGas(action === "execute_override" ? "300" : "100"), 0n)],

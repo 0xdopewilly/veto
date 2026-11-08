@@ -97,7 +97,30 @@ interface DemoContextValue {
 
 const DemoContext = createContext<DemoContextValue | null>(null);
 
+// The shared sandbox goes back to its default rules (unfrozen, the usual mandate and suppliers) for a
+// visitor who hasn't used it in half an hour, so one visitor's changes don't greet the next.
+const VISIT_KEY = "veto.sandbox.lastSeen";
+const VISIT_MS = 30 * 60_000;
+function touchVisit() {
+  try {
+    localStorage.setItem(VISIT_KEY, String(Date.now()));
+  } catch {
+    // no storage: every visit starts from the defaults
+  }
+}
+function startVisit() {
+  let last = 0;
+  try {
+    last = Number(localStorage.getItem(VISIT_KEY)) || 0;
+  } catch {
+    // treated as a new visitor
+  }
+  touchVisit();
+  if (Date.now() - last >= VISIT_MS) fetch("/api/demo/reset", { method: "POST" }).catch(() => {});
+}
+
 async function post<T>(url: string, body: unknown): Promise<T> {
+  touchVisit();
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : `The demo service answered ${res.status}.`);
@@ -134,6 +157,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
           // A copy without a demo agent answers just { enabled: false }: nothing else in it is there.
           setInfo(data.enabled ? data : null);
           setStatus(data.enabled ? "ready" : "off");
+          if (data.enabled && data.sandbox && data.owner) startVisit();
         })
         .catch(() => {
           if (cancelled) return;

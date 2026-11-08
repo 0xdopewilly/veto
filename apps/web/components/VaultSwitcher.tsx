@@ -55,7 +55,7 @@ export function VaultSwitcher({ open, onClose }: { open: boolean; onClose: () =>
     <Sheet open={open} onClose={onClose} labelledBy="vaults-title">
       <h2 id="vaults-title" className={styles.title}>Vaults</h2>
       <p className={styles.lead}>
-        Anyone can act as the sandbox&apos;s owner. A vault you create belongs to your wallet: only you can change its rules or override a veto.
+        Anyone can act as the sandbox&apos;s owner, and it goes back to its default rules for each new visitor. A vault you create belongs to your wallet: only you can change its rules or override a veto.
       </p>
 
       <ul className={styles.list}>

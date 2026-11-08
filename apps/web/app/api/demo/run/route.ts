@@ -1,4 +1,4 @@
-import { allow, demo, vaultAccounts } from "@/lib/server/demo";
+import { allow, demo, vaultAccounts, visitor } from "@/lib/server/demo";
 import { outlayerEnabled } from "@/lib/server/outlayer";
 import { buildScenarios } from "@/lib/server/scenarios";
 import { evmDemo } from "@/lib/server/evm";
@@ -24,7 +24,8 @@ export async function POST(req: Request) {
   if (!accounts) return Response.json({ error: "the demo agent doesn't work for that vault" }, { status: 404 });
   if (via === "outlayer" && !(accounts.sandbox && outlayerEnabled())) return Response.json({ error: "the OutLayer wallet is not configured" }, { status: 404 });
   if (via === "agentapi" && !(accounts.sandbox && agentApiDemo())) return Response.json({ error: "the Agent API wallet is not configured" }, { status: 404 });
-  if (!allow(`run:${accounts.vaultId}`, 12, 10 * 60_000) || !allow("run", 60, 10 * 60_000)) {
+  // Per visitor first, so one busy visitor can't use up the sandbox for everyone else.
+  if (!allow(`run:${visitor(req)}`, 15, 10 * 60_000) || !allow(`run:${accounts.vaultId}`, 40, 10 * 60_000) || !allow("run", 120, 10 * 60_000)) {
     return Response.json({ error: "too many demo runs; try again in a few minutes" }, { status: 429 });
   }
 

@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { Wallet } from "ethers";
 import { actions, KeyPair, nearToYocto, PublicKey, teraToGas, yoctoToNear, type KeyPairString } from "near-api-js";
-import { DEFAULT_MODEL, modelAttestation, MPC_CONTRACT, OutLayer, provider, VaultReader, vaultEvmAddress } from "@veto/core";
+import { DEFAULT_MODEL, modelAttestation, MPC_CONTRACT, OutLayer, provider, SANDBOX_MANDATE, SANDBOX_SUPPLIERS, VaultReader, vaultEvmAddress } from "@veto/core";
 // "demo3": the vault with OutLayer wallets and Chain Signatures payouts. Older demo vaults
 // can't be upgraded in place.
 process.env.VETO_PROFILE ??= "demo3";
@@ -22,7 +22,7 @@ const VAULT_WASM = new URL("../contract/target/wasm32-unknown-unknown/release/ve
 const FACTORY_WASM = new URL("../factory/target/wasm32-unknown-unknown/release/veto_factory.wasm", import.meta.url);
 const TOKEN_WASM = new URL("../test-token/target/wasm32-unknown-unknown/release/veto_test_usdc.wasm", import.meta.url);
 const USD = 1_000_000n;
-const MANDATE = "Pay listed suppliers and staff only. Salaries go out once a month, to the wallet and chain each person chose. No single payment over $500. Ask me before paying a new or changed address.";
+const MANDATE = SANDBOX_MANDATE;
 const OWNER_METHODS = ["override_veto", "cancel_override", "execute_override", "keep_blocked", "freeze", "unfreeze", "set_mandate", "add_payee", "remove_payee", "set_agent_active"];
 const EVM_CHAIN = "base-sepolia";
 const EVM_ASSET = "base-sepolia:eth";
@@ -149,7 +149,7 @@ for (const payee of Object.values(state.payees)) {
 const agents = await view<[string, unknown][]>(vaultId, "get_agents");
 if (!agents.some(([id]) => id === state.agent!.accountId)) await call(vaultId, "add_agent", { agent: state.agent!.accountId });
 const payees = await view<{ address: string }[]>(vaultId, "get_payees");
-for (const [prefix, name] of [["kano-cotton", "Kano Cotton Mills"], ["ibadan-dye", "Ibadan Dye Works"]] as const) {
+for (const { prefix, name } of SANDBOX_SUPPLIERS) {
   const address = state.payees[prefix].accountId;
   if (!payees.some((p) => p.address === address)) {
     await call(vaultId, "add_payee", { name, chain: "near", address });
@@ -172,17 +172,19 @@ if (!state.testSignerKey) {
   state.testSignerAddress = w.address.toLowerCase();
   saveState(state);
 }
-// The public demo screens with the real model; the test key stays trusted only as its labelled
-// fallback, so a NEAR AI outage (or an empty credit balance) can't stall the demo. Every verdict
-// names its signer, and the app marks the ones the test key signed.
-if (!signers.some(([a]) => a === state.testSignerAddress)) {
+// With a NEAR AI key the sandbox trusts the enclave model's key alone, like every factory vault: if
+// NEAR AI can't answer, the payment expires unpaid. Without one, the test key screens instead, and
+// the app labels every decision it signs "test signer".
+const rootEnvFile = new URL("../.env.local", import.meta.url);
+const withNearAi = existsSync(rootEnvFile) && /^NEARAI_API_KEY=\S+/m.test(readFileSync(rootEnvFile, "utf8"));
+if (!withNearAi && !signers.some(([a]) => a === state.testSignerAddress)) {
   await call(vaultId, "add_signer", { address: state.testSignerAddress, model_id: "veto-dev/local-signer" });
-  log(`approved the demo test signer ${state.testSignerAddress} (labelled fallback)`);
+  log(`approved the demo test signer ${state.testSignerAddress} (no NEAR AI key yet)`);
 }
-// Exactly those two: drop any other model key approved earlier (a model compared on Veto Bench, or a
-// rotated enclave key), so the sandbox trusts only what the README says it does.
+// Drop every other key approved earlier (the test key once a NEAR AI key is set, a model compared on
+// Veto Bench, a rotated enclave key), so the sandbox trusts only what the README says it does.
 for (const [address, info] of await view<[string, { model_id?: string }][]>(vaultId, "get_signers")) {
-  if (address === state.modelSigner || address === state.testSignerAddress) continue;
+  if (address === state.modelSigner || (!withNearAi && address === state.testSignerAddress)) continue;
   await call(vaultId, "remove_signer", { address });
   log(`removed the signer ${address} (${info.model_id ?? "unknown model"})`);
 }

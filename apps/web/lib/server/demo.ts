@@ -5,7 +5,7 @@
 // owner action from their own wallet. The OutLayer wallet's API key and the approver's key are
 // for the sandbox's OutLayer path.
 import { Account, type KeyPairString } from "near-api-js";
-import { DEFAULT_MODEL, DevScreener, FallbackScreener, NearAiScreener, OutLayer, VaultReader, type Screener } from "@veto/core";
+import { DEFAULT_MODEL, DevScreener, NearAiScreener, OutLayer, VaultReader, type Screener } from "@veto/core";
 import { isKnownVault, SANDBOX_ID } from "@/lib/config";
 import { serverRpc } from "./rpc";
 
@@ -43,11 +43,10 @@ export function demoAccounts() {
       agent: new Account(demo.agentId, rpc, env("DEMO_AGENT_KEY") as KeyPairString),
       guardian: new Account(demo.guardianId, rpc, env("DEMO_GUARDIAN_KEY") as KeyPairString),
       owner: env("DEMO_OWNER_KEY") ? new Account(demo.ownerId, rpc, env("DEMO_OWNER_KEY") as KeyPairString) : null,
-      // The real model when a NEAR AI key is set, falling back to a test key the demo vault was
-      // told to trust if NEAR AI can't answer; the app labels every decision a test key signs.
-      screener: nearAiKey
-        ? new FallbackScreener(new NearAiScreener(nearAiKey, env("NEARAI_MODEL") || DEFAULT_MODEL), new DevScreener(env("DEMO_TEST_SIGNER_KEY")))
-        : new DevScreener(env("DEMO_TEST_SIGNER_KEY")),
+      // The enclave model alone when a NEAR AI key is set, as on every factory vault: if NEAR AI
+      // can't answer, the payment expires unpaid. Without a key (a local demo:setup), a test key the
+      // vault was told to trust screens instead, and the app labels every decision it signs.
+      screener: nearAiKey ? new NearAiScreener(nearAiKey, env("NEARAI_MODEL") || DEFAULT_MODEL) : new DevScreener(env("DEMO_TEST_SIGNER_KEY")),
       outlayer:
         demo.outlayerWallet && env("DEMO_OUTLAYER_WALLET_KEY") && env("DEMO_OUTLAYER_APPROVER_KEY")
           ? {
@@ -107,6 +106,9 @@ export function vaultAccounts(vaultId: string = SANDBOX_ID): VaultAccounts | nul
   }
   return found;
 }
+
+/** Who is asking, for per-visitor limits (Vercel sets x-forwarded-for). */
+export const visitor = (req: Request) => req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
 
 /** Small in-memory limiter: at most `max` events per `windowMs` per bucket. */
 const hits = new Map<string, number[]>();

@@ -10,3 +10,4 @@ export * from "./outlayer.ts";
 export * from "./shield.ts";
 export * from "./evm.ts";
 export * from "./agentapi.ts";
+export * from "./sandbox.ts";

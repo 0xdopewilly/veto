@@ -35,8 +35,8 @@ const STATUS: { part: string; status: Status; note: string }[] = [
   { part: "OutLayer agent wallets", status: "live", note: "Veto is an approver on an OutLayer wallet's policy. Pass, veto and override all run on testnet, settled against the wallet's real transactions." },
   { part: "NEAR Intents Agent API wallet", status: "mainnet", note: "An agent account on mainnet whose owner-signed policy is the hard limit. Veto holds its only grant, screens each request with the same enclave model, and sends only a pass: a transfer to a supplier, or a salary withdrawn to the worker's address on Base. Each payment is a few cents of real USDC, and runs while the wallet holds some." },
   { part: "Payroll: staff paid on the chain they chose", status: "live", note: "Staff sit on the payee list with their own wallet and chain. The sandbox pays a salary in test ETH on Base from the vault's Chain Signatures address and vetoes a fake request to send it to a new wallet." },
-  { part: "Agent inbox and guardian screening", status: "live", note: "Real proposals and verdicts on testnet, screened by Qwen3-VL-30B inside NEAR AI's enclave. If NEAR AI can't answer, a labelled test key signs instead, so the demo never stalls." },
-  { part: "Owner actions in the app", status: "live", note: "In your own vault, only your wallet. In the shared sandbox, a demo-owner key limited to the owner methods, so anyone can try it without a wallet." },
+  { part: "Agent inbox and guardian screening", status: "live", note: "Real proposals and verdicts on testnet, screened by Qwen3-VL-30B inside NEAR AI's enclave. The sandbox trusts only the enclave key, like every vault you create: if NEAR AI can't answer, the payment expires unpaid." },
+  { part: "Owner actions in the app", status: "live", note: "In your own vault, only your wallet. In the shared sandbox, a demo-owner key limited to the owner methods, so anyone can try it without a wallet. The sandbox goes back to its default rules for each new visitor." },
   { part: "Private AI screen on NEAR AI Cloud", status: "live", note: "Qwen3-VL-30B runs in an Intel TDX enclave on NEAR AI Cloud and signs each verdict in about 1.5 s. The vault checks the signature on-chain against the model's attested key." },
   { part: "Enclave verification", status: "live", note: "Every Proof page re-checks NEAR AI's enclave live with a fresh nonce: Intel's TDX quote, NVIDIA's GPU evidence, the key and nonce bound into the quote, the app it runs, the gateway, and that the attested key signed the verdict. Tested offline on a captured real quote." },
   { part: "Activity export", status: "live", note: "Download CSV gives one row per payment, ready for an accountant: date, payee, amount, status, reference, verdict and reasons, payout transaction and a link to its proof." },
@@ -70,7 +70,7 @@ const METHODS: { method: string; who: string; does: string }[] = [
 const FAQ: { q: string; a: string }[] = [
   {
     q: "Is this real, or a simulation?",
-    a: "Real, on NEAR testnet. Every vault is a deployed contract, every payment is a testnet transaction you can open on NearBlocks, and every verdict is signed inside NEAR AI's enclave (or, in the shared sandbox, by its labelled test key when NEAR AI doesn't answer) and checked by the contract. The tokens are test tokens. The shared sandbox lets anyone act as its owner so it can be tried without a wallet; a vault you create belongs to your wallet, and nothing changes its rules without your signature.",
+    a: "Real, on NEAR testnet. Every vault is a deployed contract, every payment is a testnet transaction you can open on NearBlocks, and every verdict is signed inside NEAR AI's enclave and checked by the contract. The tokens are test tokens. The shared sandbox lets anyone act as its owner so it can be tried without a wallet, and goes back to its default rules for each new visitor; a vault you create belongs to your wallet, and nothing changes its rules without your signature.",
   },
   {
     q: "Where do the payment requests come from?",
@@ -378,7 +378,7 @@ export function DocsView() {
             <h2>Try it on testnet</h2>
             <p>
               The live demo is at <a href="https://veto-beta.vercel.app/app">veto-beta.vercel.app</a>, with nothing to install. The shared sandbox is <a href={`${EXPLORER}/address/${VAULT_ID}`} target="_blank" rel="noreferrer" className={styles.mono}>{VAULT_ID}</a>,
-              a made-up business called Lagoon Goods that holds test USDC and pays three suppliers (two on NEAR, one on Base) and a member of staff. Anyone can act as its owner. For a vault only you control, start with step 1.
+              a made-up business called Lagoon Goods that holds test USDC and pays three suppliers (two on NEAR, one on Base) and a member of staff. Anyone can act as its owner, and it goes back to its default rules for each new visitor. For a vault only you control, start with step 1.
             </p>
             <ol className={styles.doSee}>
               <li><span>Do</span> open <Link href="/start/vault">Create your vault</Link>, connect a NEAR testnet wallet (Meteor Wallet at meteorwallet.app makes a testnet account for free; switch it to testnet first), name your business and sign. A new wallet starts with no NEAR, so Veto sends it 0.3 test NEAR for gas when it connects. <span>See</span> your own vault live in a few seconds, with $5,000 test USDC, two suppliers and its own test agent. From here on, overrides, freezes and rule changes need your wallet&apos;s signature.</li>
@@ -395,8 +395,8 @@ export function DocsView() {
               <li><span>Do</span> let it pay <strong>&ldquo;New wallet for my salary&rdquo;</strong>. <span>See</span> <strong>Vetoed</strong>: the address imitates Tunde&apos;s saved one, it has never been paid, and the request came from outside the company.</li>
             </ol>
             <p className={styles.note}>
-              Every verdict is signed by Qwen3-VL-30B inside NEAR AI's enclave. If NEAR AI can't answer, the sandbox's labelled test key signs instead;
-              the decision's Proof page always shows which key signed it. Vaults you create trust only the enclave key, so without an answer the payment expires unpaid.
+              Every verdict is signed by Qwen3-VL-30B inside NEAR AI's enclave, and the decision's Proof page shows which key signed it. The sandbox and the vaults
+              you create trust only the enclave key, so without an answer the payment expires unpaid.
             </p>
           </section>
 

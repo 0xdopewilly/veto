@@ -1,4 +1,4 @@
-import { allow, demo, vaultAccounts } from "@/lib/server/demo";
+import { allow, demo, vaultAccounts, visitor } from "@/lib/server/demo";
 import { readEmail } from "@/lib/server/agent";
 import { evmDemo } from "@/lib/server/evm";
 import { outlayerEnabled } from "@/lib/server/outlayer";
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   if (email.body.length < 10) return Response.json({ error: "Write the email first." }, { status: 400 });
   if (via === "outlayer" && !(accounts.sandbox && outlayerEnabled())) return Response.json({ error: "the OutLayer wallet is not configured" }, { status: 404 });
   if (via === "agentapi" && !(accounts.sandbox && agentApiDemo())) return Response.json({ error: "the Agent API wallet is not configured" }, { status: 404 });
-  if (!allow(`compose:${accounts.vaultId}`, 10, 10 * 60_000) || !allow("compose", 50, 10 * 60_000)) {
+  if (!allow(`compose:${visitor(req)}`, 8, 10 * 60_000) || !allow(`compose:${accounts.vaultId}`, 30, 10 * 60_000) || !allow("compose", 60, 10 * 60_000)) {
     return Response.json({ error: "too many emails; try again in a few minutes" }, { status: 429 });
   }
 

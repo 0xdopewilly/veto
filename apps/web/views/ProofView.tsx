@@ -71,7 +71,7 @@ export function ProofView({ id }: { id: string }) {
       icon: "shield",
       title: test ? "Screened by a test signer" : "Screened in an enclave",
       text: test
-        ? "The sandbox's labelled test key signed this verdict because NEAR AI didn't answer in time. It did not run in an enclave."
+        ? "A labelled test key signed this verdict, not an enclave. A sandbox set up without a NEAR AI key uses it for every verdict; the hosted sandbox used it only when NEAR AI didn't answer, until 8 Nov 2026."
         : "NEAR AI Cloud ran the check inside an Intel TDX enclave with NVIDIA confidential GPUs. Intel and NVIDIA attest the hardware; check it yourself on this page.",
       value: v.model_id,
     },
