@@ -16,7 +16,8 @@
     "./shield": "./src/shield.ts",
     "./evm": "./src/evm.ts",
     "./agentapi": "./src/agentapi.ts",
-    "./attest": "./src/attest.ts"
+    "./attest": "./src/attest.ts",
+    "./verdictsig": "./src/verdictsig.ts"
   },
   "dependencies": {
     "@noble/curves": "2.4.0",

@@ -135,9 +135,9 @@ export function ProofView({ id }: { id: string }) {
                 The exact bytes the model saw
               </h2>
               <p className={styles.note}>
-                The shared sandbox publishes every verdict&apos;s request and response, and the email the agent read. Your browser hashes them and compares the results with the chain.
+                The shared sandbox publishes every verdict&apos;s request and response, and the email the agent read. Your browser reads this decision from NEAR&apos;s public RPC and checks the bytes against it: nothing here takes our server&apos;s word.
               </p>
-              <ProofBytes vault={SANDBOX_ID} proposal={p} />
+              <ProofBytes vault={SANDBOX_ID} id={p.id} />
             </section>
           )}
         </div>

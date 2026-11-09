@@ -174,3 +174,7 @@
 .cli code {
   color: var(--muted);
 }
+
+.missing {
+  color: var(--coral);
+}

@@ -29,6 +29,8 @@ export const RPC_UPSTREAM =
 export const RPC_URL = typeof window === "undefined" ? RPC_UPSTREAM : `${window.location.origin}/api/rpc`;
 
 export const EXPLORER = NETWORK === "testnet" ? "https://testnet.nearblocks.io" : "https://nearblocks.io";
+/** NEAR's own public RPC: what the Proof page reads the chain from, so it doesn't take our server's word. */
+export const PUBLIC_RPC = NETWORK === "testnet" ? "https://rpc.testnet.near.org" : "https://rpc.mainnet.near.org";
 /** Public store of the sandbox's published proof bytes (lib/server/proofs.ts). Anyone can read it. */
 export const PROOF_BASE = process.env.NEXT_PUBLIC_PROOF_BASE ?? "https://axon0nurb8ormdne.public.blob.vercel-storage.com";
 

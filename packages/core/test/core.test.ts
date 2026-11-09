@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { Transaction, Wallet } from "ethers";
 import { blockingIncident, canonicalJson, computeSignals, lookalike, lookalikeEvmAddress, parseVerdict, paymentFromApproval, proposalHash, sha256Hex, signedPayout, USDC, type Approval, type Payee, type Proposal } from "../src/index.ts";
 import { checkQuote, composeMatches, quoteBinding } from "../src/attest.ts";
+import { recoverVerdictSigner, signedVerdictText } from "../src/verdictsig.ts";
 
 const KANO = "0xA11cE57b2F0c88dE41a9B3c07e6D1f45a3c0D9F2";
 const POISONED = "0xA11cE5f09d3B7a21Cc04e8F5b6A0d92e71B1D9F2";
@@ -204,4 +205,11 @@ test("a tampered enclave quote is rejected", async () => {
   const bytes = Buffer.from(enclave.intel_quote, "hex");
   bytes[600] ^= 1;
   await assert.rejects(checkQuote(bytes.toString("hex"), enclave.collateral, BigInt(enclave.checked_at)));
+});
+
+test("a published sandbox verdict's signature recovers to the enclave key the vault approved", () => {
+  // Decision #121 on the testnet sandbox: what the Proof page recovers in the browser.
+  const text = signedVerdictText("Qwen/Qwen3-VL-30B-A3B-Instruct", "12b4210e0d382a6a74a56a70009ae871f58e7f5659c7a156a0e554a228020792", "e9ac77c11d359218561e729c1f95adf6a8c935e33e0128c0b49960028442d884");
+  assert.equal(recoverVerdictSigner(text, "0x52281123c931c0642e4061a1b8eb5fd3dbc24c6cff1532a47f8454215fe8a3b31ff3ca4f32f0c67e6bfe83f0884caa0815335618e8042ed330a7ff833da6254c1b"), "0x2665cce942fa427ef30d87f4b0bff67fb7645462");
+  assert.notEqual(recoverVerdictSigner(text.replace(/.$/, "0"), "0x52281123c931c0642e4061a1b8eb5fd3dbc24c6cff1532a47f8454215fe8a3b31ff3ca4f32f0c67e6bfe83f0884caa0815335618e8042ed330a7ff833da6254c1b"), "0x2665cce942fa427ef30d87f4b0bff67fb7645462");
 });

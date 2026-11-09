@@ -3,17 +3,23 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { canonicalJson, sha256Hex, type Proposal } from "@veto/core/proposal";
-import { EXPLORER, PROOF_BASE } from "@/lib/config";
+import { formatAmount, SYSTEM_PROMPT } from "@veto/core/prompt";
+import { recoverVerdictSigner, signedVerdictText } from "@veto/core/verdictsig";
+import { EXPLORER, PROOF_BASE, PUBLIC_RPC } from "@/lib/config";
 import { SPRING_UI, useCalm } from "@/lib/motion";
 import { shortHash } from "@/lib/format";
 import { Icon } from "./Icon";
 import { VLoader } from "./VLoader";
 import styles from "./ProofBytes.module.css";
 
+/** The sandbox publishes every decision's bytes from this one on (lib/server/proofs.ts). */
+export const FIRST_PUBLISHED = 109;
+
 /** meta.json, written by lib/server/proofs.ts next to the raw request and response bytes. */
 interface ProofMeta {
   model: string;
   chat_id: string;
+  signature: string;
   evidence: unknown;
   tx: string;
 }
@@ -24,30 +30,23 @@ interface Check {
   detail: string;
 }
 
+type Email = { from?: string; subject?: string; body?: string };
 type Status =
   | { kind: "loading" }
-  | { kind: "missing" }
+  | { kind: "missing"; expected: boolean }
   | { kind: "error"; message: string }
-  | { kind: "done"; checks: Check[]; email: { from?: string; subject?: string; body?: string } | null; meta: ProofMeta; answer: string };
+  | { kind: "done"; checks: Check[]; email: Email | null; meta: ProofMeta };
 
-/** The evidence block inside the user message the model read (packages/core/src/prompt.ts). */
-function evidenceInRequest(request: Uint8Array): unknown {
-  const body = JSON.parse(new TextDecoder().decode(request)) as { messages?: { role: string; content: string }[] };
-  const user = body.messages?.find((m) => m.role === "user")?.content ?? "";
-  const block = user.match(/<evidence>\n([\s\S]*)\n<\/evidence>/);
-  return block ? JSON.parse(block[1]) : undefined;
-}
-
-/** The verdict JSON the model returned, as one short line. */
-function answerIn(response: Uint8Array): string {
-  const completion = JSON.parse(new TextDecoder().decode(response)) as { choices?: { message?: { content?: string } }[] };
-  const content = completion.choices?.[0]?.message?.content ?? "";
-  try {
-    const v = JSON.parse(content) as { verdict?: string; reasons?: string[] };
-    return `${v.verdict ?? "?"}${v.reasons?.length ? `: ${v.reasons.join(", ")}` : ""}`;
-  } catch {
-    return content.slice(0, 120);
-  }
+/** A view call straight to NEAR's public RPC: what the chain says, not what our server says. */
+async function chain<T>(contract: string, method: string, args: Record<string, unknown> = {}): Promise<T> {
+  const res = await fetch(PUBLIC_RPC, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: "proof", method: "query", params: { request_type: "call_function", finality: "final", account_id: contract, method_name: method, args_base64: btoa(JSON.stringify(args)) } }),
+  });
+  const body = (await res.json()) as { result?: { result: number[] }; error?: { message?: string } };
+  if (!body.result) throw new Error(`NEAR's RPC: ${body.error?.message ?? res.status}`);
+  return JSON.parse(new TextDecoder().decode(new Uint8Array(body.result.result))) as T;
 }
 
 async function bytesOf(url: string): Promise<Uint8Array | null> {
@@ -57,64 +56,119 @@ async function bytesOf(url: string): Promise<Uint8Array | null> {
   return new Uint8Array(await res.arrayBuffer());
 }
 
+const text = (b: Uint8Array) => new TextDecoder().decode(b);
+
 /**
- * The sandbox publishes the exact bytes each verdict was signed over. This fetches them from the
- * public store and checks them here, in the browser, against what is on-chain: the request and
- * response hashes the enclave signed and the vault checked, and the email's hash the agent
- * committed to when it proposed the payment.
+ * The sandbox publishes the exact bytes each verdict was signed over. This reads the decision from
+ * NEAR's public RPC and checks the published bytes against it, here in the browser: the request and
+ * response hashes, the signature (recovered here), the prompt (Veto's system prompt, asking about this
+ * exact payment) and the email the agent committed to before any screening.
  */
-export function ProofBytes({ vault, proposal }: { vault: string; proposal: Proposal }) {
+export function ProofBytes({ vault, id }: { vault: string; id: string }) {
   const calm = useCalm();
   const [status, setStatus] = useState<Status>({ kind: "loading" });
-  const v = proposal.verdict!;
-  const base = `${PROOF_BASE}/proofs/${vault}/${proposal.id}`;
+  const base = `${PROOF_BASE}/proofs/${vault}/${id}`;
 
   useEffect(() => {
     let cancelled = false;
     let retry: ReturnType<typeof setTimeout> | undefined;
-    // Published right after the verdict lands, so a decision seconds old may not be there yet.
-    const fresh = Date.now() - Number(BigInt(v.recorded_at) / 1_000_000n) < 120_000;
     const load = async (attempt: number) => {
       try {
+        const p = await chain<Proposal | null>(vault, "get_proposal", { id });
+        if (!p?.verdict) throw new Error("the chain has no verdict for this payment yet");
+        const v = p.verdict;
         const [request, response, metaBytes] = await Promise.all([bytesOf(`${base}/request.json`), bytesOf(`${base}/response.json`), bytesOf(`${base}/meta.json`)]);
         if (cancelled) return;
         if (!request || !response || !metaBytes) {
+          // Published right after the verdict lands, so a decision seconds old may not be there yet.
+          const fresh = Date.now() - Number(BigInt(v.recorded_at) / 1_000_000n) < 120_000;
           if (fresh && attempt < 5) retry = setTimeout(() => load(attempt + 1), 3000);
-          else setStatus({ kind: "missing" });
+          else setStatus({ kind: "missing", expected: Number(id) >= FIRST_PUBLISHED });
           return;
         }
-        const meta = JSON.parse(new TextDecoder().decode(metaBytes)) as ProofMeta;
-        const requestHash = sha256Hex(request);
-        const responseHash = sha256Hex(response);
-        const evidenceHash = sha256Hex(canonicalJson(meta.evidence));
-        let sameEmail = false;
+        const meta = JSON.parse(text(metaBytes)) as ProofMeta;
+        const [hash, signers] = await Promise.all([chain<string>(vault, "get_proposal_hash", { id }), chain<[string, unknown][]>(vault, "get_signers")]);
+        const decimals = p.request.asset === "near" ? 24 : p.request.chain !== "near" ? 18 : (await chain<{ decimals: number }>(p.request.asset, "ft_metadata")).decimals;
+
+        // 1–2: the bytes are the ones the enclave signed and the vault checked.
+        const requestHash = sha256Hex(request), responseHash = sha256Hex(response);
+        const answer = (() => {
+          try {
+            const c = JSON.parse(JSON.parse(text(response)).choices[0].message.content) as { verdict: string; reasons: string[] };
+            return { verdict: c.verdict, reasons: c.reasons ?? [] };
+          } catch {
+            return null;
+          }
+        })();
+        const sameAnswer = !!answer && (answer.verdict === "PASS") === v.pass && canonicalJson(answer.reasons) === canonicalJson(v.reasons);
+        // 3: the signature, recovered here, is the enclave key the vault approved.
+        let signer = "";
         try {
-          sameEmail = canonicalJson(evidenceInRequest(request)) === canonicalJson(meta.evidence);
+          signer = recoverVerdictSigner(signedVerdictText(v.model_id, v.request_hash, v.response_hash), meta.signature);
         } catch {
-          sameEmail = false;
+          signer = "";
         }
-        const answer = answerIn(response);
+        const approved = signers.some(([a]) => a.toLowerCase() === signer);
+        // 4–5: the prompt is Veto's, about this payment, with the email the agent committed to.
+        let system = "", facts: Record<string, any> | null = null, inRequest: unknown;
+        try {
+          const body = JSON.parse(text(request)) as { messages: { role: string; content: string }[] };
+          system = body.messages.find((m) => m.role === "system")?.content ?? "";
+          const user = body.messages.find((m) => m.role === "user")?.content ?? "";
+          facts = JSON.parse(user.slice(0, user.indexOf("\n\n<evidence>")));
+          const block = user.match(/<evidence>\n([\s\S]*)\n<\/evidence>/);
+          inRequest = block ? JSON.parse(block[1]) : undefined;
+        } catch {
+          facts = null;
+        }
+        const pay = facts?.payment ?? {};
+        const aboutThis =
+          system === SYSTEM_PROMPT &&
+          facts?.proposal_id === p.id &&
+          facts?.proposal_hash === hash &&
+          pay.payee === p.request.payee &&
+          pay.chain === p.request.chain &&
+          pay.asset === p.request.asset &&
+          (pay.reference ?? null) === (p.request.memo ?? null) &&
+          pay.amount === formatAmount(p.request.amount, decimals);
+        const evidenceHash = sha256Hex(canonicalJson(meta.evidence));
+        const sameEmail = inRequest !== undefined && canonicalJson(inRequest) === canonicalJson(meta.evidence) && evidenceHash === (p.context_hash ?? "").toLowerCase();
+
         const checks: Check[] = [
           {
             ok: requestHash === v.request_hash.toLowerCase(),
             title: "The request is the one the enclave signed",
-            detail: `sha256 of these ${request.length.toLocaleString("en-GB")} bytes, computed in your browser: ${shortHash(requestHash)}. The enclave signed ${shortHash(v.request_hash)}.`,
+            detail: `sha256 of these ${request.length.toLocaleString("en-GB")} bytes, computed in your browser: ${shortHash(requestHash)}. The chain records ${shortHash(v.request_hash)}.`,
           },
           {
-            ok: responseHash === v.response_hash.toLowerCase(),
+            ok: responseHash === v.response_hash.toLowerCase() && sameAnswer,
             title: "The response is the one your vault checked",
-            detail: `sha256 here: ${shortHash(responseHash)}; the vault recorded ${shortHash(v.response_hash)}. The model answered ${answer}.`,
+            detail: `sha256 here: ${shortHash(responseHash)}; the chain records ${shortHash(v.response_hash)}. The model answered ${answer ? `${answer.verdict}${answer.reasons.length ? `: ${answer.reasons.join(", ")}` : ""}` : "something unreadable"}, ${sameAnswer ? "the verdict the vault recorded" : "not the verdict the vault recorded"}.`,
           },
           {
-            ok: !!proposal.context_hash && evidenceHash === proposal.context_hash.toLowerCase() && sameEmail,
+            ok: !!signer && signer === v.signer.toLowerCase() && approved,
+            title: "The enclave's key signed it",
+            detail: signer
+              ? `Recovered in your browser from the signature: ${shortHash(signer)}, ${approved ? "a key this vault approved" : "not a key this vault approved"}${signer === v.signer.toLowerCase() ? ", the signer the vault recorded" : ""}.`
+              : "The published signature doesn't recover to a key.",
+          },
+          {
+            ok: aboutThis,
+            title: "It asked about this exact payment",
+            detail: aboutThis
+              ? `Veto's system prompt, word for word, and payment #${p.id}: ${pay.amount} to ${shortHash(p.request.payee)}${p.request.memo ? `, reference ${p.request.memo}` : ""}, with the proposal hash the vault computes.`
+              : "The prompt differs from Veto's system prompt or from this payment's facts on-chain.",
+          },
+          {
+            ok: sameEmail,
             title: "The model read the email the agent committed to",
             detail: sameEmail
-              ? `The agent put this email's hash on-chain when it proposed the payment, before any screening: ${shortHash(proposal.context_hash ?? "none")}. The email inside the request hashes to ${shortHash(evidenceHash)}.`
-              : "The email inside the request differs from the one published with it.",
+              ? `The agent put this email's hash on-chain when it proposed the payment, before any screening: ${shortHash(p.context_hash ?? "")}. The email inside the request hashes to the same.`
+              : "The email inside the request doesn't match the hash committed on-chain.",
           },
         ];
-        const e = meta.evidence as { from?: string; subject?: string; body?: string } | null;
-        setStatus({ kind: "done", checks, email: e && typeof e === "object" ? e : null, meta, answer });
+        const e = meta.evidence as Email | null;
+        setStatus({ kind: "done", checks, email: e && typeof e === "object" ? e : null, meta });
       } catch (err) {
         if (!cancelled) setStatus({ kind: "error", message: (err as Error).message });
       }
@@ -124,26 +178,28 @@ export function ProofBytes({ vault, proposal }: { vault: string; proposal: Propo
       cancelled = true;
       clearTimeout(retry);
     };
-  }, [base, proposal.context_hash, v.recorded_at, v.request_hash, v.response_hash]);
+  }, [base, id, vault]);
 
   if (status.kind === "loading") {
     return (
       <div className={styles.panel}>
         <div className={styles.checking}>
           <VLoader size={20} />
-          <span>Fetching the exact bytes and hashing them in your browser…</span>
+          <span>Reading the decision from NEAR and hashing the published bytes in your browser…</span>
         </div>
       </div>
     );
   }
   if (status.kind === "missing") {
-    return (
-      <p className={styles.note}>
-        Not published for this decision. The sandbox publishes the bytes of every verdict since 8 Nov 2026; a vault someone owns keeps them private.
+    return status.expected ? (
+      <p className={`${styles.note} ${styles.missing}`}>
+        Missing: every sandbox decision from #{FIRST_PUBLISHED} on should have its bytes published, and this one doesn&apos;t.
       </p>
+    ) : (
+      <p className={styles.note}>Not published: the sandbox publishes the bytes of every decision from #{FIRST_PUBLISHED} on, and a vault someone owns keeps them private.</p>
     );
   }
-  if (status.kind === "error") return <p className={styles.note}>Couldn&apos;t load the published bytes: {status.message}</p>;
+  if (status.kind === "error") return <p className={styles.note}>Couldn&apos;t check the published bytes: {status.message}</p>;
 
   const ok = status.checks.every((c) => c.ok);
   return (
@@ -153,7 +209,7 @@ export function ProofBytes({ vault, proposal }: { vault: string; proposal: Propo
           <Icon name={ok ? "check" : "x"} size={13} stroke={3} />
           {ok ? "Matches the chain" : "Doesn't match"}
         </span>
-        <span className={styles.meta}>3 checks, hashed in your browser</span>
+        <span className={styles.meta}>5 checks in your browser, against NEAR&apos;s public RPC</span>
       </div>
       <ol className={styles.list}>
         {status.checks.map((c) => (

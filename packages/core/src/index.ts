@@ -11,3 +11,4 @@ export * from "./shield.ts";
 export * from "./evm.ts";
 export * from "./agentapi.ts";
 export * from "./sandbox.ts";
+export * from "./verdictsig.ts";
