@@ -40,7 +40,8 @@ export function computeSignals(request: PaymentRequest, payees: Payee[], history
 
   const memo = request.memo?.trim();
   if (memo) {
-    const dup = history.find((p) => p.status === "Paid" && p.request.memo?.trim() === memo);
+    // A payout still in flight counts too, so two quick copies of one invoice or payslip can't both pass.
+    const dup = history.find((p) => (p.status === "Paid" || p.status === "Executing") && p.request.memo?.trim() === memo);
     if (dup) signals.push({ code: "DUPLICATE_INVOICE", detail: `Reference "${memo}" was already paid in proposal ${dup.id}.` });
   }
 

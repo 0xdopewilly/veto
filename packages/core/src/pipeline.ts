@@ -48,7 +48,9 @@ export async function screenAndSubmit(opts: {
   const { vault, guardian, screener, proposal } = opts;
   const started = Date.now();
   if (proposal.request.chain !== "near" && opts.shieldKey) await assertNoIncident(vault, proposal, opts.shieldKey);
-  const [config, payees, recent] = await Promise.all([vault.config(), vault.payees(), vault.proposals(0, 30)]);
+  // The last 100 payments: enough for the duplicate check to still see this month's salary in a busy
+  // week. The prompt itself lists only the newest 20.
+  const [config, payees, recent] = await Promise.all([vault.config(), vault.payees(), vault.proposals(0, 100)]);
   const history = recent.filter((p) => p.id !== proposal.id);
 
   const hash = proposalHash(vault.vaultId, proposal);
