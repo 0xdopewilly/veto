@@ -22,7 +22,7 @@ export const REASON_TEXT: Record<ReasonCode, string> = {
   CHANGED_PAYOUT_DETAILS: "Payout details changed by email or message",
   UNTRUSTED_INSTRUCTION: "The instruction came from an email, web page or document, not from you",
   URGENCY_PRESSURE: "Pressure to pay quickly",
-  DUPLICATE_INVOICE: "This invoice was already paid",
+  DUPLICATE_INVOICE: "This invoice or payslip was already paid",
   AMOUNT_ANOMALY: "The amount doesn't match past payments or the evidence",
   UNLIMITED_APPROVAL: "An unlimited token approval",
   MANDATE_VIOLATION: "It breaks your mandate",
