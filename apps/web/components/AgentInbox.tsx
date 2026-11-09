@@ -126,7 +126,7 @@ export function AgentInbox({ titleId = "inbox-title", compact = false, head = tr
               scenario={s}
               run={demo.runs[s.id]}
               index={i}
-              busy={Object.values(demo.runs).some((r) => r.proposalId === undefined && !r.error)}
+              busy={Object.values(demo.runs).some(inFlight)}
             />
           ))}
         </ul>
@@ -134,6 +134,9 @@ export function AgentInbox({ titleId = "inbox-title", compact = false, head = tr
     </div>
   );
 }
+
+/** A run still waiting on its answer: no vault proposal, no Agent API outcome and no error yet. */
+const inFlight = (r: DemoRun) => r.proposalId === undefined && !r.agentapi && !r.error;
 
 function ScenarioCard({ scenario: email, run, index, busy }: { scenario: DemoScenario; run?: DemoRun; index: number; busy: boolean }) {
   const demo = useDemo();
@@ -422,7 +425,7 @@ function Composer({ vault, compact }: { vault: string; compact: boolean }) {
   const [edited, setBody] = useState<string | null>(null);
   const body =
     edited ?? `Good morning. Please pay invoice INV-3001 for 40 bales of combed cotton. Amount due: ${sampleDue} USDC to our usual account kano-cotton.${root}. Thank you.`;
-  const busy = Object.values(demo.runs).some((r) => r.proposalId === undefined && !r.error);
+  const busy = Object.values(demo.runs).some(inFlight);
 
   if (!open) {
     return (
