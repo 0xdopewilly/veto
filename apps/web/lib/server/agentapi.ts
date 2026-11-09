@@ -224,7 +224,8 @@ export async function runViaAgentApi(input: {
       chain === "near"
         ? await demo.api.transfer(demo.agentId, demo.grant, { asset: AGENT_USDC, amount, recipient }, key)
         : await demo.api.withdraw(demo.agentId, demo.grant, { asset: AGENT_USDC, amount, chain, recipient }, key);
-    const settled = sent.status === "PROCESSING" || sent.status === "QUEUED" ? await demo.api.settle(sent.correlation_id, 45_000) : sent;
+    // A transfer can first report UNCERTAIN while it is confirmed; wait for the final word (up to 45 s).
+    const settled = ["PROCESSING", "QUEUED", "UNCERTAIN"].includes(sent.status) ? await demo.api.settle(sent.correlation_id, 45_000) : sent;
     outcome.execution = {
       kind: "sent",
       correlation_id: settled.correlation_id,

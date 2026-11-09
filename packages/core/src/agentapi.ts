@@ -84,7 +84,9 @@ export class AgentApiError extends Error {
 }
 
 /** Statuses that are still moving; anything else is settled or needs a person. */
-const MOVING = new Set<OperationStatus>(["PROCESSING", "QUEUED"]);
+// UNCERTAIN is what a transfer first reports while its result is still being confirmed; it settles to
+// SUCCESS or FAILED, so it is polled like the others (settle() still stops at its deadline).
+const MOVING = new Set<OperationStatus>(["PROCESSING", "QUEUED", "UNCERTAIN"]);
 
 export class AgentApi {
   readonly baseUrl: string;
