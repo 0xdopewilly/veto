@@ -41,7 +41,7 @@ export function EnclaveCheck({ model, signer }: { model: string; signer: string 
         </span>
         <span className={styles.startText}>
           <strong>Check the enclave now</strong>
-          <span>Verifies NEAR AI&apos;s hardware from scratch with a fresh nonce: Intel&apos;s quote, NVIDIA&apos;s GPUs and the key that signed this verdict.</span>
+          <span>Verifies NEAR AI&apos;s hardware from scratch with a fresh nonce: Intel&apos;s quote, NVIDIA&apos;s GPUs and the key that signed this verdict. It runs on our server; <code className="mono">node bench/verify.ts --attested</code> runs the same checks on yours.</span>
         </span>
         <Icon name="arrowRight" size={16} className={styles.chevron} />
       </button>

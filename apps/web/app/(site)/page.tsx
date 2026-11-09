@@ -172,7 +172,7 @@ export default function Landing() {
           <div className={`${styles.panel} ${styles.proofGrid}`}>
             <div>
               <LineReveal as="h2" id="proof-title" className={`${styles.h2} ${styles.lines}`} text="Proof you can check" />
-              <p className={`${styles.lead} ${styles.reveal}`} data-reveal>Anyone can check, without trusting us, which model signed each verdict and that it ran in NEAR AI&apos;s enclave.</p>
+              <p className={`${styles.lead} ${styles.reveal}`} data-reveal>Anyone can check each verdict&apos;s signer in their own browser, against NEAR&apos;s public RPC, and NEAR AI&apos;s enclave with NEAR AI&apos;s own verifier.</p>
               <a className={`${styles.pillLink} ${styles.reveal} press`} href="https://cloud.near.ai/verify" target="_blank" rel="noreferrer" data-reveal>
                 Open the NEAR AI verifier <Icon name="external" size={16} />
               </a>

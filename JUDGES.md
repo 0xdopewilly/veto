@@ -11,7 +11,8 @@ Open https://veto-beta.vercel.app/app and press **Try it** (the green V on a pho
 | Let the agent pay **"Invoice INV-…: 72 bales of combed cotton"** | Screening privately, then **Paid**, with testnet transaction links |
 | Let it pay **"Updated payment details for INV-…"** | **Vetoed**: a lookalike of a payee you've paid before, well under every cap |
 | Open the vetoed decision → **Proof** → **Check the enclave now** | Eight live checks of NEAR AI's enclave: Intel TDX quote, NVIDIA GPUs, key and nonce bound into the quote, the published app, the gateway, and that the key is the one that signed this verdict. **Check again** runs a new check with a new nonce |
-| On that Proof page, **The exact bytes the model saw** | **Matches the chain**: your browser hashes the published request and response and finds what the enclave signed and the vault checked, and the email the model read hashes to what the agent committed on-chain before screening |
+| On that Proof page, **The exact bytes the model saw** | **Matches the chain**: your browser reads the decision from NEAR's public RPC and runs five checks on the published bytes (request and response hashes, the signature recovered to the vault's approved key, the prompt about this exact payment, and the email against the hash the agent committed before screening) |
+| Back in the inbox, let the agent pay **"Invoice IKF-…: Lagos to Ibadan haulage"** | **Paid** on Base from the vault's own address, signed by NEAR's MPC network (Chain Signatures) |
 | **Activity** → **Download CSV** | One row per payment, with its verdict, reasons, transaction and proof link |
 
 The sandbox is shared, and anyone can act as its owner, so it goes back to its default rules for each new visitor. Runs are limited per visitor, to about 15 every 10 minutes.
@@ -22,7 +23,7 @@ Node 24+, pnpm 11, Rust through rustup, about 3 GB of disk.
 
 | Run | Expect |
 | --- | --- |
-| `pnpm install && pnpm test` | `ℹ pass 16` (core), `48 passed` (vault contract), `9 passed` (factory) |
+| `pnpm install && pnpm test` | `ℹ pass 17` (core), `48 passed` (vault contract), `9 passed` (factory) |
 | `node bench/run.ts --screener policy` | `Attacks caught 33/50`: an allowlist plus a cap on their own |
 | `node bench/run.ts --screener dev` | `Attacks caught 41/50`: Veto's rules without a model |
 | `node bench/verify.ts bench/results/Qwen_Qwen3-VL-30B-A3B-Instruct.json --attested` | `100/100 verdicts verified` and eight ✓ lines (10 to 20 s) |
@@ -44,7 +45,7 @@ Node 24+, pnpm 11, Rust through rustup, about 3 GB of disk.
 
 ## What it doesn't do (yet)
 
-- **Nothing proves the email is genuine.** The agent commits the email's hash on-chain before screening, and in the sandbox the exact request bytes are published, so you can check the model judged exactly that email. No signature can show the email the agent committed is the one that really arrived. A compromised guardian still can't pass anything over the caps.
+- **The contract doesn't check the prompt.** It checks the enclave's signature and that the verdict echoes this payment's id and hash. The agent commits the email's hash on-chain before screening, and in the sandbox the exact request bytes are published, so the Proof page checks the model judged exactly that email; a vault someone owns keeps them private, so there a compromised guardian could show the model a different email. No signature can show the committed email is the one that really arrived. A compromised guardian still can't pass anything over the caps.
 - **The contract doesn't enforce the payee list by default.** The screen flags a payee that isn't on it; an owner who wants the contract itself to refuse unlisted payees can turn on `set_require_listed_payee`.
 - **The bench is ours.** Veto Bench's 100 scenarios and the screening prompt were written by the same team, so read 50/50 as a result on this set, not a general catch rate. The 8 honest payments it blocks are new suppliers whose approval sits inside the email, which Veto holds for the owner by design.
 - **Testnet, except one path.** Vaults, payouts and verdicts run on NEAR testnet with test tokens. The NEAR Intents Agent API path pays real USDC on mainnet, scaled down to cents. The first mainnet payout through 1Click is built and tested, but not yet run.

@@ -359,7 +359,7 @@ export function DocsView() {
                 <h3>Private</h3>
                 <ul>
                   <li>The emails, invoices and pages the agent acted on. Only the guardian that sends them to the model, and the model in its enclave, read them.</li>
-                  <li>The full prompt the model saw.</li>
+                  <li>The full prompt the model saw, in a vault someone owns. The shared sandbox, whose emails are made up or written by visitors who were told, publishes it.</li>
                   <li>Inference runs in a TEE: NEAR AI&apos;s hosts can&apos;t read it.</li>
                 </ul>
               </div>
