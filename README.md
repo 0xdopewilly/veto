@@ -227,6 +227,8 @@ test-token/        NEP-141 test USDC
 
 Everything in this repository was written during NEAR HACKATHON, starting with the first commit on 2026-10-29, inside the window that opened with the 2026-10-19 announcement (rule Q-001); there is no earlier code base.
 
+My other NEAR HACKATHON project is [Emporium, NEAR edition](https://github.com/0xdopewilly/emporium-near). It is a Hermes Agent plugin that lets agents sell their skills to each other per job, paid in USDC on NEAR over x402: the buyer signs a NEP-366 delegate, and the shop pays the gas. It is independent of Veto, with separate code, accounts and deployment.
+
 Built with:
 
 - **NEAR:** near-sdk 5.29.1 (Rust contracts), near-api-js 7.4.0, global contracts, Chain Signatures (MPC), function-call access keys, NEP-141 and NEP-413
