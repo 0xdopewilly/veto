@@ -3,7 +3,7 @@
 // response is sent and the vault decides on-chain.
 import { after } from "next/server";
 import { actions, teraToGas } from "near-api-js";
-import { canonicalJson, payoutIfSigned, screenAndSubmit, sha256Hex, type PaymentRequest } from "@veto/core";
+import { canonicalJson, isNearAiUnavailable, payoutIfSigned, screenAndSubmit, sha256Hex, type PaymentRequest } from "@veto/core";
 import type { VaultAccounts } from "./demo";
 import { recordOnVault, requestPayment, screenAndVote } from "./outlayer";
 import { publishProof } from "./proofs";
@@ -46,8 +46,16 @@ export async function startPayment(accounts: VaultAccounts, request: PaymentRequ
   return { proposal_id: id, tx: outcome.transaction.hash };
 }
 
+/** What a visitor reads when NEAR AI Cloud doesn't answer: the agent and the screening both run there. */
+export const NEAR_AI_DOWN =
+  "NEAR AI Cloud isn't answering right now. The demo agent and Veto's screening both run there, so nothing was paid. Try again once it's back.";
+
 /** The vault's own refusals (caps, frozen, a bad payee) are the demo working, not a server error. */
 export function refusal(e: unknown) {
+  if (isNearAiUnavailable(e)) {
+    console.error("NEAR AI Cloud isn't answering:", e.detail);
+    return Response.json({ error: NEAR_AI_DOWN }, { status: 503 });
+  }
   const message = (e as Error).message;
   const refused = /exceeds|frozen|not allowed|not an active agent|not a valid|payee is not|refused|pays on NEAR only|no OutLayer wallet/.test(message);
   return Response.json(

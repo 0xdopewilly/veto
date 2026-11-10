@@ -68,6 +68,11 @@
   background: var(--purple);
 }
 
+/* NEAR AI Cloud isn't answering: the screen can't run, so the dot stops reading as live. */
+.metaDot[data-down] {
+  background: var(--coral);
+}
+
 .payFrom {
   display: flex;
   align-items: center;

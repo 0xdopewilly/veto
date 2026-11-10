@@ -4,6 +4,7 @@ import { buildScenarios } from "@/lib/server/scenarios";
 import { evmDemo } from "@/lib/server/evm";
 import { vaultSnapshot } from "@/lib/server/state";
 import { AGENT_SCALE, agentApiDemo, agentApiWorker } from "@/lib/server/agentapi";
+import { nearAiStatus } from "@/lib/server/nearaiStatus";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,6 +14,8 @@ export async function GET(req: Request) {
   const accounts = vaultAccounts(new URL(req.url).searchParams.get("vault") || SANDBOX_ID);
   if (!accounts) return Response.json({ enabled: false });
   const { vaultId, sandbox, screener, owner, outlayer } = accounts;
+  // Asked alongside the vault, so it adds no wait of its own.
+  const nearai = nearAiStatus();
   let history;
   let evm;
   try {
@@ -29,6 +32,8 @@ export async function GET(req: Request) {
     sandbox,
     agent: { account: accounts.agent.accountId },
     guardian: { account: accounts.guardian.accountId, model: screener.model, test_signer: screener.model.startsWith("veto-dev/") },
+    // Whether NEAR AI Cloud, where the agent and the screening both run, answers right now.
+    nearai: await nearai,
     owner: owner ? { account: demo.ownerId } : null,
     outlayer: outlayer ? { wallet: outlayer.wallet, approver: outlayer.approver.accountId } : null,
     // A NEAR Intents Agent API wallet on mainnet whose only grant Veto holds (sandbox only).

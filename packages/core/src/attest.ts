@@ -13,7 +13,7 @@
 // Server-only (Node): the quote verifier is WebAssembly loaded from disk. Keyless: the attestation
 // endpoint, Intel's collateral and NVIDIA's service are all public.
 import { createHash, randomBytes } from "node:crypto";
-import { NEARAI_BASE_URL } from "./nearai.ts";
+import { NEARAI_BASE_URL, NearAiUnavailable } from "./nearai.ts";
 
 const INTEL_PCCS = "https://api.trustedservices.intel.com/tdx/certification/v4";
 // Phala's public mirror of Intel's collateral, used when Intel's service doesn't answer. A mirror can
@@ -165,11 +165,17 @@ export async function verifyEnclave(model: string, opts: { expectSigner?: string
   const checked_at = new Date().toISOString();
   const want = opts.expectSigner?.toLowerCase();
   const url = `${opts.baseUrl ?? NEARAI_BASE_URL}/attestation/report?model=${encodeURIComponent(model)}&signing_algo=ecdsa&nonce=${nonce}`;
-  const get = (u: string) => once(() => fetch(u, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(30_000) }));
+  // 20 s a try, two tries: a NEAR AI that doesn't answer fails the check in about 40 s, well inside
+  // the minute a hosted check has, instead of hanging it. A healthy report takes a few seconds.
+  const get = (u: string) =>
+    once(() => fetch(u, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(20_000) })).catch((e: unknown) => {
+      throw new NearAiUnavailable(`attestation report: ${reason(e)}`);
+    });
   // Ask for the expected key's server first; NEAR AI answers an error when no server holds it, and
   // the plain report then shows which key it does attest.
   let res = want ? await get(`${url}&signing_address=${want}`) : null;
   if (!res?.ok) res = await get(url);
+  if (res.status >= 500) throw new NearAiUnavailable(`attestation report answered ${res.status}`);
   const report = await json<{ model_attestations?: Attestation[]; gateway_attestation?: Attestation }>(res, "NEAR AI's attestation endpoint");
   const all = report.model_attestations ?? [];
   const attested = (want ? all.find((m) => m.signing_address.toLowerCase() === want) : undefined) ?? all[0];

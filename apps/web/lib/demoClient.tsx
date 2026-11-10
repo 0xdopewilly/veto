@@ -28,6 +28,8 @@ export interface DemoInfo {
   sandbox: boolean;
   agent: { account: string };
   guardian: { account: string; model: string; test_signer: boolean };
+  /** Whether NEAR AI Cloud, where the agent and the screening both run, answers right now. */
+  nearai?: "up" | "down" | "unknown";
   owner: { account: string } | null;
   /** The agent's OutLayer wallet, when the demo has one: it holds each payment for Veto's approval. */
   outlayer: { wallet: string; approver: string } | null;

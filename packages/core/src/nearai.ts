@@ -7,6 +7,27 @@ export const NEARAI_BASE_URL = "https://cloud-api.near.ai/v1";
 // about 1.5 s and never runs out of tokens before answering.
 export const DEFAULT_MODEL = "Qwen/Qwen3-VL-30B-A3B-Instruct";
 
+/**
+ * NEAR AI Cloud didn't answer: a server error, a dropped connection or a timeout. Not a refusal and
+ * not a bad request, so callers can say so plainly. Nothing is paid either way: no signed verdict,
+ * no payment.
+ */
+export class NearAiUnavailable extends Error {
+  // A plain field, not a constructor parameter property: Node runs this file with types stripped.
+  readonly detail: string;
+  constructor(detail: string) {
+    super(`NEAR AI Cloud isn't answering right now (${detail})`);
+    this.name = "NearAiUnavailable";
+    this.detail = detail;
+  }
+}
+
+/** By name as well as class, so it holds across bundles that each load their own copy of this module. */
+export const isNearAiUnavailable = (e: unknown): e is NearAiUnavailable => e instanceof NearAiUnavailable || (e as Error | null)?.name === "NearAiUnavailable";
+
+/** A verdict takes about 1.5 s (3.2 s at most over the 100-scenario bench); 30 s means NEAR AI isn't answering. */
+const SCREEN_TIMEOUT_MS = 30_000;
+
 export interface ModelVerdict {
   proposal_id: string;
   proposal_hash: string;
@@ -77,10 +98,18 @@ export async function screen(opts: {
       "x-no-aliasing": "true",
     },
     body: requestBytes,
+  }).catch((e: unknown) => {
+    throw new NearAiUnavailable((e as Error).message);
   });
-  const responseBytes = new Uint8Array(await res.arrayBuffer());
+  const responseBytes = new Uint8Array(
+    await res.arrayBuffer().catch((e: unknown) => {
+      throw new NearAiUnavailable((e as Error).message);
+    }),
+  );
   if (!res.ok) {
-    throw new Error(`NEAR AI completion failed (${res.status}): ${new TextDecoder().decode(responseBytes).slice(0, 300)}`);
+    const text = new TextDecoder().decode(responseBytes).slice(0, 300);
+    if (res.status >= 500) throw new NearAiUnavailable(`${res.status}: ${text}`);
+    throw new Error(`NEAR AI completion failed (${res.status}): ${text}`);
   }
   const completion = JSON.parse(new TextDecoder().decode(responseBytes));
   const chatId: string = completion.id;
@@ -118,17 +147,19 @@ const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /**
  * Sends once more after a dropped connection or a gateway error, so a network blip doesn't cost a
  * verdict (an owned vault has no fallback signer: no verdict means the payment expires unpaid).
- * The same bytes go out again, so what the enclave signs is still exactly what was sent.
+ * The same bytes go out again, so what the enclave signs is still exactly what was sent. Each try
+ * gives up after SCREEN_TIMEOUT_MS, so an outage fails fast instead of hanging the request.
  */
 async function retryOnce(url: string, init: RequestInit): Promise<Response> {
+  const send = () => fetch(url, { ...init, signal: AbortSignal.timeout(SCREEN_TIMEOUT_MS) });
   try {
-    const res = await fetch(url, init);
+    const res = await send();
     if (![502, 503, 504].includes(res.status)) return res;
   } catch {
-    // Dropped before a response: try again below.
+    // Dropped (or timed out) before a response: try again below.
   }
   await pause(800);
-  return fetch(url, init);
+  return send();
 }
 
 async function fetchSignature(baseUrl: string, apiKey: string, chatId: string): Promise<SignatureResponse> {
@@ -142,6 +173,8 @@ async function fetchSignature(baseUrl: string, apiKey: string, chatId: string): 
     if (res.ok) {
       const body = (await res.json()) as SignatureResponse;
       if (!body.error_code && body.signature) return body;
+    } else if (res.status >= 500) {
+      throw new NearAiUnavailable(`signature lookup ${res.status}: ${(await res.text()).slice(0, 200)}`);
     } else if (res.status !== 404) {
       throw new Error(`signature lookup failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
     }
@@ -196,8 +229,14 @@ export async function completeJson<T>(opts: {
       response_format: { type: "json_schema", json_schema: { name: opts.name, strict: true, schema: opts.schema } },
     }),
     signal: AbortSignal.timeout(30_000),
+  }).catch((e: unknown) => {
+    throw new NearAiUnavailable((e as Error).message);
   });
-  if (!res.ok) throw new Error(`NEAR AI completion failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
+  if (!res.ok) {
+    const text = (await res.text()).slice(0, 200);
+    if (res.status >= 500) throw new NearAiUnavailable(`${res.status}: ${text}`);
+    throw new Error(`NEAR AI completion failed (${res.status}): ${text}`);
+  }
   const content = (await res.json())?.choices?.[0]?.message?.content;
   if (typeof content !== "string") throw new Error("completion has no text content");
   return JSON.parse(content.replace(/^```(?:json)?\s*|\s*```$/g, "")) as T;

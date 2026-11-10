@@ -3,6 +3,7 @@
 // nonce, the published app, the gateway, and that the attested key is the one a verdict was signed
 // by. Keyless; the proof page calls it. A result is shared for a minute, so a crowd of viewers asks
 // Intel and NVIDIA once; `fresh=1` (the panel's Check again) always runs a new check with a new nonce.
+import { isNearAiUnavailable } from "@veto/core";
 import { verifyEnclave, type EnclaveVerification } from "@veto/core/attest";
 import { allow, visitor } from "@/lib/server/demo";
 
@@ -36,6 +37,12 @@ export async function GET(req: Request) {
   try {
     return Response.json(await cache.get(key)!.result, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
+    if (isNearAiUnavailable(e)) {
+      return Response.json(
+        { error: "NEAR AI Cloud isn't answering right now, so its enclave can't be checked live. Each verdict's signature still checks out against the key the vault approved." },
+        { status: 503 },
+      );
+    }
     return Response.json({ error: `Couldn't reach NEAR AI's attestation service: ${(e as Error).message}` }, { status: 502 });
   }
 }
