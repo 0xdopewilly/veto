@@ -50,7 +50,7 @@ function InboxMeta() {
   const { guardian } = demo.info;
   return (
     <div className={styles.meta}>
-      <span className={styles.metaChip} title={demo.info.nearai === "down" ? "NEAR AI Cloud isn't answering right now" : guardian.test_signer ? undefined : guardian.model}>
+      <span className={styles.metaChip} title={demo.info.nearai === "down" ? "NEAR AI Cloud isn't serving this model right now" : guardian.test_signer ? undefined : guardian.model}>
         <span className={styles.metaDot} data-test={guardian.test_signer || undefined} data-down={demo.info.nearai === "down" || undefined} />
         {guardian.test_signer ? "Screened by a local test signer" : `Screened by ${shortModel(guardian.model)} in an enclave`}
       </span>
@@ -122,7 +122,7 @@ export function AgentInbox({ titleId = "inbox-title", compact = false, head = tr
             <Icon name="shield" size={20} />
           </span>
           <span>
-            NEAR AI Cloud isn&apos;t answering right now. Veto only pays on a verdict signed inside its enclave, so until it&apos;s back, payments started here
+            NEAR AI Cloud isn&apos;t serving Veto&apos;s enclave model right now. Veto only pays on a verdict signed inside that enclave, so until it&apos;s back, payments started here
             expire unpaid. No signed PASS, no payment.
           </span>
         </motion.div>

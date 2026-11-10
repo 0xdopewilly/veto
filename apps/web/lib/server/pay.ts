@@ -46,14 +46,14 @@ export async function startPayment(accounts: VaultAccounts, request: PaymentRequ
   return { proposal_id: id, tx: outcome.transaction.hash };
 }
 
-/** What a visitor reads when NEAR AI Cloud doesn't answer: the agent and the screening both run there. */
+/** What a visitor reads when NEAR AI Cloud can't serve the model: the agent and the screening both run on it. */
 export const NEAR_AI_DOWN =
-  "NEAR AI Cloud isn't answering right now. The demo agent and Veto's screening both run there, so nothing was paid. Try again once it's back.";
+  "NEAR AI Cloud isn't serving Veto's enclave model right now. The demo agent and Veto's screening both run on it, so nothing was paid. Try again once it's back.";
 
 /** The vault's own refusals (caps, frozen, a bad payee) are the demo working, not a server error. */
 export function refusal(e: unknown) {
   if (isNearAiUnavailable(e)) {
-    console.error("NEAR AI Cloud isn't answering:", e.detail);
+    console.error("NEAR AI Cloud isn't serving the model:", e.detail);
     return Response.json({ error: NEAR_AI_DOWN }, { status: 503 });
   }
   const message = (e as Error).message;

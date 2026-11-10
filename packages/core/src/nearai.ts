@@ -8,15 +8,15 @@ export const NEARAI_BASE_URL = "https://cloud-api.near.ai/v1";
 export const DEFAULT_MODEL = "Qwen/Qwen3-VL-30B-A3B-Instruct";
 
 /**
- * NEAR AI Cloud didn't answer: a server error, a dropped connection or a timeout. Not a refusal and
- * not a bad request, so callers can say so plainly. Nothing is paid either way: no signed verdict,
- * no payment.
+ * NEAR AI Cloud can't serve the model right now: a server error, a dropped connection, a timeout, or
+ * no provider serving the model (as while its enclaves are offline). Not a refusal and not a bad
+ * request, so callers can say so plainly. Nothing is paid either way: no signed verdict, no payment.
  */
 export class NearAiUnavailable extends Error {
   // A plain field, not a constructor parameter property: Node runs this file with types stripped.
   readonly detail: string;
   constructor(detail: string) {
-    super(`NEAR AI Cloud isn't answering right now (${detail})`);
+    super(`NEAR AI Cloud isn't serving the model right now (${detail})`);
     this.name = "NearAiUnavailable";
     this.detail = detail;
   }
@@ -27,6 +27,14 @@ export const isNearAiUnavailable = (e: unknown): e is NearAiUnavailable => e ins
 
 /** A verdict takes about 1.5 s (3.2 s at most over the 100-scenario bench); 30 s means NEAR AI isn't answering. */
 const SCREEN_TIMEOUT_MS = 30_000;
+
+/**
+ * NEAR AI's router answering that nothing serves the model right now, e.g. "Model '…' not found in
+ * any configured provider" (a 400) while the model's enclaves are offline.
+ */
+const NO_PROVIDER = /not found in any configured provider|no provider found/i;
+/** Whether a failed NEAR AI response means the service or the model is unavailable, not that the request was wrong. */
+const unavailable = (status: number, text: string) => status >= 500 || NO_PROVIDER.test(text);
 
 export interface ModelVerdict {
   proposal_id: string;
@@ -108,7 +116,7 @@ export async function screen(opts: {
   );
   if (!res.ok) {
     const text = new TextDecoder().decode(responseBytes).slice(0, 300);
-    if (res.status >= 500) throw new NearAiUnavailable(`${res.status}: ${text}`);
+    if (unavailable(res.status, text)) throw new NearAiUnavailable(`${res.status}: ${text}`);
     throw new Error(`NEAR AI completion failed (${res.status}): ${text}`);
   }
   const completion = JSON.parse(new TextDecoder().decode(responseBytes));
@@ -234,7 +242,7 @@ export async function completeJson<T>(opts: {
   });
   if (!res.ok) {
     const text = (await res.text()).slice(0, 200);
-    if (res.status >= 500) throw new NearAiUnavailable(`${res.status}: ${text}`);
+    if (unavailable(res.status, text)) throw new NearAiUnavailable(`${res.status}: ${text}`);
     throw new Error(`NEAR AI completion failed (${res.status}): ${text}`);
   }
   const content = (await res.json())?.choices?.[0]?.message?.content;

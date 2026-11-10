@@ -216,12 +216,13 @@ test("a published sandbox verdict's signature recovers to the enclave key the va
   assert.notEqual(recoverVerdictSigner(text.replace(/.$/, "0"), "0x52281123c931c0642e4061a1b8eb5fd3dbc24c6cff1532a47f8454215fe8a3b31ff3ca4f32f0c67e6bfe83f0884caa0815335618e8042ed330a7ff833da6254c1b"), "0x2665cce942fa427ef30d87f4b0bff67fb7645462");
 });
 
-test("a NEAR AI outage reads as unavailable; a refused key still reads as a failed request", async () => {
+test("a NEAR AI outage or an offline model reads as unavailable; a refused key still reads as a failed request", async () => {
   // NEAR AI as it answered during its November 2026 pause, then as it answers a key it doesn't know.
   let status = 500;
+  let body: unknown = { error: { message: "Failed to validate API key", type: "internal_server_error" } };
   const server = createServer((_req, res) => {
     res.writeHead(status, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: { message: "Failed to validate API key", type: "internal_server_error" } }));
+    res.end(JSON.stringify(body));
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`;
@@ -231,6 +232,11 @@ test("a NEAR AI outage reads as unavailable; a refused key still reads as a fail
     await assert.rejects(screen({ ...ask, baseUrl }), (e) => isNearAiUnavailable(e) && e.detail.startsWith("500"));
     status = 401;
     await assert.rejects(completeJson({ ...ask, schema: {}, name: "t", baseUrl }), (e) => !isNearAiUnavailable(e) && /completion failed \(401\)/.test((e as Error).message));
+    // Back, but with the model's enclaves still offline (NEAR AI, 10 November 2026).
+    status = 400;
+    body = { message: "Model 'Qwen/Qwen3-VL-30B-A3B-Instruct' not found in any configured provider", type: "invalid_request_error" };
+    await assert.rejects(completeJson({ ...ask, schema: {}, name: "t", baseUrl }), (e) => isNearAiUnavailable(e) && e.detail.startsWith("400"));
+    await assert.rejects(screen({ ...ask, baseUrl }), (e) => isNearAiUnavailable(e) && e.detail.startsWith("400"));
   } finally {
     server.close();
   }

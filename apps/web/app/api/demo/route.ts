@@ -14,8 +14,8 @@ export async function GET(req: Request) {
   const accounts = vaultAccounts(new URL(req.url).searchParams.get("vault") || SANDBOX_ID);
   if (!accounts) return Response.json({ enabled: false });
   const { vaultId, sandbox, screener, owner, outlayer } = accounts;
-  // Asked alongside the vault, so it adds no wait of its own.
-  const nearai = nearAiStatus();
+  // Asked alongside the vault, so it adds no wait of its own. A test signer doesn't need NEAR AI.
+  const nearai = screener.model.startsWith("veto-dev/") ? Promise.resolve("up" as const) : nearAiStatus(screener.model);
   let history;
   let evm;
   try {

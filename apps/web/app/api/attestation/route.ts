@@ -39,7 +39,7 @@ export async function GET(req: Request) {
   } catch (e) {
     if (isNearAiUnavailable(e)) {
       return Response.json(
-        { error: "NEAR AI Cloud isn't answering right now, so its enclave can't be checked live. Each verdict's signature still checks out against the key the vault approved." },
+        { error: "NEAR AI Cloud isn't serving this enclave right now, so it can't be checked live. Each verdict's signature still checks out against the key the vault approved." },
         { status: 503 },
       );
     }
