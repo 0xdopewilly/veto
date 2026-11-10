@@ -5,7 +5,7 @@ import { motion } from "motion/react";
 import { canonicalJson, sha256Hex, type Proposal } from "@veto/core/proposal";
 import { formatAmount, SYSTEM_PROMPT } from "@veto/core/prompt";
 import { recoverVerdictSigner, signedVerdictText } from "@veto/core/verdictsig";
-import { EXPLORER, PROOF_BASE, PUBLIC_RPC } from "@/lib/config";
+import { EXPLORER, PROOF_BASE, PUBLIC_RPCS } from "@/lib/config";
 import { SPRING_UI, useCalm } from "@/lib/motion";
 import { shortHash } from "@/lib/format";
 import { Icon } from "./Icon";
@@ -37,16 +37,24 @@ type Status =
   | { kind: "error"; message: string }
   | { kind: "done"; checks: Check[]; email: Email | null; meta: ProofMeta };
 
-/** A view call straight to NEAR's public RPC: what the chain says, not what our server says. */
+/** A view call straight to a public NEAR RPC: what the chain says, not what our server says. */
 async function chain<T>(contract: string, method: string, args: Record<string, unknown> = {}): Promise<T> {
-  const res = await fetch(PUBLIC_RPC, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: "proof", method: "query", params: { request_type: "call_function", finality: "final", account_id: contract, method_name: method, args_base64: btoa(JSON.stringify(args)) } }),
-  });
-  const body = (await res.json()) as { result?: { result: number[] }; error?: { message?: string } };
-  if (!body.result) throw new Error(`NEAR's RPC: ${body.error?.message ?? res.status}`);
-  return JSON.parse(new TextDecoder().decode(new Uint8Array(body.result.result))) as T;
+  let last = "no RPC answered";
+  for (const url of PUBLIC_RPCS) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: "proof", method: "query", params: { request_type: "call_function", finality: "final", account_id: contract, method_name: method, args_base64: btoa(JSON.stringify(args)) } }),
+      });
+      const body = (await res.json()) as { result?: { result: number[] }; error?: { message?: string } };
+      if (body.result) return JSON.parse(new TextDecoder().decode(new Uint8Array(body.result.result))) as T;
+      last = body.error?.message ?? String(res.status);
+    } catch (e) {
+      last = (e as Error).message;
+    }
+  }
+  throw new Error(`NEAR's RPC: ${last}`);
 }
 
 async function bytesOf(url: string): Promise<Uint8Array | null> {
