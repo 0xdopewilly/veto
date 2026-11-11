@@ -17,6 +17,6 @@
     "demo:health": "node scripts/demo-health.ts",
     "demo:check": "node scripts/demo-check.ts",
     "bench": "node bench/run.ts",
-    "test": "node --test packages/core/test/core.test.ts && cd contract && cargo test && cd ../factory && cargo test"
+    "test": "node --test packages/core/test/core.test.ts && node --test packages/mcp/test/mcp.test.ts && cd contract && cargo test && cd ../factory && cargo test"
   }
 }
