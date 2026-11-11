@@ -1,0 +1,19 @@
+{
+  "name": "@veto/mcp",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "An MCP server for Veto: write the hosted demo agent an email and get Veto's decision, or propose payments to your own vault.",
+  "exports": { ".": "./src/server.ts" },
+  "scripts": {
+    "start": "node src/main.ts",
+    "test": "node --test test/mcp.test.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "@veto/core": "workspace:*",
+    "@veto/sdk": "workspace:*",
+    "zod": "4.6.7"
+  }
+}
