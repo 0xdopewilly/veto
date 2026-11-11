@@ -273,7 +273,7 @@ function ScenarioCard({ scenario: email, run, index, busy }: { scenario: DemoSce
               </>
             ) : (
               <>
-                {!sending && <Stage done={!!proposal && proposal.status !== "Screening"} active={!proposal || proposal.status === "Screening"} label="Screening privately" />}
+                {!sending && <Stage done={!!proposal && proposal.status !== "Screening"} active={!proposal || proposal.status === "Screening"} label="Screening in the enclave" />}
                 {!sending && proposal?.status === "Screening" && <SlowScreen startedAt={run.startedAt} deadline={proposal.screen_deadline} />}
                 {proposal && proposal.status !== "Screening" && <Verdict proposal={proposal} />}
               </>

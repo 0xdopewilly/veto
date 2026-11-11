@@ -1,4 +1,4 @@
-import type { Payee, PaymentRequest, Proposal } from "./proposal.ts";
+import { canonicalJson, type Payee, type PaymentRequest, type Proposal } from "./proposal.ts";
 import type { Signal } from "./signals.ts";
 
 export const REASON_CODES = [
@@ -96,7 +96,21 @@ function describe(r: PaymentRequest, decimals: Record<string, number>) {
   return { chain: r.chain, asset: r.asset, payee: r.payee, amount: formatAmount(r.amount, places), reference: r.memo };
 }
 
+/**
+ * The user message: the facts, then the agent's evidence exactly as it committed to it (the
+ * canonical JSON whose sha256 is the proposal's context_hash). A vault with checked screening
+ * rebuilds this message itself (contract/src/screening.rs), so the format is fixed.
+ */
+export function screeningUserMessage(facts: string, evidence: unknown): string {
+  return `${facts}\n\n<evidence>\n${canonicalJson(evidence ?? null)}\n</evidence>`;
+}
+
 export function userMessage(input: ScreeningInput): string {
+  return screeningUserMessage(screeningFacts(input), input.evidence);
+}
+
+/** The facts the model reads, as pretty-printed JSON. The vault writes the same bytes (get_screening_facts). */
+export function screeningFacts(input: ScreeningInput): string {
   const { proposal, decimals } = input;
   const facts = {
     proposal_id: proposal.id,
@@ -108,5 +122,5 @@ export function userMessage(input: ScreeningInput): string {
     recent_payments: input.history.slice(0, 20).map((p) => ({ status: p.status, ...describe(p.request, decimals) })),
     signals: input.signals,
   };
-  return `${JSON.stringify(facts, null, 2)}\n\n<evidence>\n${JSON.stringify(input.evidence ?? null, null, 2)}\n</evidence>`;
+  return JSON.stringify(facts, null, 2);
 }

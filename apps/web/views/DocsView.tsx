@@ -50,7 +50,10 @@ const METHODS: { method: string; who: string; does: string }[] = [
   { method: "factory: create_vault(name, label, mandate?)", who: "Anyone", does: "Creates <name>.<factory>, owned by the caller, with starter test funds, caps, suppliers and the enclave model's key, plus its own agent and screening accounts, holding the hosted app's agent and guardian keys as function-call keys that can only call this vault." },
   { method: "factory: send_gas(account)", who: "The factory's own key", does: "Sends an empty testnet wallet 0.3 test NEAR for gas, once per wallet. The web app holds a key that can call only this, and calls it when an empty wallet connects." },
   { method: "propose(request, context_hash)", who: "Agent", does: "Asks to pay. Checked against the caps at once; then waits for the screen." },
-  { method: "submit_verdict(id, model_id, chat_id, request_hash, response, signature, quote?)", who: "Guardian", does: "Records the signed verdict. PASS pays if the caps still allow it; VETO blocks." },
+  { method: "submit_verdict(id, model_id, chat_id, evidence | request_hash, response, signature, quote?, evm?)", who: "Guardian", does: "Records the signed verdict. With checked screening the guardian sends the evidence and the vault rebuilds the exact request the signature must cover; with private screening, the request's hash. PASS pays if the caps still allow it; VETO blocks." },
+  { method: "get_screening_facts(id)", who: "Anyone (view)", does: "The facts a checked screening must show the model, written by the vault from its own state: the payment, mandate, payee list, newest payments and risk signals." },
+  { method: "set_checked_screening(checked)", who: "Owner", does: "Checked screening (the default) puts the evidence on-chain with each verdict and lets the vault rebuild the request. Private screening keeps the evidence off-chain." },
+  { method: "load_decimals(asset)", who: "Anyone", does: "Reads a token's decimals from the token, so the vault writes amounts the way the model reads them. Runs by itself when a token gets a policy." },
   { method: "expire(id)", who: "Anyone", does: "Ends a screening with no verdict after the deadline. No verdict means no payment." },
   { method: "override_veto(id) / cancel_override(id)", who: "Owner", does: "Schedules a vetoed payment to pay after the delay, or cancels that." },
   { method: "keep_blocked(id)", who: "Owner", does: "Closes a veto for good. For an OutLayer wallet, Veto then rejects the held payment there." },
@@ -203,20 +206,24 @@ export function DocsView() {
             <ol className={styles.steps}>
               <li>
                 <strong>The agent proposes.</strong> It calls <code>propose</code> on the vault with the payee, amount and invoice number,
-                and sends the evidence behind it (the email, the invoice) privately to the guardian. Only a hash of that evidence goes on-chain (the shared sandbox, whose emails are made up, also publishes them).
+                and sends the evidence behind it (the email, the invoice) to the guardian. Only a hash of that evidence goes on-chain at this point, so the agent is committed to it before anyone screens anything.
               </li>
               <li>
                 <strong>The contract checks the hard limits.</strong> Per-payment and weekly caps, listed assets, agent allowed, vault not
                 frozen. Anything over a cap is refused right here.
               </li>
               <li>
-                <strong>The guardian screens it privately.</strong> It sends the mandate, the payee list, recent payments, deterministic risk
-                signals (lookalike, new payee, duplicate) and the evidence to a model running in a TEE on NEAR AI Cloud. The model answers PASS
-                or VETO with reason codes, and the enclave signs the exact request and response.
+                <strong>The guardian screens it in the enclave.</strong> It asks the vault for the screening facts, which the vault writes from its own
+                state (the mandate, the payee list, recent payments and deterministic risk signals: lookalike, new payee, duplicate), and sends them
+                with the evidence to a model running in a TEE on NEAR AI Cloud. The model answers PASS or VETO with reason codes, and the enclave
+                signs the exact request and response.
               </li>
               <li>
-                <strong>The contract checks the verdict.</strong> It recovers the signer with <code>ecrecover</code>, checks it is an approved
-                model key, checks the response names this exact proposal, then records the verdict.
+                <strong>The contract checks the verdict.</strong> With checked screening (the default) it rebuilds the request byte for byte: its
+                pinned screening prompt, the facts written again from its own state, and the evidence, which must match the hash from step one. It
+                recovers the signer of that request and the response with <code>ecrecover</code>, checks it is an approved model key, checks the
+                response names this exact proposal, then records the verdict. So the guardian can&apos;t show the model a different email, mandate
+                or payee list: the signature wouldn&apos;t cover what the vault rebuilt.
               </li>
               <li>
                 <strong>PASS pays, VETO blocks.</strong> A pass is re-checked against the caps and paid. A veto stays blocked unless the owner
@@ -354,21 +361,25 @@ export function DocsView() {
 
           <section id="privacy" className={styles.section} data-reveal>
             <h2>What stays private</h2>
+            <p>
+              Each vault picks. Checking the whole request on-chain means putting the evidence on-chain, so the owner chooses which matters more
+              with <code>set_checked_screening</code>. Either way inference runs in a TEE, so NEAR AI&apos;s hosts can&apos;t read it, and the payment
+              itself (payee, amount, invoice number), the verdict, its reason codes and signatures are public.
+            </p>
             <div className={styles.twoCol}>
               <div className={styles.tile}>
-                <h3>Private</h3>
+                <h3>Checked screening (default)</h3>
                 <ul>
-                  <li>The emails, invoices and pages the agent acted on. Only the guardian that sends them to the model, and the model in its enclave, read them.</li>
-                  <li>The full prompt the model saw, in a vault someone owns. The shared sandbox, whose emails are made up or written by visitors who were told, publishes it.</li>
-                  <li>Inference runs in a TEE: NEAR AI&apos;s hosts can&apos;t read it.</li>
+                  <li>The evidence goes on-chain with the verdict, and the vault rebuilds the exact request the model saw.</li>
+                  <li>Nothing about the prompt is taken on trust: not the email, the mandate, the payee list, the recent payments or the signals.</li>
+                  <li>The sandbox and every vault the factory makes use it. Their emails are made up, or written by visitors who were told.</li>
                 </ul>
               </div>
               <div className={styles.tile}>
-                <h3>Public on-chain</h3>
+                <h3>Private screening</h3>
                 <ul>
-                  <li>The payment itself: payee, amount, invoice number.</li>
-                  <li>The verdict, reason codes and signatures.</li>
-                  <li>Hashes of the evidence and the prompt.</li>
+                  <li>Only hashes of the evidence and the request go on-chain. The guardian and the model in its enclave read the evidence.</li>
+                  <li>The vault checks the enclave&apos;s signature and that the answer names this payment. That the prompt was the right one rests on the guardian, and an owner can check it on the Proof page.</li>
                 </ul>
               </div>
             </div>
@@ -383,7 +394,7 @@ export function DocsView() {
             <ol className={styles.doSee}>
               <li><span>Do</span> open <Link href="/start/vault">Create your vault</Link>, connect a NEAR testnet wallet (Meteor Wallet at meteorwallet.app makes a testnet account for free; switch it to testnet first), name your business and sign. A new wallet starts with no NEAR, so Veto sends it 0.3 test NEAR for gas when it connects. <span>See</span> your own vault live in a few seconds, with $5,000 test USDC, two suppliers and its own test agent. From here on, overrides, freezes and rule changes need your wallet&apos;s signature.</li>
               <li><span>Do</span> open <Link href="/app">the app</Link> and press <strong>Try it</strong> (the green V on a phone, <strong>Try the agent</strong> at the top of the sidebar on desktop). <span>See</span> the agent's inbox: a real invoice, a real salary and four scams that look ordinary.</li>
-              <li><span>Do</span> let the agent pay the real Kano Cotton Mills invoice. <span>See</span> "Agent proposed", "Screening privately", then <strong>Paid</strong>, with testnet transaction links.</li>
+              <li><span>Do</span> let the agent pay the real Kano Cotton Mills invoice. <span>See</span> "Agent proposed", "Screening in the enclave", then <strong>Paid</strong>, with testnet transaction links.</li>
               <li><span>Do</span> let it pay "Updated payment details". <span>See</span> <strong>Vetoed</strong>: a lookalike address, a new payee and changed payout details, while the payment was inside the weekly limit.</li>
               <li><span>Do</span> open the decision, then <strong>Proof</strong>. <span>See</span> the signer, the hashes and the on-chain check, then the exact bytes the model saw, re-hashed in your browser.</li>
               <li><span>Do</span> on that page, press <strong>Check the enclave now</strong>. <span>See</span> eight checks of NEAR AI&apos;s enclave run live: Intel&apos;s quote, NVIDIA&apos;s GPUs and the key that signed the verdict.</li>

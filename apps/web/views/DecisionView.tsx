@@ -254,7 +254,7 @@ function ProofSummary({ p }: { p: Proposal }) {
       <p className={styles.proofText}>
         {test
           ? "Signed by a labelled test key, not by a NEAR AI enclave."
-          : "Screened privately inside a hardware enclave on NEAR AI Cloud. Your vault contract checked the model's signature before it acted."}
+          : "Screened inside a hardware enclave on NEAR AI Cloud. Your vault contract checked the model's signature before it acted."}
       </p>
       <dl className={styles.proofList}>
         <dt>Model</dt>
@@ -476,7 +476,7 @@ function InFlight({ state, p }: { state: VaultState; p: Proposal }) {
       <BackLink morphId={p.id} />
       <section className={styles.inflight}>
         <VLoader size={96} label={screening ? "Screening" : "Sending"} />
-        <LineReveal as="h1" className={styles.plainTitle} text={screening ? "Screening privately" : "Sending"} />
+        <LineReveal as="h1" className={styles.plainTitle} text={screening ? "Screening in the enclave" : "Sending"} />
         <p className={`${styles.plainText} rise`} style={delay(80)}>
           {formatAmount(p.request.amount, meta)} to <span className="mono">{shortAddress(p.request.payee)}</span>
           {screening

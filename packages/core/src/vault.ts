@@ -48,6 +48,8 @@ export class VaultReader {
     return [...seen.values()].sort((a, b) => Number(b.id) - Number(a.id));
   };
   proposalHash = (id: string) => this.view<string>("get_proposal_hash", { id });
+  /** The facts a checked screening must show the model, written by the vault from its own state. */
+  screeningFacts = (id: string) => this.view<string>("get_screening_facts", { id });
 }
 
 export async function propose(agent: Account, vaultId: string, request: PaymentRequest, contextHash: string | null) {
@@ -62,7 +64,7 @@ export async function propose(agent: Account, vaultId: string, request: PaymentR
 export async function submitVerdict(
   guardian: Account,
   vaultId: string,
-  args: { id: string; model_id: string; chat_id: string; request_hash: string; response: string; signature: string },
+  args: { id: string; model_id: string; chat_id: string; request_hash?: string; evidence?: string; response: string; signature: string },
 ) {
   return guardian.callFunction<string>({
     contractId: vaultId,

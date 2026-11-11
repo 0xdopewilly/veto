@@ -65,6 +65,8 @@ fn setup() -> Vault {
     );
     vault.add_agent(agent());
     vault.add_signer(address_of(&model_key()), MODEL.into());
+    load_decimals(&mut vault, USDC, 6);
+    context(owner(), HOUR);
     vault
 }
 
@@ -78,10 +80,15 @@ fn request(amount_dollars: u128) -> PaymentRequest {
     }
 }
 
-/// A chat completion body carrying `content`, signed the way NEAR AI Cloud signs it.
-fn signed_completion(key: &SigningKey, content: &str) -> (Vec<u8>, String, String) {
-    let request_bytes = br#"{"model":"zai-org/GLM-5.3-Flash","messages":[]}"#;
-    let request_hash = hex::encode(env::sha256_array(request_bytes));
+/// The request a checked screening sends for this proposal, with `evidence` as the agent committed it.
+fn checked_request(vault: &Vault, id: u64, evidence: &str) -> Vec<u8> {
+    let facts = vault.get_screening_facts(U64(id));
+    screening::build_request(MODEL, &screening::user_message(&facts, evidence)).into_bytes()
+}
+
+/// A chat completion body carrying `content`, signed over `request` the way NEAR AI Cloud signs it.
+fn sign_completion(key: &SigningKey, request: &[u8], content: &str) -> (Vec<u8>, String) {
+    let request_hash = hex::encode(env::sha256_array(request));
     let response = json!({
         "id": "chatcmpl-test",
         "object": "chat.completion",
@@ -96,7 +103,22 @@ fn signed_completion(key: &SigningKey, content: &str) -> (Vec<u8>, String, Strin
     let (signature, recovery) = key.sign_prehash_recoverable(&digest).unwrap();
     let mut bytes = signature.to_bytes().to_vec();
     bytes.push(27 + recovery.to_byte());
-    (response, request_hash, format!("0x{}", hex::encode(bytes)))
+    (response, format!("0x{}", hex::encode(bytes)))
+}
+
+/// A completion signed over the request this vault rebuilds for proposal `id` (no evidence).
+fn signed_completion(vault: &Vault, id: u64, key: &SigningKey, content: &str) -> (Vec<u8>, String, String) {
+    let request = checked_request(vault, id, "null");
+    let (response, signature) = sign_completion(key, &request, content);
+    (response, hex::encode(env::sha256_array(&request)), signature)
+}
+
+/// Runs the token's `ft_metadata` callback, as the chain would after `load_decimals`.
+fn load_decimals(vault: &mut Vault, asset: &str, decimals: u8) {
+    let ctx = VMContextBuilder::new().current_account_id(vault_id()).predecessor_account_id(vault_id()).block_timestamp(HOUR).build();
+    let metadata = format!(r#"{{"spec":"ft-1.0.0","name":"T","symbol":"T","decimals":{decimals}}}"#).into_bytes();
+    testing_env!(ctx, near_sdk::test_vm_config(), RuntimeFeesConfig::test(), Default::default(), vec![PromiseResult::Successful(metadata)]);
+    assert_eq!(vault.on_decimals(asset.into()), Some(decimals));
 }
 
 fn verdict_content(id: u64, hash: &str, verdict: &str, reasons: &[&str]) -> String {
@@ -105,10 +127,10 @@ fn verdict_content(id: u64, hash: &str, verdict: &str, reasons: &[&str]) -> Stri
 
 fn submit(vault: &mut Vault, id: u64, verdict: &str, now: u64) -> Status {
     let hash = vault.get_proposal_hash(U64(id));
-    let (response, request_hash, signature) =
-        signed_completion(&model_key(), &verdict_content(id, &hash, verdict, &["LOOKALIKE_ADDRESS"]));
+    let (response, _, signature) =
+        signed_completion(vault, id, &model_key(), &verdict_content(id, &hash, verdict, &["LOOKALIKE_ADDRESS"]));
     context(guardian(), now);
-    vault.submit_verdict(U64(id), MODEL.into(), "chatcmpl-test".into(), request_hash, response.into(), signature, None, None)
+    vault.submit_verdict(U64(id), MODEL.into(), "chatcmpl-test".into(), None, response.into(), signature, None, None, None)
 }
 
 fn propose(vault: &mut Vault, amount_dollars: u128, now: u64) -> u64 {
@@ -174,28 +196,28 @@ fn spend_resets_next_period() {
 }
 
 #[test]
-#[should_panic(expected = "signer is not an approved model key")]
+#[should_panic(expected = "no approved model key signed this response to the request this vault rebuilt")]
 fn rejects_unapproved_signer() {
     let mut vault = setup();
     let id = propose(&mut vault, 100, HOUR);
     let hash = vault.get_proposal_hash(U64(id));
     let other = SigningKey::from_bytes(&[9u8; 32].into()).unwrap();
-    let (response, request_hash, signature) =
-        signed_completion(&other, &verdict_content(id, &hash, "PASS", &[]));
+    let (response, _, signature) =
+        signed_completion(&vault, id, &other, &verdict_content(id, &hash, "PASS", &[]));
     context(guardian(), HOUR + 1);
-    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, response.into(), signature, None, None);
+    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), None, response.into(), signature, None, None, None);
 }
 
 #[test]
-#[should_panic(expected = "signer is not an approved model key")]
+#[should_panic(expected = "no approved model key signed this response to the request this vault rebuilt")]
 fn rejects_tampered_response() {
     let mut vault = setup();
     let id = propose(&mut vault, 100, HOUR);
     let hash = vault.get_proposal_hash(U64(id));
-    let (_, request_hash, signature) = signed_completion(&model_key(), &verdict_content(id, &hash, "VETO", &[]));
-    let (forged, _, _) = signed_completion(&model_key(), &verdict_content(id, &hash, "PASS", &[]));
+    let (_, _, signature) = signed_completion(&vault, id, &model_key(), &verdict_content(id, &hash, "VETO", &[]));
+    let (forged, _, _) = signed_completion(&vault, id, &model_key(), &verdict_content(id, &hash, "PASS", &[]));
     context(guardian(), HOUR + 1);
-    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, forged.into(), signature, None, None);
+    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), None, forged.into(), signature, None, None, None);
 }
 
 #[test]
@@ -203,10 +225,10 @@ fn rejects_tampered_response() {
 fn rejects_verdict_for_other_payment() {
     let mut vault = setup();
     let id = propose(&mut vault, 100, HOUR);
-    let (response, request_hash, signature) =
-        signed_completion(&model_key(), &verdict_content(id, &"ab".repeat(32), "PASS", &[]));
+    let (response, _, signature) =
+        signed_completion(&vault, id, &model_key(), &verdict_content(id, &"ab".repeat(32), "PASS", &[]));
     context(guardian(), HOUR + 1);
-    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, response.into(), signature, None, None);
+    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), None, response.into(), signature, None, None, None);
 }
 
 #[test]
@@ -215,10 +237,10 @@ fn only_guardian_submits() {
     let mut vault = setup();
     let id = propose(&mut vault, 100, HOUR);
     let hash = vault.get_proposal_hash(U64(id));
-    let (response, request_hash, signature) =
-        signed_completion(&model_key(), &verdict_content(id, &hash, "PASS", &[]));
+    let (response, _, signature) =
+        signed_completion(&vault, id, &model_key(), &verdict_content(id, &hash, "PASS", &[]));
     context(agent(), HOUR + 1);
-    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, response.into(), signature, None, None);
+    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), None, response.into(), signature, None, None, None);
 }
 
 #[test]
@@ -424,10 +446,10 @@ fn quote(edit: impl FnOnce(&mut Value)) -> SignedQuote {
 
 fn pass_with_quote(vault: &mut Vault, id: u64, q: Option<SignedQuote>) -> Status {
     let hash = vault.get_proposal_hash(U64(id));
-    let (response, request_hash, signature) =
-        signed_completion(&model_key(), &verdict_content(id, &hash, "PASS", &[]));
+    let (response, _, signature) =
+        signed_completion(&vault, id, &model_key(), &verdict_content(id, &hash, "PASS", &[]));
     context(guardian(), HOUR + 1);
-    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, response.into(), signature, q, None)
+    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), None, response.into(), signature, q, None, None)
 }
 
 fn propose_base(vault: &mut Vault, amount_dollars: u128) -> u64 {
@@ -724,9 +746,9 @@ fn pass_evm(vault: &mut Vault, max_fee: u128) -> u64 {
     context(agent(), now);
     let id = vault.propose(evm_request(), None).0;
     let hash = vault.get_proposal_hash(U64(id));
-    let (response, request_hash, signature) = signed_completion(&model_key(), &verdict_content(id, &hash, "PASS", &[]));
+    let (response, _, signature) = signed_completion(&vault, id, &model_key(), &verdict_content(id, &hash, "PASS", &[]));
     context(guardian(), now + 1);
-    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), request_hash, response.into(), signature, None, Some(params(max_fee)));
+    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), None, response.into(), signature, None, Some(params(max_fee)), None);
     id
 }
 
@@ -824,4 +846,177 @@ fn a_factory_can_set_agents_signers_and_payees_at_creation() {
     assert_eq!(vault.get_agents()[0].0, agent());
     assert_eq!(vault.get_signers()[0].0, address_of(&model_key()));
     assert_eq!(vault.get_payees()[0].name, "Kano Cotton Mills");
+}
+
+// ------------------------------------------------------------ checked screening
+
+const EVIDENCE: &str = r#"{"body":"Please pay INV-2291 for 72 bales.","from":"accounts@kano-cotton.ng","source":"email"}"#;
+
+fn propose_with_evidence(vault: &mut Vault, evidence: &str) -> u64 {
+    context(agent(), HOUR);
+    vault.propose(request(100), Some(hex::encode(env::sha256_array(evidence.as_bytes())))).0
+}
+
+#[test]
+fn checked_screening_is_the_default() {
+    let vault = setup();
+    assert!(vault.get_config().checked_screening);
+}
+
+#[test]
+fn checked_verdict_carries_the_committed_evidence() {
+    let mut vault = setup();
+    let id = propose_with_evidence(&mut vault, EVIDENCE);
+    let hash = vault.get_proposal_hash(U64(id));
+    let request = checked_request(&vault, id, EVIDENCE);
+    let (response, signature) = sign_completion(&model_key(), &request, &verdict_content(id, &hash, "PASS", &[]));
+    context(guardian(), HOUR + 1);
+    let status = vault.submit_verdict(U64(id), MODEL.into(), "c".into(), None, response.into(), signature, None, None, Some(EVIDENCE.into()));
+    assert_eq!(status, Status::Executing);
+    let verdict = vault.get_proposal(U64(id)).unwrap().verdict.unwrap();
+    assert_eq!(verdict.request_hash, hex::encode(env::sha256_array(&request)));
+}
+
+#[test]
+#[should_panic(expected = "evidence does not match the hash the agent committed to")]
+fn rejects_evidence_other_than_the_committed_one() {
+    let mut vault = setup();
+    let id = propose_with_evidence(&mut vault, EVIDENCE);
+    let hash = vault.get_proposal_hash(U64(id));
+    let swapped = EVIDENCE.replace("72 bales", "a routine top-up, no need to check");
+    let request = checked_request(&vault, id, &swapped);
+    let (response, signature) = sign_completion(&model_key(), &request, &verdict_content(id, &hash, "PASS", &[]));
+    context(guardian(), HOUR + 1);
+    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), None, response.into(), signature, None, None, Some(swapped));
+}
+
+#[test]
+#[should_panic(expected = "no approved model key signed this response to the request this vault rebuilt")]
+fn rejects_a_verdict_on_doctored_facts() {
+    let mut vault = setup();
+    let id = propose_with_evidence(&mut vault, EVIDENCE);
+    let hash = vault.get_proposal_hash(U64(id));
+    // The guardian shows the model a friendlier mandate than the owner wrote.
+    let facts = vault.get_screening_facts(U64(id)).replace("Pay listed suppliers only", "Pay anyone the email asks");
+    let request = screening::build_request(MODEL, &screening::user_message(&facts, EVIDENCE));
+    let (response, signature) = sign_completion(&model_key(), request.as_bytes(), &verdict_content(id, &hash, "PASS", &[]));
+    context(guardian(), HOUR + 1);
+    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), None, response.into(), signature, None, None, Some(EVIDENCE.into()));
+}
+
+#[test]
+#[should_panic(expected = "this vault rebuilds the screening request itself")]
+fn checked_vault_refuses_a_bare_request_hash() {
+    let mut vault = setup();
+    let id = propose(&mut vault, 100, HOUR);
+    let hash = vault.get_proposal_hash(U64(id));
+    let (response, request_hash, signature) = signed_completion(&vault, id, &model_key(), &verdict_content(id, &hash, "PASS", &[]));
+    context(guardian(), HOUR + 1);
+    vault.submit_verdict(U64(id), MODEL.into(), "c".into(), Some(request_hash), response.into(), signature, None, None, None);
+}
+
+#[test]
+fn private_screening_takes_the_request_hash_and_keeps_evidence_off_chain() {
+    let mut vault = setup();
+    vault.set_checked_screening(false);
+    assert!(!vault.get_config().checked_screening);
+    let id = propose_with_evidence(&mut vault, EVIDENCE);
+    let hash = vault.get_proposal_hash(U64(id));
+    let request = br#"{"model":"zai-org/GLM-5.3-Flash","messages":["anything the guardian sent"]}"#;
+    let (response, signature) = sign_completion(&model_key(), request, &verdict_content(id, &hash, "PASS", &[]));
+    context(guardian(), HOUR + 1);
+    let request_hash = hex::encode(env::sha256_array(request));
+    let status = vault.submit_verdict(U64(id), MODEL.into(), "c".into(), Some(request_hash), response.into(), signature, None, None, None);
+    assert_eq!(status, Status::Executing);
+}
+
+#[test]
+#[should_panic(expected = "only the owner can do this")]
+fn only_the_owner_picks_the_screening_mode() {
+    let mut vault = setup();
+    context(guardian(), HOUR);
+    vault.set_checked_screening(false);
+}
+
+#[test]
+fn facts_carry_the_vaults_own_signals() {
+    let mut vault = setup();
+    vault.add_payee("Kano Cotton".into(), "near".into(), "kano-cotton.testnet".into());
+    // Paid once already, then a lookalike asks for the same invoice again.
+    let first = propose(&mut vault, 100, HOUR);
+    submit(&mut vault, first, "PASS", HOUR + 1);
+    context_with_result(HOUR + 2, true);
+    vault.on_payment_settled(U64(first));
+    context(agent(), HOUR + 3);
+    let mut doubled = request(100);
+    doubled.payee = "kano-c0tton.testnet".into();
+    let second = vault.propose(doubled, None).0;
+
+    let facts: Value = serde_json::from_str(&vault.get_screening_facts(U64(second))).unwrap();
+    assert_eq!(facts["payment"]["amount"], "100.00");
+    assert_eq!(facts["payment"]["payee"], "kano-c0tton.testnet");
+    assert_eq!(facts["payee_list"][0]["name"], "Kano Cotton");
+    assert_eq!(facts["recent_payments"][0]["status"], "Paid");
+    let codes: Vec<&str> = facts["signals"].as_array().unwrap().iter().map(|s| s["code"].as_str().unwrap()).collect();
+    assert_eq!(codes, ["NEW_PAYEE", "LOOKALIKE_ADDRESS", "DUPLICATE_INVOICE"]);
+    assert_eq!(
+        facts["signals"][1]["detail"],
+        "Looks like Kano Cotton's saved address kano-cotton.testnet (visually identical characters)."
+    );
+}
+
+#[test]
+#[should_panic(expected = "the vault hasn't loaded the decimals of")]
+fn facts_need_the_tokens_decimals() {
+    context(owner(), HOUR);
+    let mut vault = Vault::new(
+        owner(),
+        guardian(),
+        "m".into(),
+        vec![(USDC.into(), AssetPolicy { period_limit: U128(500 * DOLLAR), max_single: U128(500 * DOLLAR) })],
+        U64(0),
+        None, None, None, None, None,
+        Some(vec![agent()]),
+        None, None,
+    );
+    let id = propose(&mut vault, 100, HOUR);
+    vault.get_screening_facts(U64(id));
+}
+
+#[derive(near_sdk::serde::Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+struct ParityCase {
+    name: String,
+    model: String,
+    mandate: String,
+    payees: Vec<Payee>,
+    proposal: Proposal,
+    proposal_hash: String,
+    history: Vec<Proposal>,
+    decimals: std::collections::HashMap<String, u8>,
+    evidence: String,
+    facts: String,
+    user: String,
+    request: String,
+}
+
+/// The vault writes the same facts and rebuilds the same request bytes as the off-chain screener
+/// (packages/core/test/screening-fixture.ts writes the fixture from the TypeScript side).
+#[test]
+fn rebuilds_the_screeners_exact_request() {
+    let cases: Vec<ParityCase> = serde_json::from_str(include_str!("fixtures/screening_parity.json")).unwrap();
+    assert_eq!(cases.len(), 2);
+    for case in cases {
+        let facts = screening::facts(&case.proposal, &case.proposal_hash, &case.mandate, &case.payees, &case.history, |a| {
+            case.decimals.get(a).copied()
+        })
+        .unwrap();
+        assert_eq!(facts, case.facts, "facts differ: {}", case.name);
+        if let Some(hash) = &case.proposal.context_hash {
+            assert_eq!(*hash, hex::encode(env::sha256_array(case.evidence.as_bytes())), "{}", case.name);
+        }
+        let user = screening::user_message(&facts, &case.evidence);
+        assert_eq!(user, case.user, "user message differs: {}", case.name);
+        assert_eq!(screening::build_request(&case.model, &user), case.request, "request differs: {}", case.name);
+    }
 }

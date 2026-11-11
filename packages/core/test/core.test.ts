@@ -8,6 +8,9 @@ import { blockingIncident, canonicalJson, completeJson, computeSignals, isNearAi
 import { checkQuote, composeMatches, quoteBinding } from "../src/attest.ts";
 import { recoverVerdictSigner, signedVerdictText } from "../src/verdictsig.ts";
 
+import { FIXTURE, fixtureText } from "./screening-fixture.ts";
+import { SYSTEM_PROMPT } from "../src/prompt.ts";
+
 const KANO = "0xA11cE57b2F0c88dE41a9B3c07e6D1f45a3c0D9F2";
 const POISONED = "0xA11cE5f09d3B7a21Cc04e8F5b6A0d92e71B1D9F2";
 
@@ -243,4 +246,12 @@ test("a NEAR AI outage or an offline model reads as unavailable; a refused key s
   // Nothing answering at all (a refused connection) reads the same as a 5xx.
   await assert.rejects(completeJson({ ...ask, schema: {}, name: "t", baseUrl: "http://127.0.0.1:9/v1" }), isNearAiUnavailable);
   await assert.rejects(screen({ ...ask, baseUrl: "http://127.0.0.1:9/v1" }), isNearAiUnavailable);
+});
+
+test("the vault pins this screening prompt (contract/src/screening_prompt.txt)", () => {
+  assert.equal(readFileSync(new URL("../../../contract/src/screening_prompt.txt", import.meta.url), "utf8"), SYSTEM_PROMPT);
+});
+
+test("the screening fixture the vault is tested against is current (contract/src/tests.rs rebuilds_the_screeners_exact_request)", () => {
+  assert.equal(readFileSync(FIXTURE, "utf8"), fixtureText(), "run: node packages/core/test/screening-fixture.ts --write");
 });

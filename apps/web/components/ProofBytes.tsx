@@ -57,6 +57,34 @@ async function chain<T>(contract: string, method: string, args: Record<string, u
   throw new Error(`NEAR's RPC: ${last}`);
 }
 
+/**
+ * Whether the vault rebuilt this verdict's request itself (checked screening), from the verdict
+ * transaction's own event on NEAR. Null when the RPC no longer holds the transaction (regular
+ * nodes keep a few days) or the vault predates checked screening.
+ */
+async function rebuiltByVault(guardian: string, txHash: string, id: string): Promise<boolean | null> {
+  for (const url of PUBLIC_RPCS) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: "proof", method: "tx", params: { tx_hash: txHash, sender_account_id: guardian, wait_until: "NONE" } }),
+      });
+      const body = (await res.json()) as { result?: { receipts_outcome: { outcome: { logs: string[] } }[] } };
+      if (!body.result) continue;
+      for (const log of body.result.receipts_outcome.flatMap((r) => r.outcome.logs)) {
+        if (!log.startsWith("EVENT_JSON:")) continue;
+        const event = JSON.parse(log.slice("EVENT_JSON:".length)) as { event: string; data: { id: string; checked?: boolean }[] };
+        if (event.event === "verdict_recorded" && event.data[0]?.id === id) return event.data[0].checked ?? null;
+      }
+      return null;
+    } catch {
+      // Try the next RPC.
+    }
+  }
+  return null;
+}
+
 async function bytesOf(url: string): Promise<Uint8Array | null> {
   const res = await fetch(url, { cache: "no-store" });
   if (res.status === 404) return null;
@@ -95,7 +123,12 @@ export function ProofBytes({ vault, id }: { vault: string; id: string }) {
           return;
         }
         const meta = JSON.parse(text(metaBytes)) as ProofMeta;
-        const [hash, signers] = await Promise.all([chain<string>(vault, "get_proposal_hash", { id }), chain<[string, unknown][]>(vault, "get_signers")]);
+        const [hash, signers, config] = await Promise.all([
+          chain<string>(vault, "get_proposal_hash", { id }),
+          chain<[string, unknown][]>(vault, "get_signers"),
+          chain<{ guardian: string }>(vault, "get_config"),
+        ]);
+        const rebuilt = await rebuiltByVault(config.guardian, meta.tx, id);
         const decimals = p.request.asset === "near" ? 24 : p.request.chain !== "near" ? 18 : (await chain<{ decimals: number }>(p.request.asset, "ft_metadata")).decimals;
 
         // 1–2: the bytes are the ones the enclave signed and the vault checked.
@@ -175,6 +208,15 @@ export function ProofBytes({ vault, id }: { vault: string; id: string }) {
               : "The email inside the request doesn't match the hash committed on-chain.",
           },
         ];
+        // 6: with checked screening the vault didn't take the request on trust: it rebuilt it.
+        if (rebuilt) {
+          checks.push({
+            ok: true,
+            title: "Your vault rebuilt this request itself",
+            detail:
+              "The verdict transaction carried the email, not a hash of the request. The vault wrote the facts from its own state, checked the email against the hash the agent committed, rebuilt the request around its pinned prompt, and accepted the signature only over those bytes.",
+          });
+        }
         const e = meta.evidence as Email | null;
         setStatus({ kind: "done", checks, email: e && typeof e === "object" ? e : null, meta });
       } catch (err) {
@@ -217,7 +259,7 @@ export function ProofBytes({ vault, id }: { vault: string; id: string }) {
           <Icon name={ok ? "check" : "x"} size={13} stroke={3} />
           {ok ? "Matches the chain" : "Doesn't match"}
         </span>
-        <span className={styles.meta}>5 checks in your browser, against NEAR&apos;s public RPC</span>
+        <span className={styles.meta}>{status.checks.length} checks in your browser, against NEAR&apos;s public RPC</span>
       </div>
       <ol className={styles.list}>
         {status.checks.map((c) => (

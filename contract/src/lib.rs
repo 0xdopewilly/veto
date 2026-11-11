@@ -17,6 +17,7 @@
 
 mod evm;
 mod quote;
+mod screening;
 mod verdict;
 
 use near_sdk::borsh::BorshSerialize;
@@ -46,6 +47,12 @@ const GAS_FT_TRANSFER: Gas = Gas::from_tgas(15);
 const GAS_CALLBACK: Gas = Gas::from_tgas(10);
 const GAS_MPC_SIGN: Gas = Gas::from_tgas(50);
 const GAS_MPC_CALLBACK: Gas = Gas::from_tgas(15);
+const GAS_FT_METADATA: Gas = Gas::from_tgas(5);
+const GAS_DECIMALS_CALLBACK: Gas = Gas::from_tgas(5);
+/// Settings added after the first vaults were deployed. They live outside the main state so those
+/// vaults upgrade in place, and a vault that never set one gets the default.
+const CHECKED_SCREENING_KEY: &[u8] = b"checked_screening";
+const DECIMALS_PREFIX: &[u8] = b"decimals:";
 
 #[derive(BorshSerialize, BorshStorageKey)]
 #[borsh(crate = "near_sdk::borsh")]
@@ -293,6 +300,8 @@ pub struct Config {
     pub screen_timeout_secs: U64,
     pub proposal_count: U64,
     pub oneclick_key: String,
+    /// True when the vault rebuilds each screening request itself (see `set_checked_screening`).
+    pub checked_screening: bool,
 }
 
 #[near(contract_state)]
@@ -374,6 +383,9 @@ impl Vault {
         };
         for (asset, policy) in policies {
             require!(policy.max_single.0 <= policy.period_limit.0, "max_single exceeds period_limit");
+            if is_token(&asset) {
+                let _ = load_decimals_of(&asset);
+            }
             vault.policies.insert(asset, policy);
         }
         let now = U64(env::block_timestamp());
@@ -548,16 +560,23 @@ impl Vault {
     /// Records the AI screen's verdict. Only the guardian may submit, and the response
     /// must carry a valid enclave signature from an approved model key and echo this
     /// proposal's id and hash. A PASS pays immediately if the caps still allow it.
+    ///
+    /// With checked screening (the default) the guardian sends the evidence the agent committed
+    /// to, and the vault rebuilds the whole request the model must have seen: the pinned
+    /// screening prompt, facts the vault writes from its own state, and that evidence. The
+    /// signature must cover that request. With private screening the guardian sends only the
+    /// request's hash, and the evidence stays off-chain.
     pub fn submit_verdict(
         &mut self,
         id: U64,
         model_id: String,
         chat_id: String,
-        request_hash: String,
+        request_hash: Option<String>,
         response: Base64VecU8,
         signature: String,
         quote: Option<SignedQuote>,
         evm: Option<EvmParams>,
+        evidence: Option<String>,
     ) -> Status {
         require!(env::predecessor_account_id() == self.guardian, "only the guardian submits verdicts");
         require!(!self.frozen, "vault is frozen");
@@ -566,8 +585,22 @@ impl Vault {
         let now = env::block_timestamp();
         require!(now <= proposal.screen_deadline.0, "screening deadline has passed");
 
-        let request_hash = request_hash.trim().to_ascii_lowercase();
-        require!(verdict::is_hex_32(&request_hash), "request_hash must be 64 hex chars");
+        let checked = self.checked_screening();
+        let request_hash = if checked {
+            require!(
+                request_hash.is_none(),
+                "this vault rebuilds the screening request itself: send the evidence, not a request hash"
+            );
+            let user = self.screening_user_message(&proposal, evidence.as_deref());
+            hex::encode(env::sha256_array(screening::build_request(&model_id, &user).as_bytes()))
+        } else {
+            let hash = request_hash
+                .unwrap_or_else(|| env::panic_str("private screening needs the request_hash"))
+                .trim()
+                .to_ascii_lowercase();
+            require!(verdict::is_hex_32(&hash), "request_hash must be 64 hex chars");
+            hash
+        };
         let response = response.0;
         require!(response.len() <= verdict::MAX_RESPONSE_BYTES, "response is too large");
 
@@ -577,10 +610,13 @@ impl Vault {
         let signer = verdict::recover_signer(&verdict::eip191_hash(text.as_bytes()), &signature)
             .unwrap_or_else(|| env::panic_str("signature does not recover"));
         let signer = format!("0x{}", hex::encode(signer));
-        let approved = self
-            .signers
-            .get(&signer)
-            .unwrap_or_else(|| env::panic_str("signer is not an approved model key"));
+        let approved = self.signers.get(&signer).unwrap_or_else(|| {
+            env::panic_str(if checked {
+                "no approved model key signed this response to the request this vault rebuilt"
+            } else {
+                "signer is not an approved model key"
+            })
+        });
         require!(approved.model_id == model_id, "signer is approved for a different model");
 
         let parsed = verdict::parse_completion(&response).unwrap_or_else(|e| env::panic_str(e));
@@ -603,7 +639,7 @@ impl Vault {
         });
         emit(
             "verdict_recorded",
-            json!({ "id": id, "pass": pass, "verdict": proposal.verdict }),
+            json!({ "id": id, "pass": pass, "checked": checked, "verdict": proposal.verdict }),
         );
 
         if pass {
@@ -707,6 +743,9 @@ impl Vault {
     pub fn set_policy(&mut self, asset: String, policy: AssetPolicy) {
         self.assert_owner();
         require!(policy.max_single.0 <= policy.period_limit.0, "max_single exceeds period_limit");
+        if is_token(&asset) && stored_decimals(&asset).is_none() {
+            let _ = load_decimals_of(&asset);
+        }
         let tighter = self.policies.get(&asset).is_some_and(|current| {
             policy.period_limit.0 <= current.period_limit.0 && policy.max_single.0 <= current.max_single.0
         });
@@ -746,6 +785,36 @@ impl Vault {
         require!(mandate.len() <= MAX_MANDATE_LEN, "mandate is too long");
         self.mandate = mandate;
         emit("mandate_updated", json!({ "mandate_hash": hex::encode(env::sha256_array(self.mandate.as_bytes())) }));
+    }
+
+    /// Checked screening (the default) makes the vault rebuild the exact request its model saw,
+    /// so even a compromised guardian can't show the model a different email, mandate or payee
+    /// list. The evidence then goes on-chain with each verdict. Private screening keeps the
+    /// evidence off-chain: the vault checks the model's signature and its echo of the payment,
+    /// and trusts the guardian to have shown it the rest.
+    pub fn set_checked_screening(&mut self, checked: bool) {
+        self.assert_owner();
+        env::storage_write(CHECKED_SCREENING_KEY, &[u8::from(checked)]);
+        emit("screening_mode", json!({ "checked": checked }));
+    }
+
+    /// Asks a token for its decimals, so the vault can write amounts the way the model reads
+    /// them. Anyone may call it: it stores only what the token itself reports.
+    pub fn load_decimals(&mut self, asset: String) -> Promise {
+        require!(is_token(&asset), "only NEP-141 tokens need their decimals loaded");
+        load_decimals_of(&asset)
+    }
+
+    #[private]
+    pub fn on_decimals(&mut self, asset: String) -> Option<u8> {
+        let decimals = env::promise_result_checked(0, 4096)
+            .ok()
+            .and_then(|raw| serde_json::from_slice::<Value>(&raw).ok())
+            .and_then(|m| m["decimals"].as_u64())
+            .filter(|d| *d <= 38)? as u8;
+        env::storage_write(&decimals_key(&asset), &[decimals]);
+        emit("decimals_loaded", json!({ "asset": asset, "decimals": decimals }));
+        Some(decimals)
     }
 
     pub fn set_require_listed_payee(&mut self, required: bool) {
@@ -948,7 +1017,19 @@ impl Vault {
             screen_timeout_secs: U64(self.screen_timeout_secs),
             proposal_count: U64(self.proposals.len() as u64),
             oneclick_key: format!("ed25519:{}", bs58::encode(self.oneclick_key).into_string()),
+            checked_screening: self.checked_screening(),
         }
+    }
+
+    /// The facts a checked screening shows the model for this proposal right now, exactly as the
+    /// vault will rebuild them when the verdict arrives.
+    pub fn get_screening_facts(&self, id: U64) -> String {
+        self.screening_facts(&self.proposal(id.0))
+    }
+
+    /// The decimals the vault writes this asset's amounts with, if it knows them.
+    pub fn get_decimals(&self, asset: String) -> Option<u8> {
+        decimals_of(&asset)
     }
 
     pub fn get_proposal(&self, id: U64) -> Option<Proposal> {
@@ -1032,6 +1113,54 @@ impl Vault {
 impl Vault {
     fn assert_owner(&self) {
         require!(env::predecessor_account_id() == self.owner, "only the owner can do this");
+    }
+
+    fn checked_screening(&self) -> bool {
+        env::storage_read(CHECKED_SCREENING_KEY).map_or(true, |v| v.first() == Some(&1))
+    }
+
+    /// The vault's newest payments other than this one, newest first: what the risk signals see.
+    fn screening_history(&self, proposal: &Proposal) -> Vec<Proposal> {
+        let len = u64::from(self.proposals.len());
+        (0..len)
+            .rev()
+            .take(screening::HISTORY_LEN as usize)
+            .filter(|i| *i != proposal.id.0)
+            .filter_map(|i| self.proposals.get(i as u32).cloned())
+            .collect()
+    }
+
+    fn screening_facts(&self, proposal: &Proposal) -> String {
+        let payees: Vec<Payee> = self.payees.values().cloned().collect();
+        screening::facts(
+            proposal,
+            &self.proposal_hash_of(proposal),
+            &self.mandate,
+            &payees,
+            &self.screening_history(proposal),
+            decimals_of,
+        )
+        .unwrap_or_else(|e| env::panic_str(&e))
+    }
+
+    /// The user message of a checked screening, with the evidence the agent committed to.
+    fn screening_user_message(&self, proposal: &Proposal, evidence: Option<&str>) -> String {
+        let evidence = match &proposal.context_hash {
+            Some(hash) => {
+                let evidence = evidence.unwrap_or_else(|| env::panic_str("send the evidence the agent committed to"));
+                require!(evidence.len() <= screening::MAX_EVIDENCE_BYTES, "evidence is too large");
+                require!(
+                    hex::encode(env::sha256_array(evidence.as_bytes())) == *hash,
+                    "evidence does not match the hash the agent committed to"
+                );
+                evidence
+            }
+            None => {
+                require!(evidence.map_or(true, |e| e == "null"), "this payment has no committed evidence");
+                "null"
+            }
+        };
+        screening::user_message(&self.screening_facts(proposal), evidence)
     }
 
     fn proposal(&self, id: u64) -> Proposal {
@@ -1283,6 +1412,41 @@ fn ft_transfer(token: AccountId, receiver: &AccountId, amount: U128, memo: Optio
         NearToken::from_yoctonear(1),
         GAS_FT_TRANSFER,
     )
+}
+
+/// A NEP-141 token account, as opposed to native NEAR or an EVM chain's coin ("<chain>:<coin>").
+fn is_token(asset: &str) -> bool {
+    asset != NATIVE && !asset.contains(':')
+}
+
+fn decimals_key(asset: &str) -> Vec<u8> {
+    [DECIMALS_PREFIX, asset.as_bytes()].concat()
+}
+
+fn stored_decimals(asset: &str) -> Option<u8> {
+    env::storage_read(&decimals_key(asset)).and_then(|v| v.first().copied())
+}
+
+/// NEAR has 24 decimals and an EVM chain's native coin 18; a token's are loaded from the token.
+fn decimals_of(asset: &str) -> Option<u8> {
+    if asset == NATIVE {
+        Some(24)
+    } else if asset.contains(':') {
+        Some(18)
+    } else {
+        stored_decimals(asset)
+    }
+}
+
+fn load_decimals_of(asset: &str) -> Promise {
+    let token: AccountId = asset.parse().unwrap_or_else(|_| env::panic_str("asset is not a token account"));
+    Promise::new(token)
+        .function_call("ft_metadata", b"{}".to_vec(), NearToken::from_yoctonear(0), GAS_FT_METADATA)
+        .then(
+            Vault::ext(env::current_account_id())
+                .with_static_gas(GAS_DECIMALS_CALLBACK)
+                .on_decimals(asset.to_string()),
+        )
 }
 
 fn emit(event: &str, data: Value) {

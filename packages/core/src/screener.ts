@@ -1,5 +1,5 @@
 import { Wallet } from "ethers";
-import { screen, parseVerdict, type SignedScreening } from "./nearai.ts";
+import { screen, screeningRequest, parseVerdict, type SignedScreening } from "./nearai.ts";
 import { sha256Hex } from "./proposal.ts";
 import type { Signal } from "./signals.ts";
 
@@ -50,7 +50,7 @@ export class DevScreener implements Screener {
     if (/ignore (all|previous|your) (instructions|rules)/.test(text)) reasons.push("UNTRUSTED_INSTRUCTION");
 
     const verdict = reasons.length ? "VETO" : "PASS";
-    const requestBytes = new TextEncoder().encode(JSON.stringify({ model: this.model, messages: [{ role: "system", content: system }, { role: "user", content: user }] }));
+    const requestBytes = screeningRequest(this.model, user, system);
     const content = JSON.stringify({ proposal_id: hints.proposalId, proposal_hash: hints.proposalHash, verdict, reasons });
     const chatId = `chatcmpl-dev-${Date.now()}`;
     const responseBytes = new TextEncoder().encode(

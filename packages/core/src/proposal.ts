@@ -86,6 +86,8 @@ export interface VaultConfig {
   raise_delay_secs: string;
   screen_timeout_secs: string;
   proposal_count: string;
+  /** True when the vault rebuilds each screening request itself. Missing on vaults deployed before it existed. */
+  checked_screening?: boolean;
 }
 
 /** Runs in Node and the browser. */

@@ -1,6 +1,6 @@
 import { verifyMessage } from "ethers";
 import { sha256Hex } from "./proposal.ts";
-import { VERDICT_SCHEMA } from "./prompt.ts";
+import { SYSTEM_PROMPT, VERDICT_SCHEMA } from "./prompt.ts";
 
 export const NEARAI_BASE_URL = "https://cloud-api.near.ai/v1";
 // A plain instruct model hosted in NEAR AI's own TEEs: no reasoning phase, so a verdict takes
@@ -67,6 +67,28 @@ interface SignatureResponse {
 }
 
 /**
+ * The exact bytes of a screening request. A vault with checked screening rebuilds them itself
+ * (contract/src/screening.rs build_request) and only accepts a signature over them, so keep the
+ * keys in this order.
+ */
+export function screeningRequest(model: string, user: string, system: string = SYSTEM_PROMPT): Uint8Array<ArrayBuffer> {
+  const body = {
+    model,
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+    temperature: 0,
+    // Reasoning models think before answering; keep that short and leave room for the verdict.
+    thinking: { type: "disabled" },
+    max_tokens: 2000,
+    stream: false,
+    response_format: { type: "json_schema", json_schema: { name: "veto_verdict", strict: true, schema: VERDICT_SCHEMA } },
+  };
+  return new TextEncoder().encode(JSON.stringify(body));
+}
+
+/**
  * Runs one screening on NEAR AI Cloud and returns the exact bytes plus the model
  * enclave's signature over them. Follows the provider_tee rules in
  * https://docs.near.ai/cloud/verification/cloud-api/response-signatures:
@@ -81,20 +103,7 @@ export async function screen(opts: {
 }): Promise<SignedScreening> {
   const model = opts.model ?? DEFAULT_MODEL;
   const baseUrl = opts.baseUrl ?? NEARAI_BASE_URL;
-  const body = {
-    model,
-    messages: [
-      { role: "system", content: opts.system },
-      { role: "user", content: opts.user },
-    ],
-    temperature: 0,
-    // Reasoning models think before answering; keep that short and leave room for the verdict.
-    thinking: { type: "disabled" },
-    max_tokens: 2000,
-    stream: false,
-    response_format: { type: "json_schema", json_schema: { name: "veto_verdict", strict: true, schema: VERDICT_SCHEMA } },
-  };
-  const requestBytes = new TextEncoder().encode(JSON.stringify(body));
+  const requestBytes = screeningRequest(model, opts.user, opts.system);
 
   const res = await retryOnce(`${baseUrl}/chat/completions`, {
     method: "POST",

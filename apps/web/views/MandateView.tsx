@@ -97,7 +97,7 @@ export function MandateSection({ state }: { state: VaultState }) {
 
           <div className={styles.group}>
             <h4 className={styles.h3}>Checked by the AI screen</h4>
-            <p className={styles.groupText}>Checked privately on every payment. A failed check blocks the payment. Passing never lifts a limit.</p>
+            <p className={styles.groupText}>Checked in the enclave on every payment. A failed check blocks the payment. Passing never lifts a limit.</p>
             <ul className={styles.checks}>
               {AI_CHECKS.map((check, i) => (
                 <li key={check} className="rise" style={delay(320 + i * 50)}>
