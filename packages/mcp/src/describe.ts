@@ -28,9 +28,9 @@ export const EXPLORER = { testnet: "https://testnet.nearblocks.io", mainnet: "ht
 
 const STATUS_TEXT: Record<Status, string> = {
   Screening:
-    "Waiting for the private screen: the model in NEAR AI Cloud's enclave hasn't returned a signed verdict yet. If none arrives by the screening deadline, the payment expires unpaid.",
-  Executing: "Passed the caps and the private screen; the payout is being sent.",
-  Paid: "Passed the vault's hard caps and the private screen; the vault checked the enclave's signature on-chain and paid.",
+    "Waiting for the screen: the model in NEAR AI Cloud's enclave hasn't returned a signed verdict yet. If none arrives by the screening deadline, the payment expires unpaid.",
+  Executing: "Passed the caps and the screen in the enclave; the payout is being sent.",
+  Paid: "Passed the vault's hard caps and the screen in the enclave; the vault checked the enclave's signature on-chain and paid.",
   Vetoed:
     "The model in NEAR AI Cloud's enclave said VETO and the vault checked its signature on-chain, so nothing was paid. The vault's owner can override it after a delay, or keep it blocked.",
   OverridePending: "Vetoed, then the vault's owner overrode the veto: it pays when the override delay ends, still inside the caps, unless the owner cancels.",
