@@ -135,6 +135,12 @@ const view = <T>(contractId: string, method: string, args: Record<string, unknow
   root.provider.callFunction({ contractId, method, args, blockQuery: { finality: "optimistic" } }) as Promise<T>;
 const call = (contractId: string, methodName: string, args: Record<string, unknown>, deposit = 0n) =>
   root.callFunction({ contractId, methodName, args, deposit, gas: teraToGas("30") });
+// Checked screening writes amounts the way the model reads them, so the vault keeps its token's
+// decimals. A new vault loads them itself; one deployed before that needs this once.
+if ((await view<number | null>(vaultId, "get_decimals", { asset: tokenId })) === null) {
+  await call(vaultId, "load_decimals", { asset: tokenId });
+  log(`loaded ${tokenId}'s decimals into the vault`);
+}
 if (BigInt(await view<string>(tokenId, "ft_balance_of", { account_id: vaultId })) === 0n) {
   await call(tokenId, "mint", { account_id: vaultId, amount: String(12_480n * USD) });
   log("minted $12,480.00 test USDC to the vault");
