@@ -104,7 +104,7 @@ The agent pays USDC to a NEAR testnet account (name.testnet) or ETH on Base Sepo
 
       const { id, tx, agent } = outcome;
       const read = `The demo agent read the email and proposed payment #${id}: ${agent.amount} ${agent.currency} to ${agent.payee}${agent.reference ? `, reference ${agent.reference}` : ""}.`;
-      report(`Payment #${id} proposed; screening privately`);
+      report(`Payment #${id} proposed; screening in the enclave`);
       const waited = await sandbox.wait(id, wait_seconds * 1000, { signal: extra.signal, onPoll: (p) => p && report(`Payment #${id}: ${p.status}`) });
       if (!waited.proposal) {
         return text(`${read}\n\nThe vault doesn't show it yet. Check it with veto_sandbox_status (id ${id}).\nProposal transaction: ${EXPLORER.testnet}/txns/${tx}`, { status: "Unknown", id, agent_read: agent });
@@ -188,7 +188,7 @@ function registerVault(server: McpServer, vault: OwnVault, secrets: string[]) {
       title: "Propose a payment to your Veto vault",
       description: `Proposes a payment from the agent account to the Veto vault ${vaultId} on NEAR ${network}, then waits for the decision. ${network === "mainnet" ? "This is mainnet: a PASS moves real funds." : "This is testnet."}
 
-What happens: the evidence (if any) goes privately to your guardian at its /evidence endpoint and only its hash goes on-chain; the agent signs a propose transaction; the vault checks its hard caps; the guardian has a model in NEAR AI Cloud's enclave screen the payment and submits the signed verdict; the vault checks the signature on-chain and pays only on a PASS. Returns the status (Paid, Vetoed, Expired, Failed, or refused by the vault before screening), the reasons in plain words, and transaction links. Read veto_vault_rules first.`,
+What happens: the evidence (if any) goes to your guardian at its /evidence endpoint and only its hash goes on-chain when the agent proposes (a vault on checked screening, the default, then puts the evidence on-chain with the verdict so it can rebuild the exact request the model saw); the agent signs a propose transaction; the vault checks its hard caps; the guardian has a model in NEAR AI Cloud's enclave screen the payment and submits the signed verdict; the vault checks the signature on-chain and pays only on a PASS. Returns the status (Paid, Vetoed, Expired, Failed, or refused by the vault before screening), the reasons in plain words, and transaction links. Read veto_vault_rules first.`,
       inputSchema: {
         payee: z.string().min(2).max(100).describe("Who to pay: a NEAR account (name.testnet), or an address on `chain`."),
         amount: z.string().regex(/^\d[\d,]*(\.\d+)?$/, "a plain number, like 180 or 180.50").describe('The amount in the asset\'s whole units, e.g. "180.50" for $180.50 of USDC. Converted with the asset\'s decimals.'),
@@ -220,7 +220,7 @@ What happens: the evidence (if any) goes privately to your guardian at its /evid
         const chainId = chain?.trim() || (assetId.includes(":") ? assetId.split(":")[0] : "near");
         report("Proposing the payment");
         const { id, tx } = await vault.backend.propose({ payee: payee.trim(), amount: units, asset: assetId, chain: chainId, memo: memo || undefined, evidence });
-        report(`Payment #${id} proposed; screening privately`);
+        report(`Payment #${id} proposed; screening in the enclave`);
         const waited = await vault.wait(id, wait_seconds * 1000, { signal: extra.signal, onPoll: (p) => p && report(`Payment #${id}: ${p.status}`) });
         if (!waited.proposal) return text(`Proposed payment #${id}, but the vault doesn't show it yet.\nProposal transaction: ${vault.explorer}/txns/${tx}`, { status: "Unknown", id });
         const d = await describe(waited.proposal, tx);

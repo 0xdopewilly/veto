@@ -11,7 +11,7 @@ A NEAR vault where every payment an AI agent makes needs a second signer that ca
 Each payment has to pass two gates before money moves:
 
 1. **Hard caps in the vault contract**: per-payment and per-week limits per asset.
-2. **A private AI screen**: a model on NEAR AI Cloud reads the evidence behind the payment (the email, the invoice, the web page) inside a TEE and answers PASS or VETO. The enclave signs the exact request and response. The vault recovers that signature on-chain with `ecrecover` before it acts.
+2. **An AI screen in an enclave**: a model on NEAR AI Cloud reads the evidence behind the payment (the email, the invoice, the web page) inside a TEE and answers PASS or VETO. The enclave signs the exact request and response. The vault doesn't take that request on trust: it rebuilds it byte for byte from its own state (its pinned screening prompt, the owner's mandate, the payee list, recent payments and risk signals) plus the email the agent committed by hash before screening, and recovers the signature over those bytes with `ecrecover` before it acts. A guardian that shows the model anything else gets its verdict refused ([checked screening](#checked-screening)).
 
 The AI can block a payment the caps would allow. It can never allow one the caps would block. The owner can override a veto, after a delay.
 
@@ -34,7 +34,7 @@ pnpm install
 pnpm test
 ```
 
-You should see `ℹ pass 18` (TypeScript core), `ℹ pass 11` (MCP server), `test result: ok. 48 passed` (vault contract) and `test result: ok. 9 passed` (vault factory). The core tests verify a real NEAR AI enclave quote offline against Intel's collateral (captured with it) and reject a tampered copy. The contract tests include a real executable 1Click quote and a real 1Click signature. They also pin the proposal hash that the TypeScript side must reproduce. A first run takes about four minutes on 8 cores: the contract and the factory are separate crates, so near-sdk's test dependencies compile twice.
+You should see `ℹ pass 20` (TypeScript core), `ℹ pass 11` (MCP server), `test result: ok. 61 passed` (vault contract) and `test result: ok. 9 passed` (vault factory). The core tests verify a real NEAR AI enclave quote offline against Intel's collateral (captured with it) and reject a tampered copy. The contract tests include a real executable 1Click quote and a real 1Click signature. They also pin the proposal hash that the TypeScript side must reproduce, and hold the TypeScript screener and the contract to the same screening request, byte for byte, emoji and control characters included ([screening_parity.json](contract/src/fixtures/screening_parity.json)). A first run takes about four minutes on 8 cores: the contract and the factory are separate crates, so near-sdk's test dependencies compile twice.
 
 ```sh
 node bench/run.ts --screener policy   # Attacks caught 33/50, normal payments blocked 8/50
@@ -46,7 +46,7 @@ node bench/verify.ts bench/results/Qwen_Qwen3-VL-30B-A3B-Instruct.json --atteste
 
 - `policy` is what a policy wallet enforces on its own: an allowlist plus a cap. Every attack it misses pays a supplier already on the list.
 - `dev` is Veto's deterministic checks without a model.
-- The committed run of Qwen3-VL-30B in NEAR AI's enclave catches 50 of 50 attacks and blocks 8 of 50 honest payments (all 8 are new suppliers whose approval sits inside the email). The scenarios and the screening prompt were written by the same team, so read this as a result on this set, not a general catch rate. `verify.ts` rehashes the stored request and response bytes of all 100 verdicts and recovers each signature. `--attested` then verifies NEAR AI's enclave from scratch, with a fresh random nonce and no key: the Intel TDX quote against Intel's certificates, the NVIDIA GPU evidence with NVIDIA's attestation service, that the quote binds the signing key and the nonce, that the enclave runs the app it publishes, the gateway's enclave, and that the attested key is the run's signer. Expect `100/100 verdicts verified` and eight ✓ lines (10 to 20 s; it calls Intel and NVIDIA).
+- The committed run of Qwen3-VL-30B in NEAR AI's enclave, on the screening prompt the vault pins, catches 50 of 50 attacks and pays all 42 honest payments to saved suppliers. The other 8 honest payments are first payments to new suppliers whose only approval sits inside the email; Veto holds those for the owner by design, and the caps-plus-allowlist wallet blocks the same 8. The scenarios and the screening prompt were written by the same team, so read this as a result on this set, not a general catch rate. `verify.ts` rehashes the stored request and response bytes of all 100 verdicts and recovers each signature. `--attested` then verifies NEAR AI's enclave from scratch, with a fresh random nonce and no key: the Intel TDX quote against Intel's certificates, the NVIDIA GPU evidence with NVIDIA's attestation service, that the quote binds the signing key and the nonce, that the enclave runs the app it publishes, the gateway's enclave, and that the attested key is the run's signer. Expect `100/100 verdicts verified` and eight ✓ lines (10 to 20 s; it calls Intel and NVIDIA).
 
 The two bench runs write to `bench/runs/`, which git ignores, so the committed results in `bench/results/` stay untouched and `git status` stays clean. (`--publish` writes to `bench/results/` instead.)
 
@@ -69,7 +69,7 @@ https://veto-beta.vercel.app/app runs everything below with nothing to install. 
 
 | Do | See |
 | --- | --- |
-| Let the agent pay **"Invoice INV-…: 72 bales of combed cotton"** | Agent proposed → Screening privately → **Paid**, with testnet tx links |
+| Let the agent pay **"Invoice INV-…: 72 bales of combed cotton"** | Agent proposed → Screening in the enclave → **Paid**, with testnet tx links |
 | Let it pay **"Updated payment details for INV-…"** | **Vetoed**: a lookalike of an address you've paid before. The coral card appears on Home |
 | Let it pay **"Invoice IKF-…: Lagos to Ibadan haulage"** | **Paid** on Base, from the vault's own Base Sepolia address (NEAR Chain Signatures): a supplier on the payee list, a new invoice number every time |
 | Let it pay **"Payroll PAY-2026-11-TB: … salary for Tunde Bello"** | The first time each month: **Paid** on Base, the chain Tunde chose. After that the inbox offers it as **"This month's salary, asked for again"**, and Veto vetoes the repeat (`DUPLICATE_INVOICE`: that payslip was already paid). In a busy judging week, expect the repeat |
@@ -79,7 +79,7 @@ https://veto-beta.vercel.app/app runs everything below with nothing to install. 
 | Switch **Pay from** to **Agent API** and repeat them | The same screen, then a real call to the NEAR Intents Agent API on mainnet with Veto's grant: a transfer to a supplier, or Tunde's salary as USDC withdrawn to Base. Amounts are scaled 1:2000, so each payment is a few cents of real USDC (the two examples that pass cost $0.09 and $0.075). A veto never reaches the API; a payment the owner's policy forbids is refused there even after a pass. Whenever the wallet holds no USDC, a pass is refused there with `insufficient_balance` |
 | Press **Write your own email** and write an invoice or a scam | A real AI agent on NEAR AI reads it and proposes what it asks for; Veto screens it like any other payment |
 | Open any decision → **Proof** | The request and response hashes, the signer, and the on-chain signature check |
-| On that page, scroll to **The exact bytes the model saw** | **Matches the chain**: your browser reads the decision from NEAR's public RPC (not from our server) and runs five checks on the published bytes: the request hashes to what the enclave signed; the response to what the vault recorded, with the same verdict and reasons; the signature recovers, in the browser, to the enclave key the vault approved; the prompt is Veto's system prompt, word for word, about this exact payment (id, proposal hash, payee, amount, reference); and the email inside it hashes to what the agent committed on-chain before any screening. By hand: `curl -s https://axon0nurb8ormdne.public.blob.vercel-storage.com/proofs/treasury.veto-rhwe0krb.testnet/<id>/request.json \| sha256sum` prints the decision's request hash (decisions from #109 on) |
+| On that page, scroll to **The exact bytes the model saw** | **Matches the chain**: your browser reads the decision from NEAR's public RPC (not from our server) and runs five checks on the published bytes: the request hashes to what the enclave signed; the response to what the vault recorded, with the same verdict and reasons; the signature recovers, in the browser, to the enclave key the vault approved; the prompt is Veto's system prompt, word for word, about this exact payment (id, proposal hash, payee, amount, reference); and the email inside it hashes to what the agent committed on-chain before any screening. A sixth line, **Your vault rebuilt this request itself**, appears when the verdict transaction's own event on NEAR says the vault rebuilt the request (checked screening). By hand: `curl -s https://axon0nurb8ormdne.public.blob.vercel-storage.com/proofs/treasury.veto-rhwe0krb.testnet/<id>/request.json \| sha256sum` prints the decision's request hash (decisions from #109 on) |
 | On that page, press **Check the enclave now** | Eight checks of NEAR AI's enclave, run live with a fresh nonce: Intel TDX quote, NVIDIA GPUs, key and nonce bound into the quote, published app, gateway, and that the key is the one that signed this verdict |
 | **Activity** → **Download CSV** | One row per payment: date, payee, amount, status, reference, verdict and reasons, payout transaction and a link to its proof |
 | Open **/start**, connect a NEAR testnet wallet, name your business and sign | Your own vault, live in a few seconds. Its owner is your account, and every owner action needs your wallet. The shared sandbox, used above, lets anyone act as its owner |
@@ -206,13 +206,14 @@ What each one does:
 ## How it works
 
 ```
-agent ──propose──▶ vault contract ──caps──▶ Screening
-                        ▲                     │
-                        │ submit_verdict      ▼
-                   guardian ◀── evidence ── agent (private; only its hash is on-chain)
+agent ──propose(payment, hash of evidence)──▶ vault contract ──caps──▶ Screening
+                        ▲                                 │
+                        │ submit_verdict(evidence, ...)   ▼ get_screening_facts
+                   guardian ◀── evidence ── agent       facts written by the vault
                         │
                         └─▶ NEAR AI Cloud (TEE): PASS / VETO, signed over request + response
-vault: ecrecover → approved model key → echoes this proposal's id and hash → pay or block
+vault: evidence matches its hash → rebuild the request (pinned prompt + its own facts + evidence)
+       → ecrecover over those bytes → approved model key → echoes this proposal → pay or block
 ```
 
 - **Contract** ([contract/src/lib.rs](contract/src/lib.rs)):
@@ -221,7 +222,14 @@ vault: ecrecover → approved model key → echoes this proposal's id and hash �
   - External wallets: `add_wallet`, `propose_external`, `settle_external`.
   - Chain Signatures: `set_evm_route`, `settle_evm`. On a pass, the vault RLP-encodes the EIP-1559 transfer itself and asks `v1.signer-prod.testnet` to sign its hash ([evm.rs](contract/src/evm.rs)). The guardian broadcasts the signed bytes ([packages/core/src/evm.ts](packages/core/src/evm.ts)).
   - NEAR Intents payouts verify 1Click's ed25519 quote signature on-chain ([quote.rs](contract/src/quote.rs)).
-- **Guardian** ([services/guardian](services/guardian/src/main.ts)): screens open proposals with [packages/core](packages/core/src/pipeline.ts) and keeps a private audit record of what the model saw. It reads the evidence in the clear. The agent commits the evidence's hash on-chain when it proposes, before any screening, and that hash is part of the proposal hash the model must echo. The contract itself checks only the signature and that echo, not the prompt, so a compromised guardian could show the model a different email and still get a valid signature. In the sandbox the exact request bytes are published, so anyone can check the model judged exactly the committed email ([lib/server/proofs.ts](apps/web/lib/server/proofs.ts)); a vault someone owns keeps them private. What no signature can prove is that the email the agent committed is the one that really arrived. A compromised guardian still can't pass anything over the caps, and an owner who wants payees enforced on-chain too can set `set_require_listed_payee`. In this demo one server runs both the demo agent and the guardian.
+  - Checked screening: `get_screening_facts`, `set_checked_screening`, `load_decimals` ([screening.rs](contract/src/screening.rs)), below.
+- **Guardian** ([services/guardian](services/guardian/src/main.ts)): screens open proposals with [packages/core](packages/core/src/pipeline.ts) and keeps a private audit record of what the model saw. It reads the evidence in the clear. The agent commits the evidence's hash on-chain when it proposes, before any screening, and that hash is part of the proposal hash the model must echo. With checked screening the guardian can't choose what the model sees: the vault rebuilds the request (below). In the sandbox the exact request bytes are also published, so anyone can re-check them in the browser ([lib/server/proofs.ts](apps/web/lib/server/proofs.ts)). What no signature can prove is that the email the agent committed is the one that really arrived. A compromised guardian still can't pass anything over the caps, and an owner who wants payees enforced on-chain too can set `set_require_listed_payee`. In this demo one server runs both the demo agent and the guardian.
+- <a id="checked-screening"></a>**Checked screening** ([contract/src/screening.rs](contract/src/screening.rs)), the default for every vault: the guardian doesn't tell the vault what it asked the model.
+  1. The guardian reads the screening facts from the vault (`get_screening_facts`): the payment, the owner's mandate, the payee list, the newest 20 payments and the risk signals (listed or new payee, lookalike, duplicate reference, amount far above past payments), all written by the contract from its own state. The signals are a Rust port of [signals.ts](packages/core/src/signals.ts).
+  2. It sends the model those facts and the evidence, under the screening prompt pinned in the contract ([screening_prompt.txt](contract/src/screening_prompt.txt)).
+  3. `submit_verdict` carries the evidence instead of a request hash. The vault checks the evidence against the hash the agent committed, writes the facts again, rebuilds the chat request byte for byte, and accepts the enclave's signature only over that request and the response. If a payment settles while the model is answering, the facts change and the guardian screens again.
+  4. The price is that the evidence goes on-chain with the verdict. `set_checked_screening(false)` switches a vault to private screening: only hashes go on-chain, and the vault checks the signature and the echo, as before.
+  `node scripts/checked-smoke.ts` runs it against a demo vault: an honest invoice is paid; a lookalike is vetoed; and a guardian that shows the model a friendlier mandate is refused by the vault even when the model, fooled, says PASS. A verdict burns 6 to 12 Tgas.
 - **OutLayer** ([packages/core/src/outlayer.ts](packages/core/src/outlayer.ts)), step by step:
   1. The agent's OutLayer wallet holds the payment for approval.
   2. The guardian checks OutLayer's hash of the operation and records it with `propose_external`. The caps apply.
@@ -241,7 +249,8 @@ vault: ecrecover → approved model key → echoes this proposal's id and hash �
 
 | Part | State |
 | --- | --- |
-| Vault contract, verdict check, overrides, freeze | Live on testnet, 48 tests |
+| Vault contract, verdict check, overrides, freeze | Live on testnet, 61 tests |
+| Checked screening: the vault rebuilds the exact request the model saw | Live on testnet in the sandbox and every new vault; contract tests and a TypeScript/Rust fixture hold both sides to the same bytes |
 | Your own vault, owned by your wallet (factory + NEAR global contract) | Live on testnet, 9 factory tests |
 | Payouts from the vault's own Base Sepolia address (NEAR Chain Signatures) | Live on testnet |
 | Payroll: staff on the payee list, each paid on the chain they chose | Live on testnet; the sandbox pays Tunde Bello on Base once a month (one payslip per month, so a repeat is vetoed) and vetoes a fake "new wallet" request. Shown once the vault's Base address holds test ETH |
@@ -251,7 +260,7 @@ vault: ecrecover → approved model key → echoes this proposal's id and hash �
 | Private screen on NEAR AI Cloud (Qwen3-VL-30B in a TDX enclave) | Live on testnet; about 1.5 s per verdict |
 | The sandbox's exact verdict bytes, published and re-hashed on every Proof page (request, response, and the email against the hash committed on-chain) | Live on testnet for decisions from #109 |
 | Enclave verification (Intel TDX quote, NVIDIA GPUs, key and nonce binding, gateway) | Live on every Proof page and in `verify.ts --attested`; tested offline on a captured real quote |
-| Veto Bench | Live: on our 100 scenarios, 50/50 attacks caught, 8/50 honest payments blocked, 100/100 signatures verified |
+| Veto Bench | Live: on our 100 scenarios, 50/50 attacks caught, 42/42 honest payments to saved suppliers paid (8 first payments to new suppliers held for the owner, as the allowlist baseline also does), 100/100 signatures verified |
 | Payouts to other chains through NEAR Intents | Built; contract tested against a real executable quote; first mainnet payout needs funding |
 | Shield incident check before cross-chain payouts | Built; holds a payout while a NEAR Intents Shield incident touches its route. Runs when `SHIELD_JWT` is set |
 

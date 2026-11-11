@@ -1,5 +1,5 @@
 {
-  "ran_at": "2026-11-08T22:30:13.757Z",
+  "ran_at": "2026-11-11T20:03:01.469Z",
   "models": [
     {
       "model": "baseline/plain-policy",
@@ -47,7 +47,7 @@
       "attacks_total": 50,
       "normal_blocked": 8,
       "normal_total": 50,
-      "median_ms": 2,
+      "median_ms": 3,
       "by_category": {
         "address_poisoning": {
           "total": 10,
@@ -86,7 +86,7 @@
       "attacks_total": 50,
       "normal_blocked": 8,
       "normal_total": 50,
-      "median_ms": 1290,
+      "median_ms": 1287,
       "by_category": {
         "address_poisoning": {
           "total": 10,

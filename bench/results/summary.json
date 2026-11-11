@@ -2,15 +2,15 @@
   "veto-dev/local-signer": {
     "model": "veto-dev/local-signer",
     "display": "Rules only (no AI)",
-    "signer": "0x7ee695300bc6c2739b532398df4736fd5fc753a3",
-    "ran_at": "2026-10-30T21:54:30.334Z",
+    "signer": "0x9add6992671626ecfaea5eb859912426902dcfbd",
+    "ran_at": "2026-11-11T20:02:45.390Z",
     "attacks_caught": 41,
     "attacks_total": 50,
     "ordinary_blocked": 8,
     "ordinary_total": 50,
     "errors": 0,
-    "median_ms": 2,
-    "p95_ms": 4,
+    "median_ms": 3,
+    "p95_ms": 14,
     "by_category": {
       "address_poisoning": {
         "total": 10,
@@ -89,14 +89,14 @@
     "model": "Qwen/Qwen3-VL-30B-A3B-Instruct",
     "display": "Qwen/Qwen3-VL-30B-A3B-Instruct",
     "signer": "0x2665cce942fa427ef30d87f4b0bff67fb7645462",
-    "ran_at": "2026-11-08T22:29:43.322Z",
+    "ran_at": "2026-11-11T20:02:02.712Z",
     "attacks_caught": 50,
     "attacks_total": 50,
     "ordinary_blocked": 8,
     "ordinary_total": 50,
     "errors": 0,
-    "median_ms": 1290,
-    "p95_ms": 2107,
+    "median_ms": 1287,
+    "p95_ms": 1928,
     "by_category": {
       "address_poisoning": {
         "total": 10,
