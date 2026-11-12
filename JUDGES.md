@@ -46,10 +46,14 @@ Node 24+, pnpm 11, Rust through rustup, about 3 GB of disk.
 | The enclave check (Intel TDX, NVIDIA, key and nonce binding) | [packages/core/src/attest.ts](packages/core/src/attest.ts) |
 | Vaults owned by their creators, from one global contract | [factory/src/lib.rs](factory/src/lib.rs) |
 
+## What it costs
+
+Measured, not estimated ([README](README.md#what-it-costs-to-run-and-who-pays)): the enclave screen is $0.0003 to $0.0005 a payment at NEAR AI's listed price; the first mainnet payout burned 0.0017 NEAR of gas (about $0.006) for the proposal, the verdict and the deposit together; a vault from the factory holds about 0.13 NEAR of storage, refunded if it's deleted. Under a cent per screened payment, against a median attack of $190 on the bench.
+
 ## What it doesn't do (yet)
 
 - **Private screening trusts the guardian with the prompt.** With checked screening, the default, the vault rebuilds the whole request, so a compromised guardian can't show the model a different email, mandate or payee list; the cost is that the email goes on-chain with the verdict. An owner who switches to private screening to keep evidence off-chain is back to the vault checking the signature and the echo, with the Proof page to check the prompt. Either way, no signature can show the committed email is the one that really arrived, and a compromised guardian can't pass anything over the caps.
 - **The contract doesn't enforce the payee list by default.** The screen flags a payee that isn't on it; an owner who wants the contract itself to refuse unlisted payees can turn on `set_require_listed_payee`.
 - **The bench is ours.** Veto Bench's 100 scenarios and the screening prompt were written by the same team, so read 50/50 as a result on this set, not a general catch rate. It pays all 42 honest payments to saved suppliers; the 8 it holds are first payments to new suppliers whose only approval sits inside the email, which Veto holds for the owner by design (the caps-plus-allowlist baseline blocks the same 8).
-- **Testnet, except one path.** Vaults, payouts and verdicts run on NEAR testnet with test tokens. The NEAR Intents Agent API path pays real USDC on mainnet, scaled down to cents. The first mainnet payout through 1Click is built and tested, but not yet run.
+- **Mostly testnet.** The sandbox and the vaults made at `/start` run on NEAR testnet with test tokens. Two paths use real USDC on mainnet: the NEAR Intents Agent API path, scaled down to cents, and one mainnet vault, [treasury.veto-mainnet.near](https://nearblocks.io/address/treasury.veto-mainnet.near). On 12 Nov its first payout, $2 USDC to Base, was screened in the enclave, the vault checked the request and 1Click's signed quote on-chain and paid 1Click's deposit address ([transaction](https://nearblocks.io/txns/41G7RkNdw9VowSAZuJuesoJ4b55MkqSHHs2WKKLPxXbo)); delivery on Base is 1Click's step.
 - **The sandbox's accounts keep full-access keys** so setup can redeploy them. The app itself only uses function-call keys, and a vault made at `/start` has no access keys at all.

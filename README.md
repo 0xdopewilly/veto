@@ -4,7 +4,7 @@ A NEAR vault where every payment an AI agent makes needs a second signer that ca
 
 **The problem.** An agent that pays invoices reads email, and email can lie. A message from a lookalike domain, or from a supplier's real but hacked mailbox, asks for a "corrected" amount or a new account. Spending limits don't stop it when the amount is under the cap and the payee is already on the list: on [Veto Bench](bench/), a policy wallet with an allowlist and a cap pays 17 of 50 such attacks. Veto adds a check that reads the evidence behind each payment, inside an enclave, and can only say no.
 
-**Contents:** [Check it yourself](#check-it-yourself-no-keys-no-funds) · [Try the hosted demo](#try-the-agent-on-the-hosted-demo) · [From an MCP client](#from-an-mcp-client-claude-code-codex-cursor) · [Run your own copy](#run-your-own-copy-on-testnet) · [With a NEAR AI key](#with-a-near-ai-key) · [Mainnet payout](#mainnet-a-real-payout-to-base-through-near-intents) · [How it works](#how-it-works) · [Status](#status) · [Layout](#layout) · [Built at NEAR HACKATHON](#built-at-near-hackathon). Judging? [JUDGES.md](JUDGES.md) is the short path.
+**Contents:** [Check it yourself](#check-it-yourself-no-keys-no-funds) · [Try the hosted demo](#try-the-agent-on-the-hosted-demo) · [From an MCP client](#from-an-mcp-client-claude-code-codex-cursor) · [Run your own copy](#run-your-own-copy-on-testnet) · [With a NEAR AI key](#with-a-near-ai-key) · [Mainnet payout](#mainnet-a-real-payout-to-base-through-near-intents) · [How it works](#how-it-works) · [Costs](#what-it-costs-to-run-and-who-pays) · [Status](#status) · [Layout](#layout) · [Built at NEAR HACKATHON](#built-at-near-hackathon). Judging? [JUDGES.md](JUDGES.md) is the short path.
 
 **Live demo (NEAR testnet):** https://veto-beta.vercel.app. Open the app and press **Try it** in the shared sandbox, with nothing to install. Or connect a NEAR testnet wallet and create your own vault: one transaction, and from then on only your wallet can change its rules or override a veto.
 
@@ -255,6 +255,21 @@ vault: evidence matches its hash → rebuild the request (pinned prompt + its ow
 - **App** ([apps/web](apps/web)): Next.js, mobile and desktop, with the same four places on both: Home, Activity (what needs your decision, then every payment), Rules (mandate, limits, payees, freeze) and Agents. **Try it** (the V button on phones, the top of the sidebar on desktop) opens the agent's inbox. Open the shared sandbox or any vault the factory made (`/app?vault=<id>`); create one at `/start`. In your own vault, owner actions are signed by your wallet; in the sandbox, a demo-owner key limited to the owner methods lets anyone try them.
 - **SDK** ([packages/sdk](packages/sdk/src/index.ts)): `Veto` for vault agents and `VetoOutLayer` for agents with OutLayer wallets.
 
+## What it costs to run, and who pays
+
+Measured on 12 Nov 2026, with NEAR at $3.55:
+
+| Cost | Measured | Who pays |
+| --- | --- | --- |
+| The enclave screen, per payment | 1,722 prompt and 92 output tokens on average over the 100 bench verdicts; about 3,100 and 100 on the busy sandbox, where checked screening shows the model the 20 newest payments. At NEAR AI Cloud's listed $0.15 and $0.55 per million tokens for Qwen3-VL-30B, **$0.0003 to $0.0005** | Whoever runs the guardian, with their own NEAR AI key |
+| Gas, per payment | The first mainnet payment, from [treasury.veto-mainnet.near](https://nearblocks.io/address/treasury.veto-mainnet.near): the [proposal](https://nearblocks.io/txns/CWy7WyFK8N78WHVR5LWzCRZxJCb2e6ufRMCP2pwhivQM) burned 3.5 Tgas (0.00033 NEAR) and the [verdict, quote check and deposit to 1Click](https://nearblocks.io/txns/41G7RkNdw9VowSAZuJuesoJ4b55MkqSHHs2WKKLPxXbo) 15.0 Tgas (0.0014 NEAR). **0.0017 NEAR, about $0.006** | The agent's and the guardian's accounts, from small NEAR balances (0.05 and 0.13 NEAR on the mainnet vault) |
+| A vault | Standalone, like the mainnet one: 4.48 NEAR of storage for the shrunk code. From the factory, which points every vault at one global copy of the code: 13 KB, about **0.13 NEAR** (measured on a testnet factory vault), after a one-time deploy of the global code (about 45 NEAR on mainnet at the 10x global rate) | The owner; storage comes back when the account is deleted |
+| A payout to another chain | 1Click's signed quote for the first mainnet payout: $2.022868 in for exactly $2.00 out on Base, 1.1% including its fixed $0.0024 withdrawal fee. The vault refuses any quote above its fee cap (3% on the mainnet vault) | The vault, inside the quote it checks |
+
+So screening a payment costs under one cent all in, while what it stops is the whole payment: 44 of the bench's 50 attacks ask for $55 to $467 (median $190), and the other 6 for an unlimited token approval.
+
+**How it sustains itself.** The code is MIT and nothing depends on us: an owner can run their own guardian with their own NEAR AI key, and the vault trusts only the enclave key it approved, never our server. The hosted guardian is the product: businesses whose agents pay suppliers or staff connect a vault, or an OutLayer or Agent API wallet, through the SDK or `npx -y veto-mcp`. At under a cent of cost per screened payment, a flat per-payment fee or a small monthly plan per vault covers the model and gas with a wide margin. A mainnet factory could also charge a creation fee in the same transaction that creates the vault; today's testnet factory charges none.
+
 ## Status
 
 | Part | State |
@@ -273,7 +288,7 @@ vault: evidence matches its hash → rebuild the request (pinned prompt + its ow
 | The sandbox's exact verdict bytes, published and re-hashed on every Proof page (request, response, and the email against the hash committed on-chain) | Live on testnet for decisions from #109 |
 | Enclave verification (Intel TDX quote, NVIDIA GPUs, key and nonce binding, gateway) | Live on every Proof page and in `verify.ts --attested`; tested offline on a captured real quote |
 | Veto Bench | Live: on our 100 scenarios, 50/50 attacks caught, 42/42 honest payments to saved suppliers paid (8 first payments to new suppliers held for the owner, as the allowlist baseline also does), 100/100 signatures verified |
-| Payouts to other chains through NEAR Intents | Built; contract tested against a real executable quote; first mainnet payout needs funding |
+| Payouts to other chains through NEAR Intents | Run on mainnet on 12 Nov 2026: [treasury.veto-mainnet.near](https://nearblocks.io/address/treasury.veto-mainnet.near) screened a $2 USDC payout to Base, checked the request and 1Click's signed quote on-chain, and paid 1Click's deposit address ([transaction](https://nearblocks.io/txns/41G7RkNdw9VowSAZuJuesoJ4b55MkqSHHs2WKKLPxXbo)); delivery on Base is 1Click's step. Contract also tested against a real executable quote |
 | Shield incident check before cross-chain payouts | Built; holds a payout while a NEAR Intents Shield incident touches its route. Runs when `SHIELD_JWT` is set |
 
 ## Layout
