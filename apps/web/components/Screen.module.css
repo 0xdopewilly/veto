@@ -22,7 +22,7 @@
 /* Phones get the full-colour screen from the designs. */
 .coral {
   background: var(--coral);
-  color: var(--black);
+  color: var(--on-accent);
 }
 
 .purple,
@@ -76,7 +76,7 @@
 }
 
 .backCoral .backCircle {
-  background: var(--black);
+  background: var(--on-accent);
   color: var(--coral);
 }
 

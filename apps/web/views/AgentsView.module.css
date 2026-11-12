@@ -23,11 +23,24 @@
   gap: 12px;
 }
 
+.nameBlock {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .agentName {
   margin: 0;
-  font-size: 15px;
-  font-weight: 500;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   overflow-wrap: anywhere;
+}
+
+.kind {
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .badge {
@@ -40,7 +53,7 @@
 
 .on {
   background: var(--green);
-  color: var(--black);
+  color: var(--on-accent);
 }
 
 .off {
@@ -147,11 +160,11 @@
 }
 
 .kw {
-  color: var(--purple);
+  color: var(--purple-fg);
 }
 
 .str {
-  color: var(--green);
+  color: var(--green-fg);
 }
 
 .muted {
@@ -163,6 +176,11 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr));
     gap: 20px;
+    align-items: start;
+  }
+  /* An odd card out takes the whole row rather than leaving a hole beside it. */
+  .list > :last-child:nth-child(odd):not(:first-child) {
+    grid-column: 1 / -1;
   }
   .list {
     gap: 16px;

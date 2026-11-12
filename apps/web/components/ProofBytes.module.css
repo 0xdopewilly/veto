@@ -41,7 +41,7 @@
   border-radius: 14px;
   font-size: 13px;
   font-weight: 650;
-  color: var(--black);
+  color: var(--on-accent);
 }
 
 .badge.ok,
@@ -81,7 +81,7 @@
   border-radius: 50%;
   display: grid;
   place-items: center;
-  color: var(--black);
+  color: var(--on-accent);
 }
 
 .itemBody {
@@ -114,11 +114,9 @@
 
 .email figcaption {
   margin-bottom: 8px;
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 600;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  color: var(--sand);
 }
 
 .email p {
@@ -176,5 +174,5 @@
 }
 
 .missing {
-  color: var(--coral);
+  color: var(--coral-fg);
 }

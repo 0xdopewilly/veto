@@ -24,7 +24,7 @@
   width: 380px;
   height: 320px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(0, 236, 151, 0.18), transparent 65%);
+  display: none;
   filter: blur(24px);
 }
 
@@ -85,12 +85,12 @@
 
 .veto {
   background: var(--coral);
-  color: var(--black);
+  color: var(--on-accent);
 }
 
 .pass {
   background: var(--green);
-  color: var(--black);
+  color: var(--on-accent);
 }
 
 .stepBody {
@@ -106,7 +106,7 @@
 }
 
 .vetoText {
-  color: var(--coral);
+  color: var(--coral-fg);
 }
 
 .stepText {
@@ -194,6 +194,10 @@
   .main,
   .side {
     padding: 30px;
+  }
+  .side {
+    position: sticky;
+    top: 16px;
   }
   .title {
     font-size: 46px;

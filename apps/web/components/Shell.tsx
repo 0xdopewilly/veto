@@ -19,6 +19,7 @@ import { useStartHint } from "@/lib/hint";
 import { recordPath } from "@/lib/backTo";
 import { ABOUT_LINKS } from "@/lib/nav";
 import { Icon, type IconName } from "./Icon";
+import { ThemeToggle } from "./ThemeToggle";
 import { RouteStage, levelOf } from "./RouteStage";
 import { FreezeSheet } from "./FreezeSheet";
 import { VaultSwitcher } from "./VaultSwitcher";
@@ -192,7 +193,17 @@ function Sidebar({ onFreeze, onVaults, onInbox }: { onFreeze: () => void; onVaul
           <span className={styles.vaultName}>{vaultName}</span>
           <Icon name="chevronDown" size={15} className={styles.vaultChevron} />
         </span>
-        <span className={`mono ${styles.vaultId}`}>{vaultId ?? "\u00a0"}</span>
+        {/* Breaks only after its first name: "treasury." then "veto-rhwe0krb.testnet". */}
+        <span className={`mono ${styles.vaultId}`}>
+          {vaultId ? (
+            <>
+              {vaultId.split(".")[0]}.<wbr />
+              <span className={styles.vaultIdRest}>{vaultId.split(".").slice(1).join(".")}</span>
+            </>
+          ) : (
+            "\u00a0"
+          )}
+        </span>
         <span className={styles.vaultKind} data-mine={kind.mine || undefined}>
           {kind.label}
         </span>
@@ -254,6 +265,7 @@ function TopBar() {
           <span className={styles.networkDot} aria-hidden="true" />
           {NETWORK === "testnet" ? "Testnet" : "Mainnet"}
         </span>
+        <ThemeToggle className={styles.circle} />
         <button
           className={`${styles.circle} press`}
           aria-label={attention.length ? `Notifications: ${attention.length} payment${attention.length === 1 ? "" : "s"} need your decision` : "Notifications"}
@@ -286,6 +298,9 @@ function TopBar() {
 
 function Search() {
   const router = useRouter();
+  // The shortcut hint names the right key: set after mount, so the server render stays the same.
+  const [mac, setMac] = useState(true);
+  useEffect(() => setMac(/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)), []);
   const { state } = useVault();
   const calm = useCalm();
   const [query, setQuery] = useState("");
@@ -358,7 +373,7 @@ function Search() {
           if (e.key === "Escape") input.current?.blur();
         }}
       />
-      <kbd className={styles.kbd}>⌘ K</kbd>
+      <kbd className={styles.kbd}>{mac ? "⌘ K" : "Ctrl K"}</kbd>
       <AnimatePresence>
         {open && q && (
           <motion.div

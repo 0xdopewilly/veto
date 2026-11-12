@@ -14,11 +14,10 @@
   padding: 0 18px;
   border-radius: 23px;
   background: var(--green);
-  color: var(--black);
+  color: var(--on-accent);
   font-size: 14px;
   font-weight: 650;
   text-decoration: none;
-  box-shadow: 0 10px 26px -12px rgba(0, 236, 151, 0.7);
 }
 
 .table {
@@ -77,12 +76,14 @@
 }
 
 .mobileMeta {
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 400;
   color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.mobileMeta :global(.mono) {
+  font-size: 12.5px;
 }
 
 .cell {
@@ -199,7 +200,7 @@
   height: 36px;
   border-radius: 50%;
   background: var(--coral-tint);
-  color: var(--coral);
+  color: var(--coral-fg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -220,13 +221,13 @@
 
 .blockedText mark {
   background: rgba(255, 121, 102, 0.14);
-  color: var(--coral);
+  color: var(--coral-fg);
   border-radius: 3px;
 }
 
 .blockedSub {
   font-size: 13px;
-  color: var(--coral);
+  color: var(--coral-fg);
 }
 
 @media (min-width: 900px) {

@@ -2,7 +2,7 @@
 
 import { metaOf, useVault } from "@/lib/vault";
 import { useProposal } from "@/lib/useProposal";
-import { isTestSigner, requesterLabel } from "@/lib/decision";
+import { isTestSigner } from "@/lib/decision";
 import { explorerAddress, SANDBOX_ID, verifierUrl } from "@/lib/config";
 import { formatAmount, formatWhen, shortAddress, shortHash, chainLabel } from "@/lib/format";
 import { Screen, BackLink, delay } from "@/components/Screen";
@@ -41,11 +41,11 @@ export function ProofView({ id }: { id: string }) {
 
   const test = isTestSigner(v.model_id);
   const meta = metaOf(state, p.request.asset);
-  const steps: { icon: IconName; title: string; text: string; value: string; tone?: "veto" | "pass" }[] = [
+  const steps: { icon: IconName; title: string; text: string; value: string; plain?: boolean; tone?: "veto" | "pass" }[] = [
     {
       icon: "file",
       title: "Payment request",
-      text: `${requesterLabel(p)} asked to send ${formatAmount(p.request.amount, meta)} to ${shortAddress(p.request.payee)}.`,
+      text: `${p.external ? "Your agent's OutLayer wallet" : "Your agent"} asked to send ${formatAmount(p.request.amount, meta)} to ${shortAddress(p.request.payee)}${p.request.memo ? ` for ${p.request.memo}` : ""}.`,
       value: `request hash ${shortHash(v.request_hash)}`,
     },
     ...(p.external
@@ -101,6 +101,7 @@ export function ProofView({ id }: { id: string }) {
           ? "Both checks passed, so the vault sent the payment."
           : "The payment was refused. The funds never left the vault.",
       value: formatWhen(v.recorded_at),
+      plain: true,
       tone: v.pass ? "pass" : "veto",
     },
   ];
@@ -123,7 +124,7 @@ export function ProofView({ id }: { id: string }) {
                 <div className={styles.stepBody}>
                   <span className={`${styles.stepTitle} ${step.tone === "veto" ? styles.vetoText : ""}`}>{step.title}</span>
                   <p className={styles.stepText}>{step.text}</p>
-                  <span className={`mono ${styles.value}`}>{step.value}</span>
+                  <span className={`${step.plain ? "" : "mono"} ${styles.value}`}>{step.value}</span>
                 </div>
               </li>
             ))}

@@ -56,7 +56,7 @@ export function Circuit({
         <Icon name="lock" size={size} />
       </Node>
       <Seg t={t} draw={[0.04, 0.18]} travel={[0.08, 0.27]} />
-      <Gate t={t} at={0.27} label="Contract cap" result="pass" size={size} />
+      <Gate t={t} at={0.27} label="Limits" result="pass" size={size} />
       <Seg t={t} draw={[0.3, 0.44]} travel={[0.34, 0.62]} hit={ai === "veto"} loop={ai === "pending"} />
       {ai === "pending" ? (
         <Waiting t={t} size={size} />
@@ -76,9 +76,9 @@ export function Circuit({
 }
 
 function summary(ai: Ai, paid: boolean) {
-  if (ai === "veto") return "Vault, contract cap passed, AI screen vetoed, payee not paid.";
-  if (ai === "pending") return "Vault, contract cap passed, AI screen still screening.";
-  return paid ? "Vault, contract cap passed, AI screen passed, payee paid." : "Vault, both checks passed, sending to the payee.";
+  if (ai === "veto") return "Vault, limits passed, AI screen vetoed, payee not paid.";
+  if (ai === "pending") return "Vault, limits passed, AI screen still screening.";
+  return paid ? "Vault, limits passed, AI screen passed, payee paid." : "Vault, both checks passed, sending to the payee.";
 }
 
 /* ----------------------------------------------------------------- pieces */

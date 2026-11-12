@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { metaOf, type VaultState } from "@/lib/vault";
 import { useNow } from "@/lib/useNow";
-import { formatAmount, formatDuration, formatTime, formatWhen, remaining } from "@/lib/format";
+import { formatAmount, formatDuration, formatShort, formatWhenInline, remaining } from "@/lib/format";
 import { delay } from "@/components/Screen";
 import { Icon } from "@/components/Icon";
 import { Pill } from "@/components/Pill";
@@ -19,6 +19,7 @@ const AI_CHECKS = [
 ];
 
 const periodWord = (secs: string) => (secs === "604800" ? "Weekly" : secs === "86400" ? "Daily" : "Period");
+const periodUnit = (secs: string) => (secs === "604800" ? "a week" : secs === "86400" ? "a day" : "a period");
 
 /** Parses "500" or "1,250.5" into the asset's smallest unit. */
 function toUnits(input: string, decimals: number): string | null {
@@ -45,7 +46,7 @@ export function MandateSection({ state }: { state: VaultState }) {
       <div className={styles.columns}>
         <section className={`${styles.words} rise`} style={delay(160)} aria-labelledby="words-title">
           <h3 id="words-title" className={styles.h2}>In your words</h3>
-          <label htmlFor="mandate" className="visually-hidden">Mandate</label>
+          <label htmlFor="mandate" className="visually-hidden">Your instructions</label>
           <textarea
             id="mandate"
             className={styles.textarea}
@@ -57,7 +58,7 @@ export function MandateSection({ state }: { state: VaultState }) {
           <p className={styles.helper}>Write it the way you'd brief a new bookkeeper. The AI screen reads it on every payment.</p>
           <div className={styles.buttons}>
             <OwnerButton method="set_mandate" args={{ mandate: text }} success="Saved" full onDone={() => setDraft(null)}>
-              Save mandate
+              Save rules
             </OwnerButton>
             {changed && (
               <Pill variant="secondary" size="md" full onClick={() => setDraft(null)}>
@@ -65,23 +66,37 @@ export function MandateSection({ state }: { state: VaultState }) {
               </Pill>
             )}
           </div>
+
+          <div className={styles.group}>
+            <h4 className={styles.h3}>What the AI screen checks</h4>
+            <p className={styles.groupText}>On every payment, inside the enclave. A failed check vetoes the payment; passing never lifts a limit.</p>
+            <ul className={styles.checks}>
+              {AI_CHECKS.map((check, i) => (
+                <li key={check} className="rise" style={delay(320 + i * 50)}>
+                  <Icon name="check" size={16} stroke={2.5} className={styles.checkIcon} />
+                  {check}
+                </li>
+              ))}
+            </ul>
+          </div>
         </section>
 
         <section className={`${styles.enforce} rise`} style={delay(240)} aria-labelledby="enforce-title">
-          <h3 id="enforce-title" className={styles.h2}>What Veto enforces</h3>
+          <h3 id="enforce-title" className={styles.h2}>Limits</h3>
 
           <div className={styles.group}>
-            <h4 className={styles.h3}>Enforced by the contract</h4>
-            <p className={styles.groupText}>Hard limits. Nothing pays past them, not even an override.</p>
+            <p className={styles.groupText}>Enforced by the vault contract. Nothing pays past them, not even an override.</p>
             <dl className={styles.limits}>
               {state.policies.map(([asset, policy]) => {
                 const meta = metaOf(state, asset);
                 return (
                   <div key={asset} className={styles.limitGroup}>
-                    <dt>{periodWord(state.config.period_secs)} limit · {meta.symbol}</dt>
-                    <dd>{formatAmount(policy.period_limit, meta)}</dd>
-                    <dt>Largest single payment</dt>
-                    <dd>{formatAmount(policy.max_single, meta)}</dd>
+                    <dt>
+                      {periodWord(state.config.period_secs)} limit{state.policies.length > 1 ? ` · ${meta.symbol}` : ""}
+                    </dt>
+                    <dd>{formatShort(policy.period_limit, meta)}</dd>
+                    <dt>Per-payment limit{state.policies.length > 1 ? ` · ${meta.symbol}` : ""}</dt>
+                    <dd>{formatShort(policy.max_single, meta)}</dd>
                   </div>
                 );
               })}
@@ -93,21 +108,6 @@ export function MandateSection({ state }: { state: VaultState }) {
               </div>
             </dl>
             <LimitForm state={state} />
-          </div>
-
-          <div className={styles.group}>
-            <h4 className={styles.h3}>Checked by the AI screen</h4>
-            <p className={styles.groupText}>Checked in the enclave on every payment. A failed check blocks the payment. Passing never lifts a limit.</p>
-            <ul className={styles.checks}>
-              {AI_CHECKS.map((check, i) => (
-                <li key={check} className="rise" style={delay(320 + i * 50)}>
-                  <span className={styles.checkIcon} aria-hidden="true">
-                    <Icon name="shield" size={14} />
-                  </span>
-                  {check}
-                </li>
-              ))}
-            </ul>
           </div>
 
           <p className={styles.timelockNote}>
@@ -138,12 +138,12 @@ function PendingBanner({
     <div className={`${styles.banner} rise`} style={style} role="status">
       <div className={styles.bannerText}>
         <span className={styles.bannerTitle}>
-          {meta.symbol} limits rising to {formatAmount(change.policy.period_limit, meta)} a period, {formatAmount(change.policy.max_single, meta)} a payment
+          {meta.symbol} limits rising to {formatShort(change.policy.period_limit, meta)} {periodUnit(state.config.period_secs)} and {formatShort(change.policy.max_single, meta)} a payment
         </span>
         <span className={styles.bannerSub}>
           {left.done
             ? "The delay is over. Anyone can apply it now."
-            : `Takes effect ${formatWhen(change.effective_at)} at ${formatTime(change.effective_at)}. Raising a limit waits; lowering it is immediate.`}
+            : `Takes effect ${formatWhenInline(change.effective_at)}. Raising a limit waits; lowering it is immediate.`}
         </span>
       </div>
       <div className={styles.bannerActions}>
@@ -198,7 +198,7 @@ function LimitForm({ state }: { state: VaultState }) {
           </span>
         </label>
         <label className={styles.field}>
-          <span>Largest single payment</span>
+          <span>Per-payment limit</span>
           <span className={styles.well}>
             <span className={styles.token}>{meta.symbol}</span>
             <input inputMode="decimal" placeholder={current ? formatAmount(current.max_single, meta, { symbol: false }) : ""} value={single} onChange={(e) => setSingle(e.target.value)} />
@@ -210,7 +210,7 @@ function LimitForm({ state }: { state: VaultState }) {
           Save limits
         </OwnerButton>
       ) : (
-        <p className={styles.formHint}>Enter a new amount. A single payment can't be larger than the period limit.</p>
+        <p className={styles.formHint}>Enter a new amount. The per-payment limit can't be larger than the {periodWord(state.config.period_secs).toLowerCase()} limit.</p>
       )}
     </details>
   );

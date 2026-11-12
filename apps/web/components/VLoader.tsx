@@ -3,7 +3,8 @@ import styles from "./VLoader.module.css";
 type Tone = "dark" | "light" | "mono";
 
 const STROKES: Record<Tone, [string, string]> = {
-  dark: ["#F2F1E9", "#FF7966"],
+  // "dark" means drawn on the page ground, so its first stroke is the theme ink.
+  dark: ["var(--sand)", "#FF7966"],
   light: ["#000000", "#FF7966"],
   mono: ["#000000", "#000000"],
 };
@@ -25,8 +26,8 @@ export function VLoader({ size = 40, tone = "dark", label }: { size?: number; to
       aria-hidden={label ? undefined : true}
     >
       <g className={styles.seal}>
-        <path className={styles.s1} pathLength={1} d="M17 14 32 50" fill="none" stroke={left} strokeWidth="11" strokeLinecap="round" />
-        <path className={styles.s2} pathLength={1} d="M47 14 32 50" fill="none" stroke={right} strokeWidth="11" strokeLinecap="round" />
+        <path className={styles.s1} pathLength={1} d="M17 14 32 50" fill="none" style={{ stroke: left }} strokeWidth="11" strokeLinecap="round" />
+        <path className={styles.s2} pathLength={1} d="M47 14 32 50" fill="none" style={{ stroke: right }} strokeWidth="11" strokeLinecap="round" />
       </g>
     </svg>
   );

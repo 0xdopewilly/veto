@@ -10,7 +10,7 @@ import styles from "./EnclaveCheck.module.css";
 
 type Status = { kind: "idle" } | { kind: "checking" } | { kind: "done"; result: EnclaveVerification } | { kind: "error"; message: string };
 
-const time = (iso: string) => new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" });
+const time = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
 /**
  * Verifies NEAR AI's enclave now, from scratch: Intel's quote, NVIDIA's GPUs, that the hardware

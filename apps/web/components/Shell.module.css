@@ -31,10 +31,10 @@
   grid-template-columns: repeat(2, minmax(0, 1fr)) 76px repeat(2, minmax(0, 1fr));
   align-items: center;
   border-radius: 36px;
-  background: rgba(22, 22, 22, 0.88);
+  background: var(--bar-glass);
   backdrop-filter: blur(20px) saturate(150%);
   -webkit-backdrop-filter: blur(20px) saturate(150%);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: var(--float-shadow), inset 0 1px 0 color-mix(in srgb, var(--sand) 6%, transparent);
 }
 
 /* Rows fade out before they reach the glass instead of being cut by it. */
@@ -46,7 +46,7 @@
   z-index: 19;
   height: calc(var(--tabbar) + 46px);
   pointer-events: none;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.82) 52%, rgba(0, 0, 0, 0.94));
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--black) 82%, transparent) 52%, color-mix(in srgb, var(--black) 94%, transparent));
 }
 
 /* From the home screen, measure down from the top of the real screen height instead of up from
@@ -76,7 +76,7 @@
 }
 
 .tabActive {
-  color: var(--green);
+  color: var(--green-fg);
 }
 
 .tabWell {
@@ -84,7 +84,7 @@
   inset: 0;
   border-radius: 50%;
   background: var(--black);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sand) 5%, transparent);
 }
 
 .tabIcon {
@@ -112,7 +112,7 @@
   display: grid;
   place-items: center;
   cursor: pointer;
-  box-shadow: 0 0 0 7px var(--black), 0 14px 34px -6px rgba(0, 236, 151, 0.55);
+  box-shadow: 0 0 0 7px var(--black);
   transition: transform var(--spring-bounce-ms) var(--spring-bounce);
 }
 
@@ -143,7 +143,7 @@
     padding: 22px 14px 14px;
     border-radius: 26px;
     background: var(--card);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    box-shadow: var(--shadow-card), inset 0 1px 0 color-mix(in srgb, var(--sand) 4%, transparent);
     overflow-y: auto;
   }
 
@@ -206,15 +206,15 @@
   margin-top: 6px;
   padding: 2px 8px;
   border-radius: var(--r-pill);
-  background: var(--purple-soft);
-  color: var(--purple);
+  background: var(--control);
+  color: var(--muted);
   font-size: 11.5px;
-  font-weight: 500;
+  font-weight: 550;
 }
 
 .vaultKind[data-mine] {
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-fg);
 }
 
 .vaultName {
@@ -228,8 +228,12 @@
 
 .vaultId {
   font-size: 11.5px;
+  line-height: 1.4;
   color: var(--muted);
-  overflow-wrap: anywhere;
+}
+
+.vaultIdRest {
+  white-space: nowrap;
 }
 
 .status {
@@ -245,8 +249,6 @@
   height: 7px;
   border-radius: 50%;
   background: var(--green);
-  box-shadow: 0 0 0 0 rgba(0, 236, 151, 0.5);
-  animation: live 2.4s ease-out infinite;
 }
 
 .statusDot[data-frozen] {
@@ -254,10 +256,6 @@
   animation: none;
 }
 
-@keyframes live {
-  0% { box-shadow: 0 0 0 0 rgba(0, 236, 151, 0.55); }
-  70%, 100% { box-shadow: 0 0 0 7px rgba(0, 236, 151, 0); }
-}
 
 .nav {
   display: flex;
@@ -292,7 +290,7 @@
 
 .navItem:hover {
   color: var(--sand);
-  background: rgba(255, 255, 255, 0.025);
+  background: color-mix(in srgb, var(--sand) 4%, transparent);
 }
 
 .navItem > * {
@@ -309,10 +307,7 @@
   position: absolute !important;
   inset: 0;
   border-radius: 16px;
-  background:
-    radial-gradient(90px 46px at 0% 55%, rgba(0, 236, 151, 0.34), transparent 75%),
-    var(--control);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 8px 22px -10px rgba(0, 236, 151, 0.35);
+  background: var(--control);
 }
 
 .navExt {
@@ -349,7 +344,7 @@
 
 .footAlarm {
   background: var(--coral);
-  color: var(--black);
+  color: var(--on-accent);
 }
 
 .footAlarm:hover {
@@ -440,7 +435,7 @@
   padding: 0 12px;
   border-radius: 17px;
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-fg);
   font: 600 12.5px var(--font-sans), sans-serif;
   display: grid;
   place-items: center;
@@ -454,9 +449,9 @@
   z-index: 30;
   padding: 8px;
   border-radius: 22px;
-  background: rgba(24, 24, 24, 0.96);
+  background: var(--overlay-glass);
   backdrop-filter: blur(20px);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), inset 0 0 0 1px var(--glass-edge);
+  box-shadow: var(--float-shadow), inset 0 0 0 1px var(--glass-edge);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -535,7 +530,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--purple);
+  background: var(--dim);
 }
 
 .circle {
@@ -590,7 +585,7 @@
   height: 38px;
   border-radius: 50%;
   background: var(--green);
-  color: var(--black);
+  color: var(--on-accent);
   display: grid;
   place-items: center;
   font-weight: 700;
@@ -746,7 +741,7 @@
   white-space: nowrap;
   pointer-events: none;
   /* Lifted off whatever scrolls under it, so it reads as a pointer to the V, not part of a row. */
-  box-shadow: 0 10px 28px -6px rgba(0, 0, 0, 0.85), 0 0 0 4px rgba(0, 0, 0, 0.55);
+  box-shadow: var(--float-shadow);
   animation: hintIn 0.6s var(--ease-pop) 1s both, hintFloat 3s ease-in-out 1.6s infinite;
 }
 
@@ -804,11 +799,11 @@
   border: 0;
   border-radius: 18px;
   background: var(--green);
-  color: var(--black);
+  color: var(--on-accent);
   font: inherit;
   text-align: left;
   cursor: pointer;
-  box-shadow: 0 12px 30px -14px rgba(0, 236, 151, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+
   transition: background-color 160ms var(--ease-draw);
 }
 

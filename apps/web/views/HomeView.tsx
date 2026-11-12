@@ -10,15 +10,16 @@ import { useVaultKind, useWallet } from "@/lib/wallet";
 import { useKeptBlocked } from "@/lib/dismissed";
 import { useIsDesktop } from "@/lib/media";
 import { formatParts, formatShort, formatTime, nsToDate } from "@/lib/format";
+import { outcomeOf, tally } from "@/lib/decision";
 import { SPRING_UI } from "@/lib/motion";
 import { Screen, delay } from "@/components/Screen";
 import { Boot } from "@/components/Boot";
 import { Icon, type IconName } from "@/components/Icon";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Odometer } from "@/components/Odometer";
 import { LineReveal } from "@/components/LineReveal";
 import { Segmented } from "@/components/Segmented";
 import { SpendRing } from "@/components/SpendRing";
-import { DecisionBars } from "@/components/DecisionBars";
 import { AgentInbox } from "@/components/AgentInbox";
 import { useStartHint } from "@/lib/hint";
 import { CORAL, DecisionCard, PURPLE, useDecisionCopy, useOpenDecision, usePrefetchDecision } from "@/components/DecisionCard";
@@ -28,6 +29,8 @@ import styles from "./HomeView.module.css";
 
 const periodName = (secs: string) => (secs === "604800" ? "this week" : secs === "86400" ? "today" : "this period");
 const periodTitle = (secs: string) => (secs === "604800" ? "Weekly limit" : secs === "86400" ? "Daily limit" : "Spending limit");
+const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 
 /** Everything both layouts show, worked out once. */
 function useOverview(state: VaultState, kept: Set<string>) {
@@ -35,27 +38,26 @@ function useOverview(state: VaultState, kept: Set<string>) {
   const balance = formatParts(state.balances[state.primaryAsset] ?? 0n, meta);
   const others = Object.entries(state.balances).filter(([asset, raw]) => asset !== state.primaryAsset && raw > 0n);
   const spend = state.spend[state.primaryAsset];
+  const policy = state.policies.find(([asset]) => asset === state.primaryAsset)?.[1];
   const periodStartNs = spend ? (BigInt(spend.resets_at) - BigInt(state.config.period_secs)) * 1_000_000_000n : 0n;
   const inPeriod = state.proposals.filter((p) => BigInt(p.created_at) >= periodStartNs);
-  const sum = (list: Proposal[]) =>
-    list.filter((p) => p.request.asset === state.primaryAsset).reduce((a, p) => a + BigInt(p.request.amount), 0n);
-  const paid = state.proposals.filter((p) => p.status === "Paid");
-  const vetoed = state.proposals.filter((p) => p.status === "Vetoed");
-  const pending = filterProposals(state.proposals, "pending");
-  const stoppedInPeriod = inPeriod.filter((p) => p.status === "Vetoed");
+  const sum = (list: Proposal[]) => list.filter((p) => p.request.asset === state.primaryAsset).reduce((a, p) => a + BigInt(p.request.amount), 0n);
+  const paidNow = inPeriod.filter((p) => outcomeOf(p.status) === "paid");
+  const vetoedNow = inPeriod.filter((p) => outcomeOf(p.status) === "vetoed");
   const resetsAt = spend ? BigInt(spend.resets_at) * 1_000_000_000n : 0n;
   return {
     meta,
     balance,
-    others,
+    alsoHolds: others.map(([asset, raw]) => formatShort(raw, metaOf(state, asset))).join(" · "),
     spend,
+    perPayment: policy ? formatShort(policy.max_single, meta) : null,
     period: periodName(state.config.period_secs),
     periodTitle: periodTitle(state.config.period_secs),
     resets: spend ? `${nsToDate(resetsAt).toLocaleDateString("en-GB", { weekday: "short" })} at ${formatTime(resetsAt)}` : "",
     attention: needsDecision(state.proposals, kept),
-    counts: { paid: paid.length, vetoed: vetoed.length, pending: pending.length },
-    sums: { paid: sum(paid), vetoed: sum(vetoed), pending: sum(pending), stopped: sum(stoppedInPeriod) },
-    stoppedCount: stoppedInPeriod.length,
+    week: { paid: paidNow.length, vetoed: vetoedNow.length, vetoedSum: sum(vetoedNow) },
+    // All-time figures cover the whole history (the server counts it); the newest 100 otherwise.
+    totals: state.totals ?? tally(state.proposals, state.primaryAsset),
     mandateLine: state.config.mandate.split(/(?<=\.)\s/)[0],
   };
 }
@@ -84,7 +86,6 @@ function PhoneHome({ state }: { state: VaultState }) {
   const band = lead ? (lead.status === "OverridePending" ? "purple" : "coral") : "green";
   const frozen = state.config.frozen;
   const shown = filterProposals(state.proposals, filter).slice(0, 6);
-  const tabs = <Segmented label="Filter activity" options={filterOptions(state.proposals)} value={filter} onChange={setFilter} tone={lead ? "dark" : "onGreen"} />;
 
   const latest = state.proposals.find((p) => p.verdict);
   const actions: { label: string; icon: IconName; onClick: () => void }[] = [
@@ -109,6 +110,7 @@ function PhoneHome({ state }: { state: VaultState }) {
               </button>
             </div>
             <div className={styles.circles}>
+              <ThemeToggle className={styles.circle} size={19} />
               <button
                 className={`${styles.circle} press`}
                 aria-label={o.attention.length ? `Notifications: ${o.attention.length} payment${o.attention.length === 1 ? "" : "s"} need your decision` : "Notifications"}
@@ -132,11 +134,7 @@ function PhoneHome({ state }: { state: VaultState }) {
               <span className={styles.cents}>{o.balance.cents}</span>
               {o.balance.suffix && <span className={styles.unit}>{o.balance.suffix}</span>}
             </span>
-            {o.others.length > 0 && (
-              <span className={styles.others}>
-                {o.others.map(([asset, raw]) => `+ ${formatShort(raw, metaOf(state, asset))}`).join(" · ")}
-              </span>
-            )}
+            {o.alsoHolds && <span className={styles.others}>Also holds {o.alsoHolds}</span>}
           </section>
 
           <div className={styles.actions}>
@@ -158,44 +156,35 @@ function PhoneHome({ state }: { state: VaultState }) {
 
         <div className={styles.band}>
           <AnimatePresence mode="popLayout" initial={false}>
-            {lead ? <BandDecision key={`d${lead.id}`} state={state} proposal={lead} more={o.attention.length - 1} /> : <motion.div key="tabs" className={styles.bandTabs} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={SPRING_UI}>{tabs}</motion.div>}
+            {lead ? (
+              <BandDecision key={`d${lead.id}`} state={state} proposal={lead} more={o.attention.length - 1} />
+            ) : (
+              <motion.p key="calm" className={styles.bandCalm} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={SPRING_UI}>
+                Nothing needs your decision.
+              </motion.p>
+            )}
           </AnimatePresence>
         </div>
 
         <section className={styles.sheet} aria-label="Activity">
-          {lead && <div className={styles.sheetTabs}>{tabs}</div>}
           <div className={styles.sheetHead}>
             <h2 className={styles.h2}>Activity</h2>
             <Link href="/app/decisions" className={styles.seeAll}>
               See all
             </Link>
           </div>
-          <ActivityList
-            state={state}
-            proposals={shown}
-            startDelay={300}
-            empty={filter === "all" ? undefined : `Nothing ${filter === "pending" ? "pending" : filter} right now.`}
-          />
+          <div className={styles.sheetTabs}>
+            <Segmented label="Filter activity" options={filterOptions(state.proposals, o.totals)} value={filter} onChange={setFilter} tone="dark" />
+          </div>
+          <ActivityList state={state} proposals={shown} startDelay={300} empty={filter === "all" ? undefined : `No ${filter} payments right now.`} />
 
           {o.spend && (
-            <section className={`${styles.spendCard} rise`} style={delay(420)} aria-label={`Spent ${o.period}`}>
+            <section className={`${styles.spendCard} rise`} style={delay(420)} aria-label={o.periodTitle}>
               <div className={styles.spendHead}>
-                <h2 className={styles.h3}>Spent {o.period}</h2>
+                <h2 className={styles.h3}>{o.periodTitle}</h2>
                 <span className={styles.chip}>Resets {o.resets}</span>
               </div>
-              <div className={styles.spendBody}>
-                <SpendRing
-                  size={200}
-                  center={formatShort(o.spend.spent, o.meta)}
-                  caption={`of ${formatShort(o.spend.period_limit, o.meta)} limit`}
-                  parts={[
-                    { label: "Paid", value: Number(BigInt(o.spend.spent)), tone: "green", bubble: formatShort(o.spend.spent, o.meta) },
-                    { label: "Stopped", value: Number(o.sums.stopped), tone: "coral", bubble: o.sums.stopped > 0n ? formatShort(o.sums.stopped, o.meta) : undefined },
-                    { label: "Left", value: Number(BigInt(o.spend.remaining)), tone: "idle" },
-                  ]}
-                />
-                <Legend o={o} />
-              </div>
+              <LimitBody o={o} size={176} week />
               <div className={styles.mandate}>
                 <span>{o.mandateLine}</span>
                 <Link href="/app/rules#mandate" className={styles.link}>
@@ -220,7 +209,6 @@ function BandDecision({ state, proposal, more }: { state: VaultState; proposal: 
       <Link href={`/app/decisions/${proposal.id}`} onClick={(e) => open(e, proposal.id, copy.pending ? PURPLE : CORAL)} className={`${styles.bandCard} press`}>
         <span className={styles.bandText}>
           <span className={styles.bandEyebrow}>
-            <span className={styles.beat} aria-hidden="true" />
             {copy.eyebrow}
             {more > 0 && <span className={styles.more}>+{more} more</span>}
           </span>
@@ -235,22 +223,34 @@ function BandDecision({ state, proposal, more }: { state: VaultState; proposal: 
   );
 }
 
-function Legend({ o }: { o: Overview }) {
-  const rows = [
-    { label: "Paid", n: o.counts.paid, tone: styles.lgGreen },
-    { label: "Vetoed", n: o.counts.vetoed, tone: styles.lgCoral },
-    { label: "Pending", n: o.counts.pending, tone: styles.lgPurple },
+/** The limit as a ring to scale, with what's spent, what's left and the per-payment cap beside it. */
+function LimitBody({ o, size, week = false }: { o: Overview; size: number; week?: boolean }) {
+  if (!o.spend) return null;
+  const facts = [
+    { label: "Spent", value: formatShort(o.spend.spent, o.meta) },
+    { label: "Left", value: formatShort(o.spend.remaining, o.meta) },
+    ...(o.perPayment ? [{ label: "Per payment", value: `up to ${o.perPayment}` }] : []),
   ];
   return (
-    <ul className={styles.legend}>
-      {rows.map((r) => (
-        <li key={r.label}>
-          <span className={`${styles.lgDot} ${r.tone}`} aria-hidden="true" />
-          <span className={styles.lgN}>{r.n}</span>
-          <span className={styles.lgLabel}>{r.label}</span>
-        </li>
-      ))}
-    </ul>
+    <div className={styles.limitBody}>
+      <SpendRing size={size} value={Number(BigInt(o.spend.spent))} max={Number(BigInt(o.spend.period_limit))} center={formatShort(o.spend.spent, o.meta)} caption={`of ${formatShort(o.spend.period_limit, o.meta)}`} />
+      <dl className={styles.facts}>
+        {facts.map((f) => (
+          <div key={f.label}>
+            <dt>{f.label}</dt>
+            <dd>{f.value}</dd>
+          </div>
+        ))}
+        {week && (
+        <div>
+          <dt>{capital(o.period)}</dt>
+          <dd>
+            {plural(o.week.paid, "paid", "paid")} · {plural(o.week.vetoed, "vetoed", "vetoed")}
+          </dd>
+        </div>
+        )}
+      </dl>
+    </div>
   );
 }
 
@@ -263,18 +263,17 @@ function DesktopHome({ state }: { state: VaultState }) {
   const o = useOverview(state, kept);
   const [filter, setFilter] = useState<Filter>("all");
   const step = (i: number) => delay(80 + i * 70);
+  const t = o.totals;
+  const rows = [
+    { label: "Paid", tally: t.paid, tone: styles.barGreen },
+    { label: "Vetoed", tally: t.vetoed, tone: styles.barCoral },
+    { label: "Pending", tally: t.pending, tone: styles.barPurple },
+  ];
 
   return (
     <Screen wide>
       <div className={styles.titleRow}>
         <LineReveal key={vaultName} as="h1" className={styles.pageTitle} text={vaultName} />
-        <div className={`${styles.titleTools} rise`} style={delay(60)}>
-          <span className={styles.periodPill}>
-            <Icon name="calendar" size={16} />
-            {o.period === "this week" ? "This week" : o.period === "today" ? "Today" : "This period"}
-            {o.resets && <span className={styles.periodSub}>· resets {o.resets}</span>}
-          </span>
-        </div>
       </div>
 
       {o.attention.length > 0 && (
@@ -286,129 +285,98 @@ function DesktopHome({ state }: { state: VaultState }) {
       )}
 
       <div className={styles.dash}>
-        <section className={`${styles.panel} ${styles.hero} rise spot`} style={step(0)} aria-labelledby="hero-title">
-          <span className={styles.heroGlow} aria-hidden="true" />
-          <div className={styles.panelHead}>
-            <div>
-              <h2 id="hero-title" className={styles.heroTitle}>Vault {o.period}</h2>
-              <p className={styles.heroLead}>Every payment passes the mandate cap on NEAR, then a private AI screen that can only say no.</p>
+        <div className={styles.main}>
+          <section className={`${styles.panel} ${styles.hero} rise`} style={step(0)} aria-labelledby="hero-title">
+            <div className={styles.panelHead}>
+              <h2 id="hero-title" className={styles.panelTitle}>
+                {capital(o.period)}
+              </h2>
+              {o.resets && <span className={styles.chip}>Resets {o.resets}</span>}
             </div>
-          </div>
-          <div className={styles.metrics}>
-            <Metric icon="wallet" label="Balance" delay={200}>
-              {o.balance.prefix && <span className={styles.mUnit}>{o.balance.prefix}</span>}
-              <Odometer value={o.balance.whole} delay={260} />
-              <span className={styles.mUnit}>{o.balance.cents}</span>
-              {o.balance.suffix && <span className={styles.mUnit}>&nbsp;{o.balance.suffix}</span>}
-            </Metric>
-            <Metric icon="chart" label={`Spent ${o.period}`} delay={260}>
-              {o.spend ? (
-                <>
-                  <Odometer value={formatShort(o.spend.spent, o.meta)} delay={320} />
-                  <span className={styles.mUnit}>&nbsp;of {formatShort(o.spend.period_limit, o.meta)}</span>
-                </>
-              ) : (
-                "—"
-              )}
-            </Metric>
-            <Metric icon="shield" label="Payments stopped" delay={320} alarm={o.counts.vetoed > 0}>
-              <Odometer value={String(o.counts.vetoed)} delay={380} />
-              <span className={styles.mUnit}>&nbsp;{o.counts.vetoed === 1 ? "payment" : "payments"}</span>
-            </Metric>
-          </div>
-        </section>
-
-        <section className={`${styles.panel} ${styles.limit} rise spot`} style={step(2)} aria-labelledby="limit-title">
-          <div className={styles.panelHead}>
-            <h2 id="limit-title" className={styles.panelTitle}>
-              <span className={styles.panelIcon} aria-hidden="true">
-                <Icon name="chart" size={16} />
-              </span>
-              {o.periodTitle}
-            </h2>
-            <span className={styles.chip}>{o.spend ? `Resets ${o.resets}` : "No limit set"}</span>
-          </div>
-          {o.spend && (
-            <div className={styles.limitBody}>
-              <SpendRing
-                size={196}
-                center={formatShort(o.spend.spent, o.meta)}
-                caption={`of ${formatShort(o.spend.period_limit, o.meta)} used`}
-                parts={[
-                  { label: "Paid", value: Number(BigInt(o.spend.spent)), tone: "green", bubble: formatShort(o.spend.spent, o.meta) },
-                  { label: "Stopped", value: Number(o.sums.stopped), tone: "coral", bubble: o.sums.stopped > 0n ? formatShort(o.sums.stopped, o.meta) : undefined },
-                  { label: "Left", value: Number(BigInt(o.spend.remaining)), tone: "idle" },
-                ]}
-              />
-              <Legend o={o} />
+            <div className={styles.figures}>
+              <div className={styles.figure}>
+                <span className={styles.figLabel}>Balance</span>
+                <span className={styles.figValue}>
+                  {o.balance.prefix && <span className={styles.figUnit}>{o.balance.prefix}</span>}
+                  <Odometer value={o.balance.whole} delay={260} />
+                  <span className={styles.figUnit}>{o.balance.cents}</span>
+                  {o.balance.suffix && <span className={styles.figUnit}>&nbsp;{o.balance.suffix}</span>}
+                </span>
+                <span className={styles.figNote}>{o.alsoHolds ? `Also holds ${o.alsoHolds}` : "In the vault"}</span>
+              </div>
+              <div className={styles.figure}>
+                <span className={styles.figLabel}>Paid {o.period}</span>
+                <span className={styles.figValue}>{o.spend ? <Odometer value={formatShort(o.spend.spent, o.meta)} delay={320} /> : o.week.paid}</span>
+                <span className={styles.figNote}>{plural(o.week.paid, "payment")}</span>
+              </div>
+              <div className={styles.figure}>
+                <span className={styles.figLabel}>Vetoed {o.period}</span>
+                <span className={`${styles.figValue} ${o.week.vetoed ? styles.figAlarm : ""}`}>
+                  <Odometer value={String(o.week.vetoed)} delay={380} />
+                </span>
+                <span className={styles.figNote}>{o.week.vetoed ? `${formatShort(o.week.vetoedSum, o.meta)} never left the vault` : "Nothing vetoed"}</span>
+              </div>
             </div>
-          )}
-          <p className={styles.footnote}>
-            <Icon name="shield" size={13} /> Stopped payments never count against the limit.
-          </p>
-        </section>
+          </section>
 
-        <section className={`${styles.panel} ${styles.decisions} rise spot`} style={step(3)} aria-labelledby="decisions-title">
-          <div className={styles.panelHead}>
-            <h2 id="decisions-title" className={styles.panelTitle}>
-              <span className={`${styles.panelIcon} ${styles.panelIconInk}`} aria-hidden="true">
-                <Icon name="activity" size={16} />
-              </span>
-              Decisions
-            </h2>
-            <span className={`${styles.chip} ${styles.chipInk}`}>All time</span>
-          </div>
-          <DecisionBars
-            bars={[
-              { label: `Paid · ${o.counts.paid}`, value: Number(o.sums.paid), display: formatShort(o.sums.paid, o.meta), style: "hatched" },
-              { label: `Vetoed · ${o.counts.vetoed}`, value: Number(o.sums.vetoed), display: formatShort(o.sums.vetoed, o.meta), style: "dark" },
-              { label: `Pending · ${o.counts.pending}`, value: Number(o.sums.pending), display: formatShort(o.sums.pending, o.meta), style: "light" },
-            ]}
-          />
-        </section>
-
-        <section className={`${styles.panel} ${styles.activity} rise`} style={step(4)} aria-labelledby="activity-title">
-          <div className={styles.panelHead}>
-            <h2 id="activity-title" className={styles.panelTitle}>
-              <span className={styles.panelIcon} aria-hidden="true">
-                <Icon name="activity" size={16} />
-              </span>
-              Activity
-            </h2>
-            <div className={styles.activityTools}>
-              <Segmented label="Filter activity" options={filterOptions(state.proposals)} value={filter} onChange={setFilter} />
-              <Link href="/app/decisions" className={styles.seeAll}>
-                See all
-              </Link>
+          <section className={`${styles.panel} ${styles.activity} rise`} style={step(1)} aria-labelledby="activity-title">
+            <div className={styles.panelHead}>
+              <h2 id="activity-title" className={styles.panelTitle}>
+                Activity
+              </h2>
+              <div className={styles.activityTools}>
+                <Segmented label="Filter activity" options={filterOptions(state.proposals, t)} value={filter} onChange={setFilter} />
+                <Link href="/app/decisions" className={styles.seeAll}>
+                  See all
+                </Link>
+              </div>
             </div>
-          </div>
-          <ActivityList
-            state={state}
-            proposals={filterProposals(state.proposals, filter).slice(0, 7)}
-            startDelay={420}
-            empty={filter === "all" ? undefined : `Nothing ${filter === "pending" ? "pending" : filter} right now.`}
-          />
-        </section>
+            <ActivityList state={state} proposals={filterProposals(state.proposals, filter).slice(0, 7)} startDelay={420} empty={filter === "all" ? undefined : `No ${filter} payments right now.`} />
+          </section>
 
-        <section className={`${styles.panel} ${styles.inbox} rise`} style={step(5)} aria-label="Agent inbox" data-hint={hint.show || undefined}>
+          <div className={styles.bottom}>
+            <section className={`${styles.panel} rise`} style={step(2)} aria-labelledby="limit-title">
+              <div className={styles.panelHead}>
+                <h2 id="limit-title" className={styles.panelTitle}>
+                  {o.periodTitle}
+                </h2>
+                <Link href="/app/rules" className={styles.seeAll}>
+                  Rules
+                </Link>
+              </div>
+              {o.spend ? <LimitBody o={o} size={124} /> : <p className={styles.footnote}>No limit set.</p>}
+              <p className={styles.footnote}>Vetoed payments never count against the limit.</p>
+            </section>
+
+            <section className={`${styles.panel} rise`} style={step(3)} aria-labelledby="totals-title">
+              <div className={styles.panelHead}>
+                <h2 id="totals-title" className={styles.panelTitle}>
+                  All time
+                </h2>
+                <span className={styles.chip}>{plural(t.count, "payment")}</span>
+              </div>
+              <ul className={styles.totals}>
+                {rows.map((r) => (
+                  <li key={r.label}>
+                    <span className={styles.totalLabel}>{r.label}</span>
+                    <span className={styles.totalN}>{r.tally.n.toLocaleString("en-US")}</span>
+                    <span className={styles.totalSum}>{BigInt(r.tally.sum) > 0n ? formatShort(r.tally.sum, o.meta) : ""}</span>
+                    <span className={styles.track} aria-hidden="true">
+                      <span className={`${styles.bar} ${r.tone}`} style={{ width: `${t.count ? (r.tally.n / t.count) * 100 : 0}%` }} />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className={styles.footnote}>Dollar totals add up {o.meta.symbol} payments.</p>
+            </section>
+          </div>
+        </div>
+
+        <section className={`${styles.panel} ${styles.inbox} rise`} style={step(1)} aria-label="Agent inbox" data-hint={hint.show || undefined}>
           {hint.show && <span className={styles.hintChip}>Start here</span>}
           <AgentInbox titleId="home-inbox-title" compact />
         </section>
       </div>
     </Screen>
-  );
-}
-
-function Metric({ icon, label, children, delay: d, alarm = false }: { icon: IconName; label: string; children: React.ReactNode; delay: number; alarm?: boolean }) {
-  return (
-    <div className={`${styles.metric} ${alarm ? styles.metricAlarm : ""} rise`} style={delay(d)}>
-      <span className={styles.metricHead}>
-        <span className={styles.metricIcon} aria-hidden="true">
-          <Icon name={icon} size={16} />
-        </span>
-        {label}
-      </span>
-      <span className={styles.metricValue}>{children}</span>
-    </div>
   );
 }

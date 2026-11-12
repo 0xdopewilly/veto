@@ -1,0 +1,28 @@
+/* Both icons sit in one cell; the one for the current theme turns in, the other turns out. */
+.icons {
+  display: grid;
+  place-items: center;
+}
+
+.icons > svg {
+  grid-area: 1 / 1;
+  transition:
+    transform var(--spring-bounce-ms) var(--spring-bounce),
+    opacity 220ms ease;
+}
+
+.icons[data-showing="dark"] .sun,
+.icons[data-showing="light"] .moon {
+  opacity: 0;
+  transform: rotate(-90deg) scale(0.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icons > svg {
+    transition: opacity 150ms ease;
+  }
+  .icons[data-showing="dark"] .sun,
+  .icons[data-showing="light"] .moon {
+    transform: none;
+  }
+}

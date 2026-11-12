@@ -7,20 +7,8 @@ import { metaOf, useVault, type VaultState } from "@/lib/vault";
 import { useProposal } from "@/lib/useProposal";
 import { useKeptBlocked } from "@/lib/dismissed";
 import { useNow } from "@/lib/useNow";
-import { evmTxUrl, imitated, isTestSigner, listedPayee, payeeHistory, payeeLabel, payoutTxUrl, reasonText, requesterLabel, STATUS_TEXT } from "@/lib/decision";
-import {
-  formatAmount,
-  formatDuration,
-  formatParts,
-  formatShort,
-  formatTime,
-  formatWhen,
-  remaining,
-  shortAddress,
-  shortHash,
-  possessive,
-  chainLabel,
-} from "@/lib/format";
+import { evmTxUrl, imitated, isTestSigner, listedPayee, payeeHistory, payeeLabel, payoutTxUrl, reasonDetail, reasonText, STATUS_TEXT } from "@/lib/decision";
+import { chainLabel, formatAmount, formatDuration, formatParts, formatShort, formatTime, formatWhen, formatWhenInline, possessive, remaining, shortAddress, shortHash } from "@/lib/format";
 import { Screen, BackLink, delay } from "@/components/Screen";
 import { useBackTo } from "@/lib/backTo";
 import { Boot } from "@/components/Boot";
@@ -38,6 +26,9 @@ import { Deferred } from "@/components/Deferred";
 import styles from "./DecisionView.module.css";
 
 const periodName = (secs: string) => (secs === "604800" ? "weekly" : secs === "86400" ? "daily" : "period");
+
+/** Who asked, in plain words: the account lives on the Agents page. */
+const asker = (p: Proposal) => (p.external ? "Your agent's OutLayer wallet" : "Your agent");
 
 export function DecisionView({ id }: { id: string }) {
   const { state } = useVault();
@@ -83,7 +74,7 @@ function DecisionBody({ state, proposal }: { state: VaultState; proposal: Propos
 function amountParts(state: VaultState, p: Proposal) {
   const meta = metaOf(state, p.request.asset);
   const parts = formatParts(p.request.amount, meta);
-  return { meta, figure: `${parts.prefix}${parts.whole}${parts.cents}`, unit: parts.suffix || meta.symbol };
+  return { meta, figure: `${parts.prefix}${parts.whole}${parts.cents}`, unit: parts.suffix };
 }
 
 /** The decision's amount rolling into place once the screen is revealed. */
@@ -96,13 +87,16 @@ function Amount({ figure, unit, muted = false, at, play }: { figure: string; uni
   );
 }
 
-function capCaption(state: VaultState, p: Proposal): string {
-  const spend = state.spend[p.request.asset];
+/** The limits line under the checks. The per-payment limit, not this week's remaining budget, which moves after the fact. */
+function capCaption(state: VaultState, p: Proposal, paid = false): string {
   const meta = metaOf(state, p.request.asset);
-  if (spend && BigInt(p.request.amount) <= BigInt(spend.remaining)) {
-    return `${formatShort(p.request.amount, meta)} fits in the ${formatShort(spend.remaining, meta)} left of your ${formatShort(spend.period_limit, meta)} ${periodName(state.config.period_secs)} cap. A plain spending limit would have paid it.`;
+  const policy = state.policies.find(([asset]) => asset === p.request.asset)?.[1];
+  const amount = formatShort(p.request.amount, meta);
+  if (policy && BigInt(p.request.amount) <= BigInt(policy.max_single)) {
+    const within = `${amount} is within your ${formatShort(policy.max_single, meta)} per-payment limit and your ${periodName(state.config.period_secs)} limit.`;
+    return paid ? within : `${within} A plain spending limit would have paid it.`;
   }
-  return "It was inside your contract caps when your agent proposed it. Only the AI screen stopped it.";
+  return paid ? "Within your limits." : "It was within your limits when your agent asked. Only the AI screen vetoed it.";
 }
 
 /* ---------------------------------------------------------------- Vetoed */
@@ -150,7 +144,7 @@ function Vetoed({ state, p }: { state: VaultState; p: Proposal }) {
         </Pill>
       )}
       <OwnerButton method="override_veto" args={{ id: p.id }} variant="inkOutline" size="md" icon="clock" full success="Override scheduled" confirmTone="ink">
-        {`Override, pays in ${formatDuration(delaySecs)}`}
+        {`Override (pays in ${formatDuration(delaySecs)})`}
       </OwnerButton>
       <p className={styles.actionNote}>You can cancel an override any time before it pays.</p>
     </div>
@@ -165,53 +159,59 @@ function Vetoed({ state, p }: { state: VaultState; p: Proposal }) {
 
       <section className={styles.band} aria-label="Verdict">
         <div className={styles.bandMain}>
-          <LineReveal className={styles.eyebrow} text="Stopped by the AI screen" delay={40} />
           <h1 className={styles.vetoed}>
             <MaskedLetters text="VETOED" delay={170} stagger={35} />
           </h1>
           <Amount figure={figure} unit={unit} at={420} play={play} />
-          <span className={`mono ${styles.to} rise`} style={delay(480)}>
-            to {shortAddress(p.request.payee)} on {chainLabel(p.request.chain)}
+          <span className={`${styles.to} rise`} style={delay(480)}>
+            to <span className="mono">{shortAddress(p.request.payee)}</span> on {chainLabel(p.request.chain)}
           </span>
           <p className={`${styles.request} rise`} style={delay(540)}>
-            <span className="mono">{requesterLabel(p)}</span> tried to pay {what}.{p.external ? " OutLayer is holding it; Veto never approved it." : ""}
+            {asker(p)} asked to pay {what}.{p.external ? " OutLayer is holding it; Veto never approved it." : ""}
           </p>
         </div>
         <div className={`${styles.bandActions} rise`} style={delay(600)}>{actions}</div>
       </section>
 
+      <div className={styles.mobileActions}>{actions}</div>
+
       <Deferred>
       <div className={styles.columns}>
         <div className={styles.colMain}>
+          <h2 className={`${styles.h2} rise`} style={delay(440)}>Why it was vetoed</h2>
+          <ol className={styles.reasons}>
+            {reasons.map((code, i) => {
+              const detail = reasonDetail(code, p, state.payees, state.proposals);
+              return (
+                <li key={code} className={`${styles.reason} rise`} style={delay(500 + i * 80)}>
+                  <span className={styles.reasonNumber} aria-hidden="true">{i + 1}</span>
+                  <div className={styles.reasonBody}>
+                    {code === "LOOKALIKE_ADDRESS" && look ? (
+                      <LookalikeReason state={state} p={p} look={look} />
+                    ) : (
+                      <>
+                        <span className={styles.reasonTitle}>{reasonText(code)}</span>
+                        {detail && <p className={styles.reasonText}>{detail}</p>}
+                      </>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+
+        <div className={styles.colSide}>
           <section className={`${styles.circuitCard} rise`} style={delay(300)} aria-label="Checks">
             <Circuit ai="veto" paid={false} delay={190} play={play} />
             <p className={styles.caption}>{capCaption(state, p)}</p>
           </section>
-
-          <h2 className={`${styles.h2} rise`} style={delay(440)}>Why it was stopped</h2>
-          <ol className={styles.reasons}>
-            {reasons.map((code, i) => (
-              <li key={code} className={`${styles.reason} rise`} style={delay(500 + i * 80)}>
-                <span className={styles.reasonNumber} aria-hidden="true">{i + 1}</span>
-                <div className={styles.reasonBody}>
-                  {code === "LOOKALIKE_ADDRESS" && look ? (
-                    <LookalikeReason state={state} p={p} look={look} />
-                  ) : (
-                    <span className={styles.reasonTitle}>{reasonText(code)}</span>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ol>
+          <aside className={`${styles.proofCard} rise`} style={delay(560)} aria-label="Proof">
+            <ProofSummary p={p} />
+          </aside>
         </div>
-
-        <aside className={`${styles.colSide} rise`} style={delay(560)} aria-label="Proof">
-          <ProofSummary p={p} />
-        </aside>
       </div>
       </Deferred>
-
-      <div className={styles.mobileActions}>{actions}</div>
     </Screen>
   );
 }
@@ -224,17 +224,19 @@ function LookalikeReason({ state, p, look }: { state: VaultState; p: Proposal; l
       <span className={styles.reasonTitle}>A lookalike of {possessive(look.payee.name)} address</span>
       <p className={styles.reasonText}>
         {evm
-          ? `${history.count ? `Your last ${history.count} payment${history.count === 1 ? "" : "s"} to them went to a different address` : "Their saved address is different"} that shortens to the same ${shortAddress(p.request.payee)}. Only the middle differs, which is how address-poisoning scams work.`
-          : `Their saved account is ${look.payee.address}. This request goes to ${p.request.payee}: ${look.why}.`}
+          ? `${history.count ? "You've paid them before at a different address" : "Their saved address is different"} that shortens to the same ${shortAddress(p.request.payee)}. Only the middle differs, which is how address-poisoning scams work.`
+          : `The account looks like theirs but isn't (${look.why}). Compare:`}
       </p>
       <AddressCompare
         saved={look.payee.address}
         requested={p.request.payee}
-        savedLabel={history.count ? `Paid before, ${history.count} time${history.count === 1 ? "" : "s"}` : "Saved payee"}
+        savedLabel={history.count ? "Saved payee, paid before" : "Saved payee"}
       />
     </>
   );
 }
+
+const shortModel = (model: string) => (model.split("/").pop() ?? model).replace(/-Instruct$/i, "").replace(/-A\d+B$/i, "");
 
 function ProofSummary({ p }: { p: Proposal }) {
   const v = p.verdict;
@@ -248,24 +250,19 @@ function ProofSummary({ p }: { p: Proposal }) {
           Proof
         </span>
         <Link href={`/app/decisions/${p.id}/proof`} className={styles.proofLink}>
-          See every step <Icon name="arrowRight" size={14} stroke={2.25} />
+          See the proof <Icon name="arrowRight" size={14} stroke={2.25} />
         </Link>
       </div>
-      <p className={styles.proofText}>
-        {test
-          ? "Signed by a labelled test key, not by a NEAR AI enclave."
-          : "Screened inside a hardware enclave on NEAR AI Cloud. Your vault contract checked the model's signature before it acted."}
-      </p>
-      <dl className={styles.proofList}>
-        <dt>Model</dt>
-        <dd className="mono">{v.model_id}</dd>
-        <dt>Signer</dt>
-        <dd className="mono">{shortAddress(v.signer)}</dd>
-        <dt>Signature</dt>
-        <dd>Checked on-chain</dd>
-        <dt>Request</dt>
-        <dd className="mono">{shortHash(v.request_hash)}</dd>
-      </dl>
+      <ul className={styles.proofList}>
+        <li>
+          <Icon name="check" size={15} stroke={2.5} />
+          {test ? "Signed by a labelled test key, not by a NEAR AI enclave" : `Screened by ${shortModel(v.model_id)} inside NEAR AI Cloud's secure enclave`}
+        </li>
+        <li>
+          <Icon name="check" size={15} stroke={2.5} />
+          Your vault checked the enclave's signature on-chain before it acted
+        </li>
+      </ul>
     </div>
   );
 }
@@ -312,16 +309,18 @@ function OverridePending({ state, p }: { state: VaultState; p: Proposal }) {
             </h1>
           )}
           <p className={`${styles.pendingWhen} rise`} style={delay(140)}>
-            {left.done ? "The delay is over. Anyone can now send it, or you can still cancel." : `${formatWhen(at)} at ${formatTime(at)} unless you cancel.`}
+            {left.done ? "The delay is over. Anyone can now send it, or you can still cancel." : `Pays ${formatWhenInline(at)} unless you cancel.`}
           </p>
 
           <dl className={`${styles.details} rise`} style={delay(200)}>
             <dt>Amount</dt>
             <dd>{formatAmount(p.request.amount, meta)}</dd>
             <dt>To</dt>
-            <dd className="mono">{shortAddress(p.request.payee)} on {chainLabel(p.request.chain)}</dd>
+            <dd>
+              <span className="mono">{shortAddress(p.request.payee)}</span> on {chainLabel(p.request.chain)}
+            </dd>
             <dt>Limits</dt>
-            <dd>Still limited by your contract caps</dd>
+            <dd>Your limits still apply</dd>
           </dl>
 
           {look && (
@@ -361,7 +360,7 @@ function OverridePending({ state, p }: { state: VaultState; p: Proposal }) {
             <li>
               <span className={`${styles.tlDot} ${styles.tlPending}`} />
               <span>Pays</span>
-              <span className={styles.tlTime}>{`${formatWhen(at)}${formatWhen(at).startsWith("Today") ? "" : `, ${formatTime(at)}`}`}</span>
+              <span className={styles.tlTime}>{formatWhen(at)}</span>
             </li>
           </ol>
         </section>
@@ -374,9 +373,8 @@ function OverridePending({ state, p }: { state: VaultState; p: Proposal }) {
 
 function Paid({ state, p }: { state: VaultState; p: Proposal }) {
   const play = !useMorphHold();
-  const { meta, figure, unit } = amountParts(state, p);
+  const { figure, unit } = amountParts(state, p);
   const listed = listedPayee(state.payees, p);
-  const spend = state.spend[p.request.asset];
   return (
     <Screen pushed wide>
       <div className={styles.topRow}>
@@ -394,10 +392,11 @@ function Paid({ state, p }: { state: VaultState; p: Proposal }) {
           <span className={`${styles.paidTo} rise`} style={delay(320)}>
             to {payeeLabel(state.payees, p)} on {chainLabel(p.request.chain)}
           </span>
-          <span className={`${styles.paidMeta} rise`} style={delay(360)}>
-            {formatWhen(p.settled_at ?? p.created_at)}
-            {p.request.memo ? ` · ${p.request.memo}` : ""}
-          </span>
+          {p.request.memo && (
+            <span className={`${styles.paidMeta} rise`} style={delay(360)}>
+              {asker(p)} asked to pay {p.request.memo}.
+            </span>
+          )}
           <div className={`${styles.paidLine} draw`} style={delay(600)} aria-hidden="true" />
         </section>
 
@@ -406,10 +405,8 @@ function Paid({ state, p }: { state: VaultState; p: Proposal }) {
           <h2 className={styles.h2Small}>Checks</h2>
           <div className={styles.checkRow}>
             <div>
-              <span className={styles.checkName}>Contract cap</span>
-              <span className={styles.checkDetail}>
-                {spend ? `${formatShort(p.request.amount, meta)} within the ${formatShort(spend.period_limit, meta)} limit` : "Within the limit"}
-              </span>
+              <span className={styles.checkName}>Your limits</span>
+              <span className={styles.checkDetail}>{capCaption(state, p, true)}</span>
             </div>
             <span className={styles.passBadge}>Pass</span>
           </div>
@@ -452,7 +449,6 @@ function Paid({ state, p }: { state: VaultState; p: Proposal }) {
               <span className={styles.passBadge}>Sent</span>
             </div>
           )}
-          <Circuit ai="pass" paid delay={240} play={play} />
         </section>
 
         <aside className={`${styles.colSideDark} ${styles.panel} rise`} style={delay(220)}>
@@ -523,8 +519,7 @@ function Closed({ state, p }: { state: VaultState; p: Proposal }) {
         <LineReveal as="h1" className={styles.plainTitle} text={copy.title} />
         <p className={`${styles.plainText} rise`} style={delay(80)}>{copy.text}</p>
         <p className={`${styles.plainMuted} rise`} style={delay(140)}>
-          {formatAmount(p.request.amount, meta)} to <span className="mono">{shortAddress(p.request.payee)}</span>, proposed by{" "}
-          <span className="mono">{requesterLabel(p)}</span>, {formatWhen(p.created_at)}.
+          {formatAmount(p.request.amount, meta)} to <span className="mono">{shortAddress(p.request.payee)}</span>. {asker(p)} asked {formatWhenInline(p.created_at)}.
         </p>
         {p.verdict && (
           <div className={`${styles.closedProof} ${styles.panel} rise`} style={delay(200)}>

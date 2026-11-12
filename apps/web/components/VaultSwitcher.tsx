@@ -41,9 +41,11 @@ export function VaultSwitcher({ open, onClose }: { open: boolean; onClose: () =>
           <span className={styles.text}>
             <span className={styles.name}>
               <span className={styles.nameText}>{name}</span>
-              <span className={`${styles.chip} ${id === SANDBOX_ID ? styles.chipShared : styles.chipMine}`}>{chip}</span>
             </span>
-            <span className={`mono ${styles.sub}`}>{sub}</span>
+            {/* The kind, then the account (in code type) or a plain note. */}
+            <span className={styles.sub}>
+              {chip} · <span className={sub.includes(".") ? "mono" : undefined}>{sub}</span>
+            </span>
           </span>
           {current && <Icon name="check" size={18} stroke={2.2} className={styles.check} />}
         </button>

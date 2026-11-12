@@ -5,7 +5,7 @@ import { useState } from "react";
 import type { VaultState } from "@/lib/vault";
 import { useWallet } from "@/lib/wallet";
 import { compareAddresses, imitated, payeeHistory } from "@/lib/decision";
-import { formatWhen, shortAddress, chainLabel } from "@/lib/format";
+import { formatWhen, formatWhenInline, shortAddress, chainLabel } from "@/lib/format";
 import { delay } from "@/components/Screen";
 import { Icon } from "@/components/Icon";
 import { OwnerButton } from "@/components/OwnerButton";
@@ -49,7 +49,7 @@ export function PayeesSection({ state, titleClass }: { state: VaultState; titleC
           <Icon name="plus" size={16} stroke={2.25} /> Add a payee
         </a>
       </div>
-      <p className={styles.lead}>Suppliers and staff, each at the address and on the chain they chose. Anyone else is screened as a new payee, and a changed address is never trusted automatically.</p>
+      <p className={styles.lead}>Who your agent may pay, at the address and on the chain each one chose. Anyone else is screened as a new payee.</p>
 
       <div className={styles.table} role="table" aria-label="Saved payees">
         <div className={styles.head} role="row">
@@ -69,13 +69,15 @@ export function PayeesSection({ state, titleClass }: { state: VaultState; titleC
                 <span className={styles.initial} aria-hidden="true">{payee.name[0]?.toUpperCase()}</span>
                 <span className={styles.nameText}>
                   {payee.name}
-                  <span className={`${styles.mobileMeta} mono`}>
-                    {chainLabel(payee.chain)} · {shortAddress(payee.address)}
+                  <span className={styles.mobileMeta}>
+                    {chainLabel(payee.chain)} · <span className="mono">{shortAddress(payee.address)}</span>
                   </span>
                 </span>
               </span>
               <span role="cell" className={styles.cell}>{chainLabel(payee.chain)}</span>
-              <span role="cell" className={`${styles.cell} mono ${styles.address}`}>{payee.address}</span>
+              <span role="cell" className={`${styles.cell} mono ${styles.address}`} title={payee.address}>
+                {shortAddress(payee.address)}
+              </span>
               <span role="cell" className={styles.count}>
                 {history.count} <span className={styles.mobileOnly}>payment{history.count === 1 ? "" : "s"}</span>
               </span>
@@ -97,7 +99,7 @@ export function PayeesSection({ state, titleClass }: { state: VaultState; titleC
           <h3 id="add-title" className={styles.h2}>Add a payee</h3>
           <label className={styles.field}>
             <span>Name</span>
-            <input value={name} maxLength={64} onChange={(e) => setName(e.target.value)} placeholder="Kano Cotton Mills" />
+            <input value={name} maxLength={64} onChange={(e) => setName(e.target.value)} placeholder="Aba Textiles" />
           </label>
           <label className={styles.field}>
             <span>Chain</span>
@@ -111,7 +113,6 @@ export function PayeesSection({ state, titleClass }: { state: VaultState; titleC
             <span>Address</span>
             <input className="mono" value={address} onChange={(e) => setAddress(e.target.value)} placeholder={chain === "near" ? "name.near" : "0x…"} spellCheck={false} autoCapitalize="off" />
           </label>
-          <p className={styles.helper}>Veto won't trust a new address until you confirm it with your wallet.</p>
           {canAdd ? (
             <OwnerButton
               method="add_payee"
@@ -125,13 +126,13 @@ export function PayeesSection({ state, titleClass }: { state: VaultState; titleC
               Confirm with wallet
             </OwnerButton>
           ) : (
-            <p className={styles.helper}>Enter a name and an address to add them.</p>
+            <p className={styles.helper}>Enter a name and an address, then confirm with your wallet. Veto trusts a new address only after that.</p>
           )}
         </section>
 
         <section className={`${styles.blocked} rise`} style={delay(320)} aria-labelledby="blocked-title">
-          <h3 id="blocked-title" className={styles.h2}>Blocked lookalikes</h3>
-          <p className={styles.helper}>Addresses Veto refused because they imitate a saved payee. They stay off your list unless you add them.</p>
+          <h3 id="blocked-title" className={styles.h2}>Vetoed lookalikes</h3>
+          <p className={styles.helper}>Addresses Veto vetoed because they imitate a saved payee. They stay off your list unless you add them.</p>
           {blocked.length === 0 && <p className={styles.emptyBlocked}>None so far.</p>}
           {blocked.map(({ p, look }) => {
             const parts = compareAddresses(look.payee.address, p.request.payee);
@@ -147,7 +148,7 @@ export function PayeesSection({ state, titleClass }: { state: VaultState; titleC
                     {parts.requested.end}
                   </span>
                   <span className={styles.blockedSub}>
-                    Lookalike of {look.payee.name} · blocked {tries(p) > 1 ? `${tries(p)} times, last ` : ""}{formatWhen(p.verdict?.recorded_at ?? p.created_at)}
+                    Lookalike of {look.payee.name} · vetoed {tries(p) > 1 ? `${tries(p)} times, last ` : ""}{formatWhenInline(p.verdict?.recorded_at ?? p.created_at)}
                   </span>
                 </span>
                 <Icon name="arrowRight" size={16} />

@@ -5,7 +5,8 @@ import { JsonRpcProvider } from "near-api-js";
 import { VaultReader } from "@veto/core/vault";
 import type { Payee, Proposal, VaultConfig } from "@veto/core/proposal";
 import { FACTORY_ID, isKnownVault, POLL_MS, RPC_URL, SANDBOX_ID, SANDBOX_NAME } from "./config";
-import { NATIVE, type AssetMeta } from "./format";
+import { NATIVE, setAccountRoot, type AssetMeta } from "./format";
+import { tally, type Totals } from "./decision";
 
 export interface AssetPolicy {
   period_limit: string;
@@ -53,6 +54,8 @@ export interface VaultState {
   balances: Record<string, bigint>;
   /** The asset the app leads with: the first allowed token, else native NEAR. */
   primaryAsset: string;
+  /** All-time counts over the whole history (proposals above holds only the newest 100). */
+  totals?: Totals;
 }
 
 interface VaultContextValue {
@@ -219,7 +222,8 @@ async function loadDirect(vaultId: string): Promise<VaultState> {
   const spend = Object.fromEntries(spendList.map((s) => [s.asset, s]));
 
   const primaryAsset = tokenIds[0] ?? "near";
-  return { config, proposals, payees, agents, wallets, policies, pending, spend, assets, balances, primaryAsset };
+  // The direct read is a fallback with the newest 100 only; the server snapshot counts everything.
+  return { config, proposals, payees, agents, wallets, policies, pending, spend, assets, balances, primaryAsset, totals: tally(proposals, primaryAsset) };
 }
 
 const VaultContext = createContext<VaultContextValue>({
@@ -267,6 +271,8 @@ function reconcile(prev: VaultState | null, next: VaultState): VaultState {
 /** `idle`: knows which vault is open but doesn't poll it (onboarding needs only the wallet). */
 export function VaultProvider({ children, idle = false }: { children: ReactNode; idle?: boolean }) {
   const [vaultId, setVaultId] = useState<string | null>(null);
+  // Names under this vault's parent account display short ("settlements"); see shortAddress.
+  setAccountRoot(vaultId ?? SANDBOX_ID);
   const [label, setLabel] = useState<string | null>(null);
   const [state, setState] = useState<VaultState | null>(null);
   const [error, setError] = useState<string | null>(null);

@@ -23,6 +23,7 @@ export function DecisionsView() {
   const [filter, setFilter] = useState<Filter>("all");
   // Newest first, a page at a time: the list stays quick to open however many payments the vault has.
   const [shown, setShown] = useState(PAGE);
+  const [allNeeds, setAllNeeds] = useState(false);
   // The live state holds the newest 100 payments. A vault with more loads the rest here, so the list,
   // its filter counts and the CSV cover the whole history.
   const [older, setOlder] = useState<Proposal[]>([]);
@@ -57,12 +58,14 @@ export function DecisionsView() {
             </h2>
             <p className={styles.sectionLead}>Vetoed payments you can keep blocked or override, and overrides waiting to pay.</p>
             <div className={styles.panel}>
-              <ActivityList state={state} proposals={attention.slice(0, NEEDS)} startDelay={140} />
+              <ActivityList state={state} proposals={allNeeds ? attention : attention.slice(0, NEEDS)} startDelay={140} />
             </div>
-            {attention.length > NEEDS && (
-              <p className={styles.sectionLead}>
-                {attention.length - NEEDS} more below: filter by <strong>Vetoed</strong>.
-              </p>
+            {attention.length > NEEDS && !allNeeds && (
+              <div className={styles.more}>
+                <Pill variant="secondary" size="md" onClick={() => setAllNeeds(true)}>
+                  {`Show all ${attention.length}`}
+                </Pill>
+              </div>
             )}
           </section>
         )}
@@ -108,7 +111,7 @@ export function DecisionsView() {
           {matching.length > shown && (
             <div className={styles.more}>
               <Pill variant="secondary" size="md" onClick={() => setShown((n) => n + PAGE)}>
-                {`Show ${Math.min(PAGE, matching.length - shown)} more of ${matching.length - shown}`}
+                {`Show ${Math.min(PAGE, matching.length - shown)} more (${matching.length - shown} left)`}
               </Pill>
             </div>
           )}

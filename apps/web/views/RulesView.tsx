@@ -14,14 +14,14 @@ import head from "./PageHead.module.css";
 import styles from "./RulesView.module.css";
 
 const PARTS = [
-  { id: "mandate", label: "Mandate and limits" },
+  { id: "mandate", label: "Instructions and limits" },
   { id: "payees", label: "Payees" },
   { id: "freeze", label: "Freeze" },
 ];
 
 /** Everything that decides what the agent may pay, in one place: mandate, limits, payees, freeze. */
 export function RulesView() {
-  const { state, vaultId } = useVault();
+  const { state } = useVault();
   const { openFreeze } = useShell();
 
   // Links like /app/rules#payees: the app scrolls inside its own container, so scroll there here.
@@ -39,7 +39,7 @@ export function RulesView() {
       <Screen>
         <LineReveal as="h1" className={head.title} text="Rules" />
         <p className={`${head.lead} rise`} style={delay(60)}>
-          What your agent may pay from <span className="mono">{vaultId}</span>, and who it may pay. Veto checks every payment against all of it.
+          What your agent may pay, and who it may pay. Veto checks every payment against all of it.
         </p>
         <nav className={`${styles.jump} rise`} style={delay(100)} aria-label="On this page">
           {PARTS.map((p) => (
@@ -50,7 +50,7 @@ export function RulesView() {
         </nav>
 
         <section id="mandate" className={styles.part} aria-labelledby="mandate-title">
-          <h2 id="mandate-title" className={styles.partTitle}>Mandate and limits</h2>
+          <h2 id="mandate-title" className={styles.partTitle}>Instructions and limits</h2>
           <MandateSection state={state} />
         </section>
 

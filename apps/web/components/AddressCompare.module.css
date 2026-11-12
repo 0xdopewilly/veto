@@ -34,7 +34,7 @@
 
 .newMiddle {
   background: rgba(255, 121, 102, 0.14);
-  color: var(--coral);
+  color: var(--coral-fg);
   font-weight: 500;
   border-radius: 3px;
   animation: flash 1.2s ease-out 1.2s backwards;

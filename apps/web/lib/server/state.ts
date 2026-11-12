@@ -4,6 +4,8 @@ import { VaultReader } from "@veto/core/vault";
 import { EXPLORER, evmBalance, vaultEvmAddress, type EvmRoute } from "@veto/core/evm";
 import { NATIVE, type AssetMeta } from "@/lib/format";
 import type { AgentInfo, AssetPolicy, PendingPolicy, SpendStatus, VaultState, WalletInfo } from "@/lib/vault";
+import { tally } from "@/lib/decision";
+import type { Proposal } from "@veto/core/proposal";
 import { accountBalance, serverRpc } from "./rpc";
 
 const FRESH_MS = 3000;
@@ -12,6 +14,21 @@ const metas = new Map<string, AssetMeta>([["near", NATIVE]]);
 const MAX_VAULTS = 200;
 const last = new Map<string, { at: number; state: VaultState }>();
 const inflight = new Map<string, Promise<VaultState>>();
+
+// Payments past the newest 100, for the all-time totals. Settled payments rarely change, so
+// they're read again only when the count moves or after a minute, not on every snapshot.
+const OLDER_MS = 60_000;
+const older = new Map<string, { at: number; count: number; proposals: Proposal[] }>();
+
+async function olderProposals(reader: VaultReader, vaultId: string, count: number): Promise<Proposal[]> {
+  if (count <= 100) return [];
+  const hit = older.get(vaultId);
+  if (hit && hit.count === count && Date.now() - hit.at < OLDER_MS) return hit.proposals;
+  const pages: Proposal[] = [];
+  for (let from = 100; from < count; from += 100) pages.push(...(await reader.proposals(from, 100)));
+  older.set(vaultId, { at: Date.now(), count, proposals: pages });
+  return pages;
+}
 
 async function load(vaultId: string): Promise<VaultState> {
   const rpc = serverRpc();
@@ -65,7 +82,11 @@ async function load(vaultId: string): Promise<VaultState> {
   const spend = Object.fromEntries(spendList.map((s) => [s.asset, s]));
 
   const evmAccounts = evm.map(({ balance: _balance, ...rest }) => rest);
-  return { config, proposals, payees, agents, wallets, policies, pending, spend, assets, balances, evmAccounts, primaryAsset: tokenIds[0] ?? "near" };
+  const primaryAsset = tokenIds[0] ?? "near";
+  const history = new Map(proposals.map((p) => [p.id, p]));
+  for (const p of await olderProposals(reader, vaultId, Number(config.proposal_count)).catch(() => [])) if (!history.has(p.id)) history.set(p.id, p);
+  const totals = tally([...history.values()], primaryAsset);
+  return { config, proposals, payees, agents, wallets, policies, pending, spend, assets, balances, evmAccounts, primaryAsset, totals };
 }
 
 /** The account isn't there: a mistyped link, or a vault that was never created. */

@@ -15,7 +15,7 @@ import styles from "./DecisionCard.module.css";
 export const CORAL = "#ff7966";
 export const PURPLE = "#9797ff";
 
-/** The words on a decision card: what was held and why, or the override countdown. */
+/** The words on a decision card: what was vetoed and why, or the override countdown. */
 export function useDecisionCopy(state: VaultState, proposal: Proposal) {
   const now = useNow(1000);
   const meta = metaOf(state, proposal.request.asset);
@@ -37,8 +37,8 @@ export function useDecisionCopy(state: VaultState, proposal: Proposal) {
     pending,
     eyebrow: "Needs your decision",
     headline: look
-      ? `${amount} held. Sent to a lookalike of ${possessive(look.payee.name)} address.`
-      : `${amount} held. ${proposal.verdict?.reasons[0] ? reasonText(proposal.verdict.reasons[0]) : "Stopped by the AI screen"}.`,
+      ? `${amount} vetoed. Sent to a lookalike of ${possessive(look.payee.name)} address.`
+      : `${amount} vetoed. ${proposal.verdict?.reasons[0] ? reasonText(proposal.verdict.reasons[0]) : "The AI screen said no"}.`,
     detail: `Vetoed ${formatAgo(proposal.verdict?.recorded_at ?? proposal.created_at, now)} · ${chainLabel(proposal.request.chain)}`,
   };
 }

@@ -39,12 +39,12 @@
 
 .vault {
   background: var(--tile);
-  box-shadow: inset 0 0 0 1.5px rgba(242, 241, 233, 0.3);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--sand) 30%, transparent);
 }
 
 .neutral {
   background: var(--tile);
-  box-shadow: inset 0 0 0 1.5px rgba(242, 241, 233, 0.16);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--sand) 16%, transparent);
 }
 
 .fill {
@@ -108,11 +108,11 @@
 
 .markPass,
 .markVeto {
-  stroke: var(--black);
+  stroke: var(--on-accent);
 }
 
 .waiting {
-  color: var(--purple);
+  color: var(--purple-fg);
   background: var(--purple-soft);
   box-shadow: inset 0 0 0 1.5px var(--purple);
 }
@@ -132,7 +132,7 @@
 
 .unpaid {
   background: var(--tile);
-  box-shadow: inset 0 0 0 1.5px rgba(242, 241, 233, 0.16);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--sand) 16%, transparent);
   color: var(--muted);
 }
 
@@ -142,7 +142,7 @@
 }
 
 .payeeIcon[data-paid] {
-  color: var(--black);
+  color: var(--on-accent);
 }
 
 .payee {
@@ -154,6 +154,7 @@
   font-weight: 600;
   text-align: center;
   line-height: 1.2;
+  white-space: nowrap;
   color: var(--sand);
 }
 
@@ -185,15 +186,15 @@
 }
 
 .passText {
-  color: var(--green);
+  color: var(--green-fg);
 }
 
 .vetoText {
-  color: var(--coral);
+  color: var(--coral-fg);
 }
 
 .waitText {
-  color: var(--purple);
+  color: var(--purple-fg);
 }
 
 .idleText {
@@ -217,7 +218,7 @@
 }
 
 .track {
-  stroke: rgba(242, 241, 233, 0.08);
+  stroke: color-mix(in srgb, var(--sand) 10%, transparent);
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
 }
@@ -230,7 +231,7 @@
 }
 
 .dashed {
-  stroke: rgba(242, 241, 233, 0.22);
+  stroke: color-mix(in srgb, var(--sand) 22%, transparent);
   stroke-width: 2;
   stroke-dasharray: 4 5;
   vector-effect: non-scaling-stroke;
@@ -251,7 +252,7 @@
 .loopPacket {
   left: 0;
   background: var(--green);
-  color: var(--green);
+  color: var(--green-fg);
   animation: travel 1.3s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 

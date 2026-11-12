@@ -46,7 +46,7 @@
 
 .textarea:focus {
   outline: none;
-  background: #1e1e1e;
+  background: var(--control);
   box-shadow: inset 0 0 0 1.5px var(--green);
 }
 
@@ -80,6 +80,12 @@
   gap: 8px;
 }
 
+.words .group {
+  margin-top: 14px;
+  padding-top: 22px;
+  border-top: 1px solid var(--hairline);
+}
+
 .groupText {
   margin: 0;
   font-size: 14px;
@@ -94,21 +100,22 @@
 .limits {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
 }
 
 .limitGroup {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  padding: 4px 16px;
-  border-radius: var(--r-tile);
-  background: var(--tile);
+}
+
+.limitGroup + .limitGroup {
+  margin-top: 10px;
 }
 
 .limitGroup dt,
 .limitGroup dd {
-  padding: 13px 0;
-  border-bottom: 1px solid var(--control);
+  padding: 12px 0;
+  border-bottom: 1px solid var(--hairline);
   font-size: 15px;
 }
 
@@ -254,23 +261,17 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 52px;
-  padding: 0 14px;
-  border-radius: 16px;
-  background: var(--tile);
+  min-height: 44px;
   font-size: 15px;
 }
 
+.checks li + li {
+  border-top: 1px solid var(--hairline);
+}
+
 .checkIcon {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--green-tint);
-  color: var(--green);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   flex: none;
+  color: var(--green-fg);
 }
 
 .timelockNote {
@@ -278,16 +279,13 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 16px;
-  border-radius: var(--r-tile);
-  background: var(--purple-tint);
-  color: var(--sand);
-  font-size: 14px;
+  color: var(--muted);
+  font-size: 13.5px;
   line-height: 1.45;
 }
 
 .timelockNote svg {
-  color: var(--purple);
+  color: var(--purple-fg);
 }
 
 .banner {

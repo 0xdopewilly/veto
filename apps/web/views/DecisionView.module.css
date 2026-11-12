@@ -94,7 +94,7 @@
 
 .band {
   margin-top: 26px;
-  color: var(--black);
+  color: var(--on-accent);
 }
 
 .bandMain {
@@ -140,8 +140,9 @@
   font-size: 14px;
 }
 
+/* On phones the whole vetoed screen is coral, so its text is the fixed ink, in both themes. */
 .columns {
-  --ink: var(--black);
+  --ink: var(--on-accent);
   --ink2: var(--coral-ink);
   margin-top: 24px;
   display: flex;
@@ -153,12 +154,16 @@
   min-width: 0;
 }
 
+.colMain > .h2:first-child {
+  margin-top: 0;
+}
+
 .circuitCard {
   background: var(--black);
   color: var(--sand);
   border-radius: var(--r-card);
   padding: 22px 18px 20px;
-  box-shadow: 0 24px 50px -30px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--shadow-card);
 }
 
 .caption {
@@ -182,15 +187,14 @@
 
 .reason {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr);
+  grid-template-columns: 26px minmax(0, 1fr);
 }
 
 .reasonNumber {
-  font-size: 40px;
-  font-weight: 900;
-  font-stretch: 75%;
-  font-variation-settings: "wdth" 75;
-  line-height: 0.85;
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1.3;
+  color: var(--ink2);
 }
 
 .reasonBody {
@@ -216,6 +220,12 @@
 
 .colSide {
   margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.proofCard {
   border-radius: var(--r-card);
   background: rgba(0, 0, 0, 0.08);
   box-shadow: inset 0 0 0 1.5px rgba(0, 0, 0, 0.75);
@@ -262,26 +272,30 @@
 }
 
 .proofList {
-  margin: 8px 0 0;
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
-  row-gap: 9px;
-  font-size: 13.5px;
-}
-
-.proofList dt {
-  color: var(--ink2, var(--muted));
-}
-
-.proofList dd {
   margin: 0;
-  font-weight: 600;
-  overflow-wrap: anywhere;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.45;
 }
 
-.proofList dd:global(.mono) {
-  font-size: 12.5px;
-  font-weight: 500;
+.proofList li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.proofList li > svg {
+  margin-top: 3px;
+  color: var(--green-fg);
+}
+
+.columns .proofList li > svg {
+  color: inherit;
 }
 
 .actions {
@@ -299,7 +313,7 @@
 }
 
 .mobileActions {
-  margin-top: 28px;
+  margin-top: 22px;
 }
 
 @media (min-width: 900px) {
@@ -312,9 +326,7 @@
     padding: 40px 44px;
     border-radius: 32px;
     background:
-      radial-gradient(80% 120% at 100% 0%, rgba(255, 255, 255, 0.22), transparent 60%),
       var(--coral);
-    box-shadow: 0 30px 80px -40px rgba(255, 121, 102, 0.55);
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
@@ -334,9 +346,12 @@
     --ink2: var(--muted);
     margin-top: 32px;
     display: grid;
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
     gap: 40px;
     align-items: start;
+  }
+  .columns .proofList li > svg {
+    color: var(--green-fg);
   }
   .circuitCard {
     background: var(--card);
@@ -345,11 +360,13 @@
   }
   .colSide {
     margin-top: 0;
-    background: var(--card);
-    box-shadow: none;
-    padding: 12px 26px 26px;
     position: sticky;
     top: 16px;
+  }
+  .proofCard {
+    background: var(--card);
+    box-shadow: var(--shadow-card);
+    padding: 12px 26px 26px;
   }
   .mobileActions {
     display: none;
@@ -379,7 +396,7 @@
   width: 360px;
   height: 300px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(151, 151, 255, 0.28), transparent 65%);
+  display: none;
   filter: blur(24px);
 }
 
@@ -391,7 +408,7 @@
   padding: 6px 12px;
   border-radius: 999px;
   background: var(--purple-tint);
-  color: var(--purple);
+  color: var(--purple-fg);
   font-size: 13px;
   font-weight: 650;
 }
@@ -416,7 +433,7 @@
   font-size: 15px;
   font-weight: 550;
   letter-spacing: 0;
-  color: var(--purple);
+  color: var(--purple-fg);
 }
 
 .pendingWhen {
@@ -470,7 +487,7 @@
 .warningTitle {
   font-size: 15px;
   font-weight: 650;
-  color: var(--coral);
+  color: var(--coral-fg);
 }
 
 .warning p {
@@ -584,7 +601,7 @@
   width: 380px;
   height: 320px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(0, 236, 151, 0.3), transparent 65%);
+  display: none;
   filter: blur(26px);
   pointer-events: none;
 }
@@ -592,10 +609,9 @@
 .paidCheck {
   width: 60px;
   height: 60px;
-  box-shadow: 0 12px 30px -10px rgba(0, 236, 151, 0.7);
   border-radius: 50%;
   background: var(--green);
-  color: var(--black);
+  color: var(--on-accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -666,7 +682,7 @@
   padding: 5px 11px;
   border-radius: 999px;
   background: var(--green);
-  color: var(--black);
+  color: var(--on-accent);
   font-size: 12.5px;
   font-weight: 650;
 }

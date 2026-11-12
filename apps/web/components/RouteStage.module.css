@@ -36,9 +36,9 @@
   background: var(--black);
   will-change: transform;
   transform-origin: 50% 40%;
-  box-shadow: -24px 0 56px rgba(0, 0, 0, 0.55);
+  box-shadow: var(--edge-shadow);
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a transparent;
+  scrollbar-color: var(--control) transparent;
 }
 
 @media (min-width: 900px) {

@@ -41,7 +41,7 @@
   padding: 0 10px;
   border-radius: 12px;
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-fg);
   font-weight: 600;
 }
 
@@ -60,7 +60,7 @@
 
 .ink .chip {
   background: rgba(0, 0, 0, 0.14);
-  color: var(--black);
+  color: var(--on-accent);
 }
 
 .useWallet {
@@ -79,5 +79,5 @@
 }
 
 .ink .useWallet:hover {
-  color: var(--black);
+  color: var(--on-accent);
 }

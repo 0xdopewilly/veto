@@ -3,7 +3,8 @@ import styles from "./Logo.module.css";
 type Tone = "dark" | "light" | "mono";
 
 const STROKES: Record<Tone, [string, string]> = {
-  dark: ["#F2F1E9", "#FF7966"],
+  // "dark" means drawn on the page ground, so its first stroke is the theme ink.
+  dark: ["var(--sand)", "#FF7966"],
   light: ["#000000", "#FF7966"],
   mono: ["#000000", "#000000"],
 };
@@ -21,8 +22,8 @@ export function Mark({ size = 28, tone = "dark", title, sign = false }: { size?:
       aria-hidden={title ? undefined : true}
       className={`${styles.mark} ${sign ? styles.sign : ""}`}
     >
-      <path pathLength={1} d="M17 14 32 50" fill="none" stroke={left} strokeWidth="11" strokeLinecap="round" />
-      <path pathLength={1} d="M47 14 32 50" fill="none" stroke={right} strokeWidth="11" strokeLinecap="round" />
+      <path pathLength={1} d="M17 14 32 50" fill="none" style={{ stroke: left }} strokeWidth="11" strokeLinecap="round" />
+      <path pathLength={1} d="M47 14 32 50" fill="none" style={{ stroke: right }} strokeWidth="11" strokeLinecap="round" />
     </svg>
   );
 }

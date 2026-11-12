@@ -222,14 +222,14 @@
   background: var(--control);
   display: grid;
   place-items: center;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--sand) 6%, transparent);
   transition: transform var(--spring-bounce-ms) var(--spring-bounce), background-color 200ms ease;
 }
 
 .actionHot {
   background: var(--green);
-  color: var(--black);
-  box-shadow: 0 10px 26px -10px rgba(0, 236, 151, 0.7);
+  color: var(--on-accent);
+
 }
 
 .action:active .actionCircle {
@@ -264,7 +264,7 @@
   font-weight: 550;
   white-space: nowrap;
   cursor: pointer;
-  box-shadow: 0 0 0 5px var(--band-ring), 0 10px 24px -8px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 5px var(--band-ring);
   transition: box-shadow 500ms ease, transform var(--spring-bounce-ms) var(--spring-bounce);
 }
 
@@ -278,7 +278,6 @@
   height: 8px;
   border-radius: 50%;
   background: var(--green);
-  animation: live 2.4s ease-out infinite;
 }
 
 .statusDot[data-frozen] {
@@ -286,27 +285,19 @@
   animation: none;
 }
 
-@keyframes live {
-  0% { box-shadow: 0 0 0 0 rgba(0, 236, 151, 0.55); }
-  70%, 100% { box-shadow: 0 0 0 7px rgba(0, 236, 151, 0); }
-}
 
 .band {
   position: relative;
   padding: 42px 20px 54px;
-  color: var(--black);
+  color: var(--on-accent);
 }
 
-.bandTabs {
-  display: flex;
-  justify-content: center;
-}
 
 .bandCard {
   display: flex;
   align-items: center;
   gap: 14px;
-  color: var(--black);
+  color: var(--on-accent);
   text-decoration: none;
   padding: 4px 0;
   border-radius: var(--r-tile);
@@ -332,14 +323,9 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--black);
-  animation: beat 1.8s ease-out infinite;
+  background: var(--on-accent);
 }
 
-@keyframes beat {
-  0% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.45); }
-  70%, 100% { box-shadow: 0 0 0 8px rgba(0, 0, 0, 0); }
-}
 
 .more {
   height: 20px;
@@ -386,7 +372,23 @@
 }
 
 .sheetTabs {
-  margin-bottom: 18px;
+  margin: 6px 0 4px;
+}
+
+.bandCalm {
+  margin: 0;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--on-accent);
+}
+
+.spendCard .limitBody {
+  justify-content: center;
+}
+
+.spendCard .facts {
+  flex-basis: 100%;
 }
 
 .sheetHead {
@@ -446,56 +448,14 @@
   white-space: nowrap;
 }
 
-.spendBody {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-}
 
-.legend {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  gap: 18px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
 
-.legend li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 
-.lgDot {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-}
 
-.lgGreen {
-  background: var(--green);
-}
 
-.lgCoral {
-  background: var(--coral);
-}
 
-.lgPurple {
-  background: var(--purple);
-}
 
-.lgN {
-  font-size: 15px;
-  font-weight: 600;
-}
 
-.lgLabel {
-  font-size: 13.5px;
-  color: var(--muted);
-}
 
 .mandate {
   display: flex;
@@ -512,7 +472,7 @@
 .link {
   flex: none;
   font-weight: 550;
-  color: var(--green);
+  color: var(--green-fg);
   text-decoration: none;
 }
 
@@ -549,46 +509,6 @@
   line-height: 1.05;
 }
 
-.titleTools {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.periodPill {
-  height: 46px;
-  padding: 0 18px;
-  border-radius: 23px;
-  background: var(--card);
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 14px;
-  font-weight: 550;
-  white-space: nowrap;
-}
-
-.periodSub {
-  font-weight: 450;
-  color: var(--muted);
-}
-
-.circleBtn {
-  flex: none;
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  background: var(--card);
-  color: var(--sand);
-  display: grid;
-  place-items: center;
-  text-decoration: none;
-}
-
-.circleBtn:hover {
-  background: var(--tile);
-}
-
 .banner {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr));
@@ -596,27 +516,48 @@
   margin-bottom: 16px;
 }
 
-/* The agent's inbox is the way in, so it sits right after the numbers on narrower screens and in
-   its own column, always in view, on wide ones. */
+/* Two columns from 1200px: the dashboard, and the agent's inbox beside it, always in view.
+   Narrower, the inbox comes right after the week's figures (it's the way in). */
 .dash {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
+  align-items: start;
+}
+
+.main {
+  display: contents;
+}
+
+.hero {
+  order: 1;
+}
+
+.dash > .inbox {
+  order: 2;
+}
+
+.activity {
+  order: 3;
+}
+
+.bottom {
+  order: 4;
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-areas:
-    "hero hero"
-    "inbox inbox"
-    "act act"
-    "limit dec";
+  gap: 16px;
+  align-items: stretch;
 }
 
 @media (min-width: 1200px) {
   .dash {
-    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(340px, 1fr);
-    grid-template-areas:
-      "hero hero inbox"
-      "act act inbox"
-      "limit dec inbox";
-    align-items: start;
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 400px);
+  }
+  .main {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
   }
   .dash > .inbox {
     position: sticky;
@@ -631,9 +572,10 @@
 .panel {
   position: relative;
   min-width: 0;
-  padding: 22px;
+  padding: 22px 24px;
   border-radius: var(--r-card);
   background: var(--card);
+  box-shadow: var(--shadow-card);
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -645,351 +587,177 @@
   justify-content: space-between;
   gap: 12px;
   min-width: 0;
-}
-
-.panelHead .chip {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: block;
-  line-height: 30px;
+  min-height: 32px;
 }
 
 .panelTitle {
   margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
   white-space: nowrap;
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.015em;
 }
 
-.panelIcon {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  background: var(--tile);
+/* The week at a glance: three figures on one row, divided by hairlines. */
+.figures {
   display: grid;
-  place-items: center;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.panelIconInk {
-  background: rgba(0, 0, 0, 0.1);
+.figure {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 2px 24px 4px;
 }
 
-.chipInk {
-  background: rgba(0, 0, 0, 0.09);
-  color: var(--black);
+.figure:first-child {
+  padding-left: 0;
 }
 
-/* Hero: the week at a glance on frosted tiles. */
-.hero {
-  grid-area: hero;
-  overflow: hidden;
-  isolation: isolate;
-  background:
-    radial-gradient(70% 120% at 100% 0%, rgba(0, 236, 151, 0.16), transparent 60%),
-    linear-gradient(180deg, #121212, #0a0a0a);
+.figure + .figure {
+  border-left: 1px solid var(--hairline);
 }
 
-.heroGlow {
-  position: absolute;
-  z-index: -1;
-  top: -120px;
-  right: -60px;
-  width: 340px;
-  height: 260px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(0, 236, 151, 0.35), transparent 65%);
-  filter: blur(30px);
-  pointer-events: none;
-}
-
-.heroTitle {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-}
-
-.heroLead {
-  margin: 6px 0 0;
-  font-size: 14px;
+.figLabel {
+  font-size: 13.5px;
   color: var(--muted);
 }
 
-.metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.metric {
-  min-width: 0;
-  padding: 16px 18px 18px;
-  border-radius: var(--r-tile);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.025));
-  box-shadow: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.metricAlarm .metricIcon {
-  background: var(--coral-soft);
-  color: var(--coral);
-}
-
-.metricHead {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13.5px;
-  font-weight: 550;
-  white-space: nowrap;
-}
-
-.metricIcon {
-  flex: none;
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.08);
-  display: grid;
-  place-items: center;
-}
-
-.metricValue {
+.figValue {
   display: flex;
   align-items: baseline;
-  flex-wrap: wrap;
-  font-size: 34px;
-  font-weight: 300;
+  font-size: 36px;
+  font-weight: 350;
   letter-spacing: -0.035em;
   line-height: 1.05;
   white-space: nowrap;
 }
 
-.mUnit {
-  font-size: 15px;
+.figAlarm {
+  color: var(--coral-fg);
+}
+
+.figUnit {
+  font-size: 18px;
   font-weight: 450;
   letter-spacing: 0;
   color: var(--muted);
 }
 
-/* Weekly limit. */
-.limit {
-  grid-area: limit;
+.figNote {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--muted);
 }
 
+/* The limit and the all-time totals. */
 .limitBody {
   display: flex;
   align-items: center;
-  justify-content: space-around;
-  gap: 16px;
+  gap: 22px;
   flex-wrap: wrap;
 }
 
-.limit .legend {
+.facts {
+  flex: 1;
+  min-width: 140px;
+  margin: 0;
+  display: flex;
   flex-direction: column;
+}
+
+.facts > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
   gap: 12px;
+  padding: 9px 0;
+}
+
+.facts > div + div {
+  border-top: 1px solid var(--hairline);
+}
+
+.facts dt {
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.facts dd {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 550;
+  text-align: right;
+}
+
+.totals {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.totals li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.totalLabel {
+  font-size: 14px;
+  font-weight: 550;
+}
+
+.totalN {
+  font-size: 20px;
+  font-weight: 450;
+  letter-spacing: -0.02em;
+}
+
+.totalSum {
+  min-width: 72px;
+  text-align: right;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.track {
+  grid-column: 1 / -1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--track);
+  overflow: hidden;
+}
+
+.bar {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  transform-origin: left center;
+  animation: draw 900ms var(--ease-out-expo) 400ms backwards;
+}
+
+.barGreen {
+  background: var(--green);
+}
+
+.barCoral {
+  background: var(--coral);
+}
+
+.barPurple {
+  background: var(--purple);
 }
 
 .footnote {
   margin: auto 0 0;
-  display: flex;
-  align-items: center;
-  gap: 7px;
   font-size: 12.5px;
   color: var(--muted);
-}
-
-/* Decisions on NEAR green. */
-.decisions {
-  grid-area: dec;
-  background: var(--green);
-  color: var(--black);
-}
-
-.decisions .panelTitle {
-  color: var(--black);
-}
-
-/* The enclave panel. */
-.ai {
-  grid-area: ai;
-  align-items: stretch;
-  background:
-    radial-gradient(90% 60% at 50% 30%, rgba(0, 236, 151, 0.08), transparent 70%),
-    var(--card);
-}
-
-.aiTop {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 8px;
-}
-
-.aiChip {
-  justify-self: start;
-  height: 30px;
-  padding: 0 11px;
-  border-radius: 15px;
-  background: var(--tile);
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-.aiDot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--green);
-}
-
-.aiDot[data-alarm] {
-  background: var(--coral);
-}
-
-.aiTitle {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.aiCorner {
-  justify-self: end;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: var(--tile);
-  color: var(--sand);
-  display: grid;
-  place-items: center;
-}
-
-.orbWrap {
-  display: flex;
-  justify-content: center;
-  padding: 18px 0 6px;
-}
-
-.aiLine {
-  margin: 0 auto;
-  max-width: 300px;
-  text-align: center;
-  font-size: 13.5px;
-  line-height: 1.5;
-  color: var(--muted);
-}
-
-.aiTiles {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.aiTile {
-  min-height: 84px;
-  padding: 14px;
-  border-radius: 18px;
-  background: var(--tile);
-  color: var(--sand);
-  text-decoration: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-size: 13.5px;
-  font-weight: 550;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
-.aiTile:hover {
-  background: var(--control);
-}
-
-.ask {
-  margin-top: auto;
-  display: flex;
-  gap: 8px;
-}
-
-.askInput {
-  flex: 1;
-  min-width: 0;
-  height: 50px;
-  padding: 0 18px;
-  border: 0;
-  border-radius: 25px;
-  background: var(--tile);
-  box-shadow: inset 0 0 0 1px var(--hairline);
-  font-size: 14px;
-  transition: box-shadow 200ms ease;
-}
-
-.askInput::placeholder {
-  color: var(--dim);
-}
-
-.askInput:focus {
-  outline: none;
-  box-shadow: inset 0 0 0 1.5px var(--green);
-}
-
-.askSend {
-  flex: none;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  border: 0;
-  background: var(--green);
-  color: var(--black);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-}
-
-.askSend:disabled {
-  background: var(--control);
-  color: var(--dim);
-  cursor: default;
-}
-
-.checkOut {
-  margin: 0;
-  overflow: hidden;
-  padding-left: 12px;
-  border-left: 3px solid;
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.check_pass {
-  border-color: var(--green);
-}
-
-.check_veto {
-  border-color: var(--coral);
-}
-
-.check_pending {
-  border-color: var(--purple);
-}
-
-.activity {
-  grid-area: act;
 }
 
 .activityTools {
@@ -999,20 +767,8 @@
   min-width: 0;
 }
 
-.activityTools .circleBtn {
-  background: var(--tile);
-}
-
-.inbox {
-  grid-area: inbox;
-}
-
 .inbox {
   position: relative;
-}
-
-.inbox[data-hint] {
-  animation: hintGlow 2.8s ease-in-out 1.4s infinite;
 }
 
 .hintChip {
@@ -1023,16 +779,10 @@
   padding: 5px 11px;
   border-radius: 999px;
   background: var(--green);
-  color: var(--green-ink);
+  color: var(--on-accent);
   font-size: 12px;
   font-weight: 700;
   animation: hintChipIn 0.6s var(--ease-pop) 1.2s both;
-}
-
-@keyframes hintGlow {
-  50% {
-    box-shadow: 0 0 0 1px rgba(0, 236, 151, 0.45), 0 0 42px -8px rgba(0, 236, 151, 0.35);
-  }
 }
 
 @keyframes hintChipIn {
@@ -1043,8 +793,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .inbox[data-hint],
-  .hintChip {
+  .hintChip,
+  .bar {
     animation: none;
   }
 }
@@ -1059,5 +809,11 @@
 }
 
 .seeAll:hover {
-  color: var(--green);
+  color: var(--green-fg);
+}
+
+@media (max-width: 1080px) {
+  .bottom {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

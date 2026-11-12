@@ -39,7 +39,7 @@ function InboxSub() {
   }
   return (
     <>
-      Emails your agent{demo.info && <> (<span className="mono">{shortAddress(demo.info.agent.account)}</span>)</>} will pay. Veto screens each payment first.
+      Emails your agent will pay. Veto screens each payment first.
     </>
   );
 }
@@ -147,6 +147,18 @@ export function AgentInbox({ titleId = "inbox-title", compact = false, head = tr
   );
 }
 
+/** An email's amount, by the app's one rule: "$180.00", "$0.09", "0.0001 ETH". */
+function inboxAmount(value: string, coin: string) {
+  const n = Number(value.replace(/,/g, ""));
+  if (!coin.toUpperCase().includes("USD")) return `${value} ${coin}`;
+  return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: n < 1 ? 4 : 2 })}`;
+}
+
+/** Invoice and payslip references ("INV-7742", "PAY-2026-11-TB") never break at their hyphens. */
+function keepRefs(text: string) {
+  return text.split(/(\b[A-Z]{2,}(?:-[A-Z0-9]+)+\b)/).map((part, i) => (i % 2 ? <span key={i} className={styles.ref}>{part}</span> : part));
+}
+
 /** A run still waiting on its answer: no vault proposal, no Agent API outcome and no error yet. */
 const inFlight = (r: DemoRun) => r.proposalId === undefined && !r.agentapi && !r.error;
 
@@ -162,7 +174,7 @@ function ScenarioCard({ scenario: email, run, index, busy }: { scenario: DemoSce
   const own = scenario.id.startsWith("mail-");
   const scale = demo.payFrom === "agentapi" && !own && coin.toUpperCase().includes("USD") ? (demo.info?.agentapi?.scale ?? 1) : 1;
   const shown = scale > 1 && /^[\d.,]+$/.test(scenario.amount) ? scaleDollars(scenario.amount, scale) : scenario.amount;
-  const amount = /^[\d.,]+$/.test(shown) ? (coin.toUpperCase().includes("USD") ? `$${shown}` : `${shown} ${coin}`) : shown;
+  const amount = /^[\d.,]+$/.test(shown) ? inboxAmount(shown, coin) : shown;
   const proposal = run?.proposalId ? state?.proposals.find((p) => p.id === run.proposalId) : undefined;
   const sending = !!run && !run.proposalId && !run.agentapi && !run.error;
   const initial = scenario.from.trim()[0]?.toUpperCase() ?? "?";
@@ -194,7 +206,7 @@ function ScenarioCard({ scenario: email, run, index, busy }: { scenario: DemoSce
         <span className={styles.from}>{scenario.from}</span>
         <span className={styles.amount}>{amount}</span>
       </div>
-      <p className={styles.subject}>{scenario.subject}</p>
+      <p className={styles.subject}>{keepRefs(scenario.subject)}</p>
       <p className={styles.preview}>{scenario.preview}</p>
 
       <div className={styles.foot}>
@@ -293,7 +305,7 @@ function SlowScreen({ startedAt, deadline }: { startedAt: number; deadline: stri
     return () => clearInterval(tick);
   }, []);
   if (now - startedAt < 45_000) return null;
-  const at = new Date(Number(BigInt(deadline) / 1_000_000n)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const at = new Date(Number(BigInt(deadline) / 1_000_000n)).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
   return (
     <motion.li className={styles.slow} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={SPRING_UI}>
       NEAR AI hasn&apos;t answered yet. If it doesn&apos;t by {at}, the payment expires unpaid: without a signed PASS, Veto never pays.
@@ -329,7 +341,7 @@ const chainName = (chain: string) => ({ base: "Base", arb: "Arbitrum", eth: "Eth
 
 /** What the Agent API's refusal means, in words; the owner's policy is the layer that says no. */
 function refusalText(code: string, message: string) {
-  if (code === "insufficient_balance") return "The demo wallet is out of USDC right now, so the Agent API stopped it. Nothing was charged.";
+  if (code === "insufficient_balance") return "The demo wallet is out of USDC right now, so the Agent API refused it. Nothing was charged.";
   if (code === "policy_destination_denied") return "The owner's policy doesn't allow this payee, so the Agent API refused it.";
   if (code === "policy_transaction_limit_exceeded") return "It's above the owner's per-payment limit, so the Agent API refused it.";
   if (code === "spend_budget_exceeded" || code === "policy_limit_exceeded") return "It's over the owner's daily limit, so the Agent API refused it.";

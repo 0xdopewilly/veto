@@ -7,7 +7,8 @@ import { formatAmount, SYSTEM_PROMPT } from "@veto/core/prompt";
 import { recoverVerdictSigner, signedVerdictText } from "@veto/core/verdictsig";
 import { EXPLORER, PROOF_BASE, PUBLIC_RPCS } from "@/lib/config";
 import { SPRING_UI, useCalm } from "@/lib/motion";
-import { shortHash } from "@/lib/format";
+import { shortAddress, shortHash } from "@/lib/format";
+import { reasonText } from "@/lib/decision";
 import { Icon } from "./Icon";
 import { VLoader } from "./VLoader";
 import styles from "./ProofBytes.module.css";
@@ -184,20 +185,20 @@ export function ProofBytes({ vault, id }: { vault: string; id: string }) {
           {
             ok: responseHash === v.response_hash.toLowerCase() && sameAnswer,
             title: "The response is the one your vault checked",
-            detail: `sha256 here: ${shortHash(responseHash)}; the chain records ${shortHash(v.response_hash)}. The model answered ${answer ? `${answer.verdict}${answer.reasons.length ? `: ${answer.reasons.join(", ")}` : ""}` : "something unreadable"}, ${sameAnswer ? "the verdict the vault recorded" : "not the verdict the vault recorded"}.`,
+            detail: `sha256 here: ${shortHash(responseHash)}; the chain records ${shortHash(v.response_hash)}. The model answered ${answer ? `${answer.verdict}${answer.reasons.length ? ` (${answer.reasons.map(reasonText).join("; ").toLowerCase()})` : ""}` : "something unreadable"}, ${sameAnswer ? "the verdict the vault recorded" : "not the verdict the vault recorded"}.`,
           },
           {
             ok: !!signer && signer === v.signer.toLowerCase() && approved,
             title: "The enclave's key signed it",
             detail: signer
-              ? `Recovered in your browser from the signature: ${shortHash(signer)}, ${approved ? "a key this vault approved" : "not a key this vault approved"}${signer === v.signer.toLowerCase() ? ", the signer the vault recorded" : ""}.`
+              ? `Recovered in your browser from the signature: ${shortAddress(signer)}, ${approved ? "a key this vault approved" : "not a key this vault approved"}${signer === v.signer.toLowerCase() ? ", the signer the vault recorded" : ""}.`
               : "The published signature doesn't recover to a key.",
           },
           {
             ok: aboutThis,
             title: "It asked about this exact payment",
             detail: aboutThis
-              ? `Veto's system prompt, word for word, and payment #${p.id}: ${pay.amount} to ${shortHash(p.request.payee)}${p.request.memo ? `, reference ${p.request.memo}` : ""}, with the proposal hash the vault computes.`
+              ? `Veto's system prompt, word for word, and payment #${p.id} to ${shortAddress(p.request.payee)}${p.request.memo ? `, reference ${p.request.memo}` : ""}, with its amount and the proposal hash the vault computes.`
               : "The prompt differs from Veto's system prompt or from this payment's facts on-chain.",
           },
           {

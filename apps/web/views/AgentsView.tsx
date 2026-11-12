@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 import { accessKeys, metaOf, useVault, type VaultState } from "@/lib/vault";
 import { useWallet } from "@/lib/wallet";
 import { RPC_UPSTREAM } from "@/lib/config";
-import { STATUS_TEXT, payeeLabel } from "@/lib/decision";
-import { formatAmount, formatWhen, NATIVE } from "@/lib/format";
+import { STATUS_TEXT, outcomeOf, payeeLabel } from "@/lib/decision";
+import { formatAmount, formatWhenInline, NATIVE, shortAddress } from "@/lib/format";
 import { Screen, delay } from "@/components/Screen";
 import { OwnerButton } from "@/components/OwnerButton";
 import { Boot } from "@/components/Boot";
@@ -48,7 +48,27 @@ function useVaultKeys(accountId: string, vaultId: string): KeyInfo[] | null {
   return keys;
 }
 
-const shortKey = (key: string) => (key.length > 20 ? `${key.slice(0, 11)}…${key.slice(-3)}` : key);
+/** "ed25519:BLVq3w…xUki": the curve, then the key's ends. */
+const shortKey = (key: string) => {
+  const [curve, body] = key.includes(":") ? key.split(":") : ["", key];
+  const ends = body.length > 12 ? `${body.slice(0, 6)}…${body.slice(-4)}` : body;
+  return curve ? `${curve}:${ends}` : ends;
+};
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** "53 payments · 21 paid · 32 vetoed", the same counts as everywhere else. */
+function counts(list: { status: Parameters<typeof outcomeOf>[0] }[]) {
+  const n = { paid: 0, vetoed: 0, pending: 0, closed: 0 };
+  for (const p of list) n[outcomeOf(p.status)]++;
+  return [
+    plural(list.length, "payment"),
+    `${n.paid} paid`,
+    `${n.vetoed} vetoed`,
+    ...(n.pending ? [`${n.pending} pending`] : []),
+    ...(n.closed ? [`${n.closed} expired or failed`] : []),
+  ].join(" · ");
+}
 
 export function AgentsView() {
   const { state, isSandbox } = useVault();
@@ -59,7 +79,7 @@ export function AgentsView() {
     <Screen>
       <LineReveal as="h1" className={head.title} text="Agents" />
       <p className={`${head.lead} rise`} style={delay(60)}>
-        Every agent here, whatever wallet it runs in, passes the same private AI check before it pays, and it can ask to pay, never change the rules. Agents on this vault and OutLayer wallets also meet the vault's limits; the Agent API wallet meets its owner's signed policy.
+        Agents can ask to pay. Veto screens every request the same way, whichever wallet the agent pays from, and no agent can change your rules.
       </p>
 
       <div className={styles.list}>
@@ -86,18 +106,21 @@ function AgentCard({ state, agent, active, style }: { state: VaultState; agent: 
   const periodStartNs = (BigInt(state.config.period_anchor_secs) + BigInt(state.spend[state.primaryAsset]?.period ?? "0") * BigInt(state.config.period_secs)) * 1_000_000_000n;
   const mine = state.proposals.filter((p) => p.agent === agent);
   const thisPeriod = mine.filter((p) => BigInt(p.created_at) >= periodStartNs);
-  const paid = thisPeriod.filter((p) => p.status === "Paid").length;
-  const vetoed = thisPeriod.filter((p) => p.status === "Vetoed" || p.status === "Cancelled").length;
   const last = mine[0];
   const proposeKey = keys?.find((k) => k.methods.includes("propose"));
 
   return (
     <article className={`${styles.card} rise`} style={style}>
       <header className={styles.cardHead}>
-        <h2 className={`${styles.agentName} mono`}>{agent}</h2>
+        <div className={styles.nameBlock}>
+          <h2 className={styles.agentName}>{`${shortAddress(agent).charAt(0).toUpperCase()}${shortAddress(agent).slice(1)} agent`}</h2>
+          <span className={styles.kind}>
+            On this vault · <span className="mono">{agent}</span>
+          </span>
+        </div>
         <span className={`${styles.badge} ${active ? styles.on : styles.off}`}>{active ? "Active" : "Paused"}</span>
       </header>
-      <p className={styles.cardText}>Can propose payments. Can't change your mandate, payees or limits.</p>
+      <p className={styles.cardText}>Can ask to pay. Can&apos;t move funds or change your rules, payees or limits.</p>
 
       <dl className={styles.facts}>
         <div className={styles.fact}>
@@ -107,8 +130,10 @@ function AgentCard({ state, agent, active, style }: { state: VaultState; agent: 
               "Checking keys…"
             ) : proposeKey ? (
               <>
-                Function-call key · can only call <span className="mono">{proposeKey.methods.join(", ")}</span> on <span className="mono">{vaultId}</span>
-                <span className={`mono ${styles.key}`}>{shortKey(proposeKey.publicKey)}</span>
+                A key that can only ask this vault to pay
+                <span className={`mono ${styles.key}`} title={`${proposeKey.publicKey}: may call ${proposeKey.methods.join(", ")} on ${vaultId}`}>
+                  {shortKey(proposeKey.publicKey)}
+                </span>
               </>
             ) : (
               "No key limited to this vault yet."
@@ -122,18 +147,16 @@ function AgentCard({ state, agent, active, style }: { state: VaultState; agent: 
           </div>
         )}
         <div className={styles.fact}>
-          <dt>This period</dt>
-          <dd>
-            {thisPeriod.length} proposal{thisPeriod.length === 1 ? "" : "s"} · {paid} paid, {vetoed} vetoed
-          </dd>
+          <dt>This week</dt>
+          <dd>{counts(thisPeriod)}</dd>
         </div>
         {last && (
           <div className={styles.fact}>
             <dt>Last action</dt>
             <dd>
-              Proposed {formatAmount(last.request.amount, metaOf(state, last.request.asset))} to{" "}
-              <span className={last.request.payee.startsWith("0x") ? "mono" : ""}>{payeeLabel(state.payees, last)}</span> ·{" "}
-              {STATUS_TEXT[last.status].toLowerCase()} {formatWhen(last.created_at).toLowerCase()}{" "}
+              Asked to pay {formatAmount(last.request.amount, metaOf(state, last.request.asset))} to{" "}
+              <span className={last.request.payee.startsWith("0x") ? "mono" : ""}>{payeeLabel(state.payees, last)}</span>,{" "}
+              {STATUS_TEXT[last.status].toLowerCase()} {formatWhenInline(last.created_at)}.{" "}
               <Link href={`/app/decisions/${last.id}`} className={styles.link}>View decision</Link>
             </dd>
           </div>
@@ -190,14 +213,18 @@ function AgentApiCard({ style }: { style?: React.CSSProperties }) {
   if (!view) return null;
   const perPayment = view.policy?.limits.per_transaction && Object.values(view.policy.limits.per_transaction)[0];
   const daily = view.policy?.limits.daily && Object.values(view.policy.limits.daily)[0];
+  const withdrawals = ((view.policy?.destinations.list ?? []) as { action?: string; chain?: string }[]).filter((d) => d.action === "withdraw");
   return (
     <article className={`${styles.card} rise`} style={style}>
       <header className={styles.cardHead}>
-        <h2 className={styles.agentName}>{view.name}</h2>
-        <span className={`${styles.badge} ${view.policy?.frozen ? styles.off : styles.on}`}>{view.policy?.frozen ? "Frozen" : "Agent API · mainnet"}</span>
+        <div className={styles.nameBlock}>
+          <h2 className={styles.agentName}>{view.name}</h2>
+          <span className={styles.kind}>NEAR Intents wallet · mainnet</span>
+        </div>
+        <span className={`${styles.badge} ${view.policy?.frozen ? styles.off : styles.on}`}>{view.policy?.frozen ? "Frozen" : "Active"}</span>
       </header>
       <p className={styles.cardText}>
-        A NEAR Intents Agent API wallet. Its owner signed a policy that is the hard limit, and Veto holds its only grant, so the AI agent can only ask. Veto screens each request and sends just what passes.
+        Its owner&apos;s signed policy is the hard limit, and Veto holds its only spending grant, so the AI agent can only ask. Veto screens each request and sends just what passes.
       </p>
       <dl className={styles.facts}>
         <div className={styles.fact}>
@@ -205,7 +232,7 @@ function AgentApiCard({ style }: { style?: React.CSSProperties }) {
           <dd>
             {view.wallet ? (
               <a href={`https://nearblocks.io/address/${view.wallet}`} target="_blank" rel="noreferrer" className={`mono ${styles.key}`}>
-                {shortKey(view.wallet)}
+                {shortAddress(view.wallet)}
               </a>
             ) : (
               "Setting up"
@@ -215,21 +242,22 @@ function AgentApiCard({ style }: { style?: React.CSSProperties }) {
         <div className={styles.fact}>
           <dt>Owner&apos;s policy</dt>
           <dd>
-            {view.in_force ? "In force: " : "Syncing: "}USDC only, up to {usd(perPayment)} a payment and {usd(daily)} a day, to {view.policy?.destinations.list.length ?? 0} listed payees ({view.payees.map((p) => (p.chain && p.chain !== "near" ? `${p.name}, paid out on ${p.chain === "base" ? "Base" : p.chain}` : p.name)).join("; ")}).
+            {view.in_force ? "In force: " : "Syncing: "}USDC only, up to {usd(perPayment)} a payment and {usd(daily)} a day. Transfers to {view.payees.map((p) => p.name).join(" and ")}
+            {withdrawals.length > 0 && <>, and salary payouts to {withdrawals.length === 1 ? "one worker's wallet" : `${withdrawals.length} workers' wallets`} on {withdrawals[0].chain === "base" ? "Base" : withdrawals[0].chain}</>}.
           </dd>
         </div>
         <div className={styles.fact}>
-          <dt>Grant</dt>
-          <dd>{view.grants.length === 1 ? `One, held by Veto: "${view.grants[0].label}"` : `${view.grants.length} live grants`}</dd>
+          <dt>Spending grant</dt>
+          <dd>{view.grants.length === 1 ? "One, held by Veto" : `${view.grants.length} live grants`}</dd>
         </div>
         <div className={styles.fact}>
           <dt>Balance</dt>
-          <dd>{usd(view.usdc)} USDC{view.usdc === "0" ? ", so a payment that passes is stopped for lack of funds until it's funded" : ""}</dd>
+          <dd>{usd(view.usdc)}{view.usdc === "0" ? ". A payment that passes waits until it's funded." : ""}</dd>
         </div>
         <div className={styles.fact}>
           <dt>Owner</dt>
           <dd>
-            An EVM key Veto&apos;s demo holds, like the sandbox&apos;s demo owner: <span className="mono">{view.owner ? shortKey(view.owner) : "unknown"}</span>
+            Held by Veto&apos;s demo, like the sandbox owner: <span className="mono">{view.owner ? shortAddress(view.owner) : "unknown"}</span>
           </dd>
         </div>
       </dl>
@@ -239,41 +267,40 @@ function AgentApiCard({ style }: { style?: React.CSSProperties }) {
 
 function WalletCard({ state, wallet, name, provider, style }: { state: VaultState; wallet: string; name: string; provider: string; style?: React.CSSProperties }) {
   const mine = state.proposals.filter((p) => p.external?.wallet === wallet);
-  const paid = mine.filter((p) => p.status === "Paid").length;
-  const held = mine.filter((p) => p.status === "Vetoed").length;
   const last = mine[0];
   return (
     <article className={`${styles.card} rise`} style={style}>
       <header className={styles.cardHead}>
-        <h2 className={styles.agentName}>{name || "Agent wallet"}</h2>
-        <span className={`${styles.badge} ${styles.on}`}>{provider === "outlayer" ? "OutLayer" : provider}</span>
+        <div className={styles.nameBlock}>
+          <h2 className={styles.agentName}>{name || "Agent wallet"}</h2>
+          <span className={styles.kind}>{provider === "outlayer" ? "OutLayer wallet" : provider}</span>
+        </div>
+        <span className={`${styles.badge} ${styles.on}`}>Active</span>
       </header>
       <p className={styles.cardText}>
-        Pays from its own wallet, which holds every payment until Veto approves it. Veto approves only what passes your caps and the screen here.
+        Pays from its own wallet, which holds every payment until Veto approves it. Veto approves only what passes your limits and the AI screen.
       </p>
       <dl className={styles.facts}>
         <div className={styles.fact}>
           <dt>Wallet</dt>
           <dd>
-            <span className={`mono ${styles.key}`}>{shortKey(wallet)}</span>
+            <span className={`mono ${styles.key}`}>{shortAddress(wallet)}</span>
           </dd>
         </div>
         <div className={styles.fact}>
           <dt>Approvals</dt>
-          <dd>Veto's approver or you. A veto means Veto never signs, so the wallet keeps holding the payment.</dd>
+          <dd>Veto or you. After a veto Veto never signs, so the wallet keeps holding the payment.</dd>
         </div>
         <div className={styles.fact}>
-          <dt>So far</dt>
-          <dd>
-            {mine.length} payment{mine.length === 1 ? "" : "s"} · {paid} paid, {held} held by a veto
-          </dd>
+          <dt>All payments</dt>
+          <dd>{counts(mine)}</dd>
         </div>
         {last && (
           <div className={styles.fact}>
             <dt>Last action</dt>
             <dd>
-              Asked to pay {formatAmount(last.request.amount, metaOf(state, last.request.asset))} to {payeeLabel(state.payees, last)} ·{" "}
-              {STATUS_TEXT[last.status].toLowerCase()} {formatWhen(last.created_at).toLowerCase()}{" "}
+              Asked to pay {formatAmount(last.request.amount, metaOf(state, last.request.asset))} to {payeeLabel(state.payees, last)},{" "}
+              {STATUS_TEXT[last.status].toLowerCase()} {formatWhenInline(last.created_at)}.{" "}
               <Link href={`/app/decisions/${last.id}`} className={styles.link}>View decision</Link>
             </dd>
           </div>
@@ -305,7 +332,7 @@ function ConnectAgent() {
   return (
     <section className={`${styles.connect} rise`} style={delay(280)} aria-labelledby="connect-title">
       <h2 id="connect-title" className={styles.h2}>Connect an agent</h2>
-      <p className={styles.cardText}>Give it a key that can only propose payments. Every proposal goes through the same two checks. It never holds your funds.</p>
+      <p className={styles.cardText}>Give it a key that can only ask to pay. Every request goes through your limits and the AI screen, and the agent never holds your funds.</p>
       <pre className={styles.code} aria-label="Example: an agent proposing a payment">
         <code>
           {lines.map((line, i) => (

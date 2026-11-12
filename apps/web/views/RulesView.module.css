@@ -63,7 +63,7 @@
 
 .freeze[data-frozen] .freezeIcon {
   background: var(--coral);
-  color: var(--black);
+  color: var(--on-accent);
 }
 
 .freezeText {

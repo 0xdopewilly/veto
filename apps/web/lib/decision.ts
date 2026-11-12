@@ -1,6 +1,6 @@
 import type { Payee, Proposal, Status } from "@veto/core/proposal";
 import { REASON_TEXT, type ReasonCode } from "@veto/core/prompt";
-import { computeSignals, lookalike } from "@veto/core/signals";
+import { lookalike } from "@veto/core/signals";
 import { EXPLORER } from "./config";
 import { shortAddress } from "./format";
 
@@ -12,10 +12,50 @@ export const STATUS_TEXT: Record<Status, string> = {
   Paid: "Paid",
   Vetoed: "Vetoed",
   OverridePending: "Override pending",
-  Cancelled: "Cancelled",
+  Cancelled: "Kept blocked",
   Expired: "Expired",
   Failed: "Failed",
 };
+
+/**
+ * What a payment came to, for every count in the app. "Vetoed" means the AI screen said no and
+ * nothing was paid: open vetoes and the ones the owner kept blocked (Cancelled only ever follows a
+ * veto: keep_blocked, or an override the owner called off).
+ */
+export type Outcome = "paid" | "vetoed" | "pending" | "closed";
+
+export function outcomeOf(status: Status): Outcome {
+  if (status === "Paid") return "paid";
+  if (status === "Vetoed" || status === "Cancelled") return "vetoed";
+  if (status === "Screening" || status === "Executing" || status === "OverridePending") return "pending";
+  return "closed";
+}
+
+/** Count and amount (raw units of one asset) of payments with one outcome. */
+export interface Tally {
+  n: number;
+  sum: string;
+}
+export interface Totals {
+  /** Every payment the vault has recorded. */
+  count: number;
+  paid: Tally;
+  vetoed: Tally;
+  pending: Tally;
+}
+
+/** All-time totals; amounts add up payments in `asset` only, so dollars never mix with ETH. */
+export function tally(proposals: Proposal[], asset: string): Totals {
+  const t = { paid: { n: 0, sum: 0n }, vetoed: { n: 0, sum: 0n }, pending: { n: 0, sum: 0n } };
+  for (const p of proposals) {
+    const o = outcomeOf(p.status);
+    if (o === "closed") continue;
+    t[o].n++;
+    if (p.request.asset === asset) t[o].sum += BigInt(p.request.amount);
+  }
+  const out = (x: { n: number; sum: bigint }): Tally => ({ n: x.n, sum: x.sum.toString() });
+  return { count: proposals.length, paid: out(t.paid), vetoed: out(t.vetoed), pending: out(t.pending) };
+}
 
 export function toneOf(status: Status): Tone {
   if (status === "Paid") return "pass";
@@ -87,26 +127,34 @@ export const evmTxUrl = (p: Proposal) =>
 export const payoutTxUrl = (p: Proposal) =>
   evmTxUrl(p) ?? (p.external?.tx_hash ? `${EXPLORER}/txns/${p.external.tx_hash}` : null);
 
-/** Who asked for the payment: the agent's account, or the OutLayer wallet it pays from. */
-export const requesterLabel = (p: Proposal) => (p.external ? `${shortAddress(p.external.wallet)} (OutLayer wallet)` : p.agent);
 
-const SIGNAL_WEIGHT: Record<string, number> = { NEW_PAYEE: 3, LOOKALIKE_ADDRESS: 4, DUPLICATE_INVOICE: 4, AMOUNT_ANOMALY: 3 };
-
-/** How loudly a payment's risk signals fired, as 0–10 segments for the signal bar. */
-const riskCache = new WeakMap<Proposal, { payees: Payee[]; proposals: Proposal[]; value: { filled: number; signals: number } }>();
-
-export function riskOf(p: Proposal, payees: Payee[], proposals: Proposal[]): { filled: number; signals: number } {
-  const hit = riskCache.get(p);
-  if (hit && hit.payees === payees && hit.proposals === proposals) return hit.value;
-  const value = computeRisk(p, payees, proposals);
-  riskCache.set(p, { payees, proposals, value });
-  return value;
-}
-
-function computeRisk(p: Proposal, payees: Payee[], proposals: Proposal[]): { filled: number; signals: number } {
-  const history = proposals.filter((x) => Number(x.id) < Number(p.id));
-  const signals = computeSignals(p.request, payees, history).filter((s) => s.code !== "LISTED_PAYEE");
-  let score = 1 + signals.reduce((sum, s) => sum + (SIGNAL_WEIGHT[s.code] ?? 2), 0);
-  if (p.status === "Vetoed") score += p.verdict?.reasons.length || 1;
-  return { filled: Math.min(10, score), signals: signals.length };
+/**
+ * One line under each reason on a vetoed payment, from the payment's own data where it can.
+ * The lookalike reason has its own block (the address comparison).
+ */
+export function reasonDetail(code: string, p: Proposal, payees: Payee[], proposals: Proposal[]): string | null {
+  const listed = listedPayee(payees, p);
+  switch (code) {
+    case "NEW_PAYEE":
+      return `${shortAddress(p.request.payee)} isn't on your payee list. If it's genuine, add it under Rules and send the payment again.`;
+    case "CHANGED_PAYOUT_DETAILS":
+      return "The message asks to send the money somewhere new. Suppliers rarely change bank details by email; confirm by phone before paying.";
+    case "UNTRUSTED_INSTRUCTION":
+      return "The instruction to pay came from inside the email, not from you or your rules. Veto treats instructions in evidence as untrusted.";
+    case "URGENCY_PRESSURE":
+      return "The message pushes to pay right away, a common sign of fraud.";
+    case "DUPLICATE_INVOICE": {
+      const prior = p.request.memo ? proposals.find((x) => x.id !== p.id && x.status === "Paid" && x.request.memo === p.request.memo) : undefined;
+      return prior ? `${p.request.memo} was already paid, as payment #${prior.id}.` : "A payment with this reference was already made.";
+    }
+    case "AMOUNT_ANOMALY":
+      return listed ? `The amount is far from what you usually pay ${listed.name}, or from what the invoice bills.` : "The amount doesn't match the invoice or past payments.";
+    case "UNLIMITED_APPROVAL":
+      return "It would let someone spend your tokens without any limit, not just this amount.";
+    case "MANDATE_VIOLATION":
+      return "Your rules don't allow this payment.";
+    case "EVIDENCE_MISMATCH":
+      return "The email or invoice doesn't support the payment your agent asked for.";
+  }
+  return null;
 }

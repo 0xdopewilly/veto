@@ -50,7 +50,7 @@
 }
 
 .role[data-owner] {
-  color: var(--green);
+  color: var(--green-fg);
 }
 
 .role[data-owner] .roleDot {
@@ -74,7 +74,7 @@
 }
 
 .facts > div + div {
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid color-mix(in srgb, var(--sand) 7%, transparent);
 }
 
 .facts dt {
@@ -85,7 +85,6 @@
   margin: 0;
   display: inline-flex;
   align-items: center;
-  font-variant-numeric: tabular-nums;
 }
 
 .note {
@@ -96,11 +95,11 @@
 }
 
 .good {
-  color: var(--green);
+  color: var(--green-fg);
 }
 
 .bad {
-  color: var(--coral);
+  color: var(--coral-fg);
 }
 
 .actions {
