@@ -79,6 +79,7 @@
 .footnote {
   margin: 20px 0 0;
   text-align: center;
+  text-wrap: balance;
   font-size: 13px;
   line-height: 1.45;
   color: var(--muted);
@@ -115,7 +116,7 @@
 }
 
 .note svg {
-  color: var(--purple);
+  color: var(--purple-fg);
   margin-top: 2px;
 }
 
@@ -237,11 +238,11 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--green);
+  color: var(--green-fg);
 }
 
 .bad {
-  color: var(--coral);
+  color: var(--coral-fg);
 }
 
 .suffix {
@@ -275,11 +276,11 @@
 }
 
 .gasNote[data-tone="sent"] {
-  color: var(--green);
+  color: var(--green-fg);
 }
 
 .gasNote[data-tone="failed"] {
-  color: var(--coral);
+  color: var(--coral-fg);
 }
 
 .gasNote > svg {
@@ -412,12 +413,12 @@
 
 .statusError {
   background: var(--coral-tint);
-  color: var(--coral);
+  color: var(--coral-fg);
 }
 
 .statusDone {
   background: var(--green-tint);
-  color: var(--green);
+  color: var(--green-fg);
 }
 
 .txLink {
@@ -427,8 +428,16 @@
   font-size: 13px;
 }
 
+/* Desktop: no thumb to reach for, so the actions sit right under the content and the column
+   centres in the window instead of pinning its buttons to the bottom. */
 @media (min-width: 900px) {
   .screen {
     padding-top: 56px;
+    padding-bottom: 56px;
+    justify-content: center;
+  }
+  .spacer {
+    flex: none;
+    min-height: 32px;
   }
 }

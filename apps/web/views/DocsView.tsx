@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { EXPLORER, SANDBOX_ID as VAULT_ID } from "@/lib/config";
 import { Circuit } from "@/components/Circuit";
 import { LineReveal } from "@/components/LineReveal";
 import { SmoothScroll } from "@/components/SmoothScroll";
-import { RevealOnScroll } from "@/components/RevealOnScroll";
 import styles from "./DocsView.module.css";
 
 const SECTIONS = [
@@ -26,8 +25,9 @@ const SECTIONS = [
   { id: "faq", label: "Questions" },
 ];
 
-type Status = "live" | "mainnet" | "built" | "next";
-const STATUS_TEXT: Record<Status, string> = { live: "Live on testnet", mainnet: "Live on mainnet", built: "Built and tested", next: "Next" };
+/** Everything is live on testnet unless it says otherwise, so only the exceptions carry a badge. */
+type Status = "live" | "mainnet" | "built";
+const STATUS_TEXT: Record<Exclude<Status, "live">, string> = { mainnet: "Live on mainnet", built: "Built and tested" };
 
 const STATUS: { part: string; status: Status; note: string }[] = [
   { part: "Vault contract: caps, verdict check, overrides, freeze", status: "live", note: "61 contract tests; deployed on NEAR testnet." },
@@ -38,10 +38,10 @@ const STATUS: { part: string; status: Status; note: string }[] = [
   { part: "Payroll: staff paid on the chain they chose", status: "live", note: "Staff sit on the payee list with their own wallet and chain. The sandbox pays a salary in test ETH on Base from the vault's Chain Signatures address and vetoes a fake request to send it to a new wallet." },
   { part: "Agent inbox and guardian screening", status: "live", note: "Real proposals and verdicts on testnet, screened by Qwen3-VL-30B inside NEAR AI's enclave. The sandbox trusts only the enclave key, like every vault you create: if NEAR AI can't answer, the payment expires unpaid." },
   { part: "Owner actions in the app", status: "live", note: "In your own vault, only your wallet. In the shared sandbox, a demo-owner key limited to the owner methods, so anyone can try it without a wallet. The sandbox goes back to its default rules for each new visitor." },
-  { part: "Private AI screen on NEAR AI Cloud", status: "live", note: "Qwen3-VL-30B runs in an Intel TDX enclave on NEAR AI Cloud and signs each verdict in about 1.5 s. The vault checks the signature on-chain against the model's attested key." },
+  { part: "Private AI screen on NEAR AI Cloud", status: "live", note: "Qwen3-VL-30B runs in an Intel TDX enclave on NEAR AI Cloud and signs each verdict in about 1.3 s (the Bench median). The vault checks the signature on-chain against the model's attested key." },
   { part: "Enclave verification", status: "live", note: "Every Proof page re-checks NEAR AI's enclave live with a fresh nonce: Intel's TDX quote, NVIDIA's GPU evidence, the key and nonce bound into the quote, the app it runs, the gateway, and that the attested key signed the verdict. Tested offline on a captured real quote." },
   { part: "Activity export", status: "live", note: "Download CSV gives one row per payment, ready for an accountant: date, payee, amount, status, reference, verdict and reasons, payout transaction and a link to its proof." },
-  { part: "Paying suppliers on other chains (NEAR Intents)", status: "built", note: "The vault verifies 1Click's signed quote on-chain, tested against a real executable quote. The mainnet payout is scripted and runs once the mainnet vault is funded." },
+  { part: "Paying suppliers on other chains (NEAR Intents)", status: "mainnet", note: "The vault verifies 1Click's signed quote on-chain before it pays. On 12 Nov 2026 the mainnet vault treasury.veto-mainnet.near paid its first invoice this way: $2.00 to a supplier on Base, paid in USDC, which 1Click delivered in full." },
   { part: "Veto Bench", status: "live", note: "100 scenarios. Qwen3-VL-30B catches 50 of 50 attacks and pays all 42 honest payments to saved suppliers; the 8 first payments to new suppliers wait for the owner, as they do on an allowlist. All 100 signatures re-verify offline. Plain-policy and rules-only baselines are published beside it." },
   { part: "Shield incident check before cross-chain payouts", status: "built", note: "Holds a payout while a NEAR Intents Shield incident touches its chain, bridge, token or payee; fails closed if it outlasts the deadline. Runs when the Shield key is added." },
   { part: "The vault's own Base address via Chain Signatures", status: "live", note: "The vault builds each passed transfer and NEAR's MPC network signs exactly that; the contract tests include byte-for-byte checks against ethers." },
@@ -78,11 +78,11 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Where do the payment requests come from?",
-    a: "From what the agent reads. The inbox holds example emails (a supplier's invoice and a salary, both genuine, and four common scams), and Write your own email sends the agent anything you type: a real model on NEAR AI reads it and proposes whatever it asks for, the way an accounts-payable agent would. The agent also has a real inbox, veto-agent@agentmail.to: mail it from your own account and it replies with Veto's decision, with the sender's SPF, DKIM and DMARC results in the evidence. In production that is the business's own inbox, a supplier portal or a web page. Veto never trusts the request; it screens the payment against the evidence.",
+    a: "From what the agent reads. The inbox holds example emails (two suppliers' invoices and a salary, all genuine, and four common scams), and Write your own email sends the agent anything you type: a real model on NEAR AI reads it and proposes whatever it asks for, the way an accounts-payable agent would. The agent also has a real inbox, veto-agent@agentmail.to: mail it from your own account and it replies with Veto's decision, with the sender's SPF, DKIM and DMARC results in the evidence. In production that is the business's own inbox, a supplier portal or a web page. Veto never trusts the request; it screens the payment against the evidence.",
   },
   {
     q: "Which model screens the payments?",
-    a: "Qwen3-VL-30B-A3B-Instruct, hosted by NEAR AI Cloud inside an Intel TDX enclave. It answers directly without a reasoning phase, so a verdict takes about 1.5 seconds and always arrives in full. The owner approves a model by its attested signing key (add_signer), so any other enclave-hosted model can be used instead; Veto Bench compares them on the same 100 scenarios.",
+    a: "Qwen3-VL-30B-A3B-Instruct, hosted by NEAR AI Cloud inside an Intel TDX enclave. It answers directly without a reasoning phase, so a verdict takes about 1.3 seconds (the Bench median) and always arrives in full. The owner approves a model by its attested signing key (add_signer), so any other enclave-hosted model can be used instead; Veto Bench compares them on the same 100 scenarios.",
   },
   {
     q: "What if the AI gets it wrong?",
@@ -90,11 +90,11 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "What if the screening service is compromised?",
-    a: "The vault only accepts verdicts from the registered guardian account, signed by an approved model key, echoing this exact proposal. A compromised guardian still can't pay more than the caps allow, can't change payees or limits, and can't move money anywhere the agent didn't propose. The guardian does choose the evidence the model reads: the enclave proves which model judged which input, not that the input was the real email. In this demo one server runs both the demo agent and the guardian, so it holds both roles and could propose and pass a payment to any address inside the caps; an owner can close that by requiring listed payees on-chain (set_require_listed_payee). Running the guardian itself inside a TEE is the next step that removes this trust.",
+    a: "The vault only accepts verdicts from the registered guardian account, signed by an approved model key, echoing this exact proposal. A compromised guardian still can't pay more than the caps allow, can't change payees or limits, and can't move money anywhere the agent didn't propose. The guardian does choose the evidence the model reads: the enclave proves which model judged which input. It can't prove the input was the real email. In this demo one server runs both the demo agent and the guardian, so it holds both roles and could propose and pass a payment to any address inside the caps; an owner can close that by requiring listed payees on-chain (set_require_listed_payee). Running the guardian itself inside a TEE is the next step that removes this trust.",
   },
   {
     q: "How is this different from a policy wallet?",
-    a: "A policy wallet enforces caps and an allowlist, and Veto's contract does the same. Those rules stop payments to strangers. They can't stop a payment to a listed supplier for an invoice that was already paid, or for more than was billed, and a strict allowlist blocks every new supplier. Veto adds a private screen that reads the evidence behind each payment and can only say no, so the two work together rather than compete. On an OutLayer wallet that is literal: Veto is an approver on the wallet's policy.",
+    a: "A policy wallet enforces caps and an allowlist, and Veto's contract does the same. Those rules stop payments to strangers. They can't stop a payment to a listed supplier for an invoice that was already paid, or for more than was billed, and a strict allowlist blocks every new supplier. Veto adds a private screen that reads the evidence behind each payment and can only say no, so the two work together. On an OutLayer wallet that is literal: Veto is an approver on the wallet's policy.",
   },
   {
     q: "Can it run payroll?",
@@ -115,6 +115,136 @@ const FAQ: { q: string; a: string }[] = [
   {
     q: "Who pays for gas?",
     a: "Each account pays for its own calls: the agent for proposing, the guardian for submitting verdicts, the owner for owner actions. On testnet that's free test NEAR from the faucet.",
+  },
+];
+
+/** "Try it on testnet": what to do, then what you'll see. A sequence, so it's numbered. */
+const TRY: { act: ReactNode; see: ReactNode }[] = [
+  {
+    act: (
+      <>
+        Open <Link href="/start/vault">Create your vault</Link>, connect a NEAR testnet wallet, name your business and sign. Meteor Wallet
+        (meteorwallet.app) makes a free testnet account; switch it to testnet first. A new wallet has no NEAR, so Veto sends it 0.3 test
+        NEAR for gas when it connects.
+      </>
+    ),
+    see: (
+      <>
+        Your own vault goes live in a few seconds, with $5,000 in test USDC, two suppliers and its own test agent. From then on, overrides,
+        freezes and rule changes need your wallet&apos;s signature.
+      </>
+    ),
+  },
+  {
+    act: (
+      <>
+        Open <Link href="/app">the app</Link> and press <strong>Try it</strong>: the green V on a phone, or <strong>Try the agent</strong> at
+        the top of the sidebar on a desktop.
+      </>
+    ),
+    see: <>The agent&apos;s inbox: two suppliers&apos; invoices and a salary, all genuine, and four scams that look ordinary.</>,
+  },
+  {
+    act: <>Let the agent pay the Kano Cotton Mills invoice.</>,
+    see: (
+      <>
+        &ldquo;Agent proposed the payment&rdquo;, &ldquo;Screening in the enclave&rdquo;, then <strong>Paid</strong>, with testnet
+        transaction links.
+      </>
+    ),
+  },
+  {
+    act: <>Let it pay &ldquo;Updated payment details&rdquo;.</>,
+    see: (
+      <>
+        <strong>Vetoed</strong>: a lookalike address, a new payee and changed payout details, though the payment was inside the weekly
+        limit.
+      </>
+    ),
+  },
+  {
+    act: (
+      <>
+        Open the decision, then <strong>Proof</strong>.
+      </>
+    ),
+    see: <>The signer, the hashes and the on-chain check, then the exact bytes the model saw, re-hashed in your browser.</>,
+  },
+  {
+    act: (
+      <>
+        On that page, press <strong>Check the enclave now</strong>.
+      </>
+    ),
+    see: <>Eight live checks of NEAR AI&apos;s enclave, among them Intel&apos;s quote, NVIDIA&apos;s GPUs and the key that signed the verdict.</>,
+  },
+  {
+    act: (
+      <>
+        Open <strong>Activity</strong> and press <strong>Download CSV</strong>.
+      </>
+    ),
+    see: (
+      <>
+        One row per payment, ready for an accountant: date, payee, amount, status, reference, verdict and reasons, the payout transaction
+        and a link to its proof.
+      </>
+    ),
+  },
+  {
+    act: (
+      <>
+        On a vetoed payment, press <strong>Override</strong>. In your own vault your wallet signs it; in the sandbox anyone can.
+      </>
+    ),
+    see: <>A countdown. The override pays only after the delay, and you can cancel it until then.</>,
+  },
+  {
+    act: (
+      <>
+        In the sandbox, switch <strong>Pay from</strong> to <strong>OutLayer</strong> and repeat.
+      </>
+    ),
+    see: (
+      <>
+        The invoice approved by Veto on OutLayer and sent by the wallet. The scam stays held, and <strong>Keep it blocked</strong> rejects
+        it there for good.
+      </>
+    ),
+  },
+  {
+    act: (
+      <>
+        Press <strong>Write your own email</strong> and write the agent an invoice, or a scam.
+      </>
+    ),
+    see: <>A real AI agent on NEAR AI reads it and proposes whatever it asks for. Veto then screens that payment like any other.</>,
+  },
+  {
+    act: (
+      <>
+        In the sandbox, let the agent pay <strong>Tunde Bello&apos;s salary</strong>.
+      </>
+    ),
+    see: (
+      <>
+        <strong>Paid</strong> on Base, the chain Tunde chose, from the vault&apos;s own Base Sepolia address through NEAR Chain Signatures,
+        with a Base explorer link. It pays once a month: a second request for the same payslip is vetoed as a repeat.
+      </>
+    ),
+  },
+  {
+    act: (
+      <>
+        Let it pay <strong>&ldquo;New wallet for my salary&rdquo;</strong>.
+      </>
+    ),
+    see: (
+      <>
+        <strong>Vetoed</strong>: the address imitates Tunde&apos;s saved one, it has never been paid, and the request came from outside the
+        company.
+      </>
+    ),
   },
 ];
 
@@ -148,8 +278,6 @@ export function DocsView() {
   return (
     <div className={styles.page}>
       <SmoothScroll />
-      <RevealOnScroll />
-
 
       <div className={styles.layout}>
         <nav aria-label="On this page" className={styles.toc}>
@@ -167,64 +295,64 @@ export function DocsView() {
 
         <main className={styles.content}>
           <section id="what" className={styles.hero}>
-            <span className={styles.eyebrow}>Docs</span>
-            <LineReveal as="h1" className={styles.h1} lines={["A second signer", "that can only say no."]} />
-            <p className={styles.summary}>
+            <LineReveal as="h1" className={styles.h1} lines={["A second signer", "that can only", "say no."]} />
+            <p className={`${styles.summary} rise`} style={{ animationDelay: "120ms" }}>
               Veto is a vault for money that AI agents spend. Every payment an agent asks for has to pass two checks before it leaves:
               hard limits enforced by a NEAR smart contract, and a private AI screen running inside a secure enclave on NEAR AI Cloud. The
               AI can block a payment. It can never approve more than the limits allow.
             </p>
-            <div className={styles.circuitCard}>
-              <Circuit ai="veto" paid={false} delay={0.4} />
-              <p>A payment inside the limit, stopped by the AI screen before it reaches a lookalike address.</p>
-            </div>
+            <figure className={`${styles.circuitCard} rise`} style={{ animationDelay: "200ms" }}>
+              <Circuit ai="veto" paid={false} delay={500} />
+              <figcaption>A payment inside the limit, stopped by the AI screen before it reaches a lookalike address.</figcaption>
+            </figure>
           </section>
 
-          <section id="problem" className={styles.section} data-reveal>
-            <h2>Why spending limits aren't enough</h2>
+          <section id="problem" className={styles.section}>
+            <h2>Why spending limits aren&apos;t enough</h2>
             <p>
               Agents can now pay invoices, buy services and move funds. The usual safeguard is a policy: a spending limit and an allowlist of
               payees. Caps and allowlists stop strangers. The theft that actually happens to businesses is small, looks routine, and often
               pays someone already on the list:
             </p>
             <ul className={styles.bullets}>
-              <li><strong>Lookalike addresses.</strong> An address that shares its first and last characters with a supplier's, so both look the same when shortened.</li>
-              <li><strong>Changed payout details.</strong> An email from a lookalike domain says the supplier's wallet has changed.</li>
+              <li><strong>Lookalike addresses.</strong> An address that shares its first and last characters with a supplier&apos;s, so both look the same when shortened.</li>
+              <li><strong>Changed payout details.</strong> An email from a lookalike domain says the supplier&apos;s wallet has changed.</li>
               <li><strong>Planted instructions.</strong> A web page or document the agent reads tells it to send money somewhere.</li>
-              <li><strong>Duplicate invoices.</strong> A reminder for an invoice that was already paid, to the supplier's real address.</li>
+              <li><strong>Duplicate invoices.</strong> A reminder for an invoice that was already paid, to the supplier&apos;s real address.</li>
               <li><strong>Padded amounts.</strong> A listed supplier paid more than the invoice says.</li>
             </ul>
             <p>
-              Every one of these fits inside a normal weekly limit. On <Link href="/bench">Veto Bench</Link>, a plain policy (allowlist plus a
-              per-payment cap) lets 17 of 50 attacks through, every one to a listed supplier, and blocks 8 honest payments to new suppliers
-              the mandate allowed. Veto's screen, running in NEAR AI's enclave, catches all 50, including every one a plain policy lets
-              through.
+              Every one of these fits inside a normal weekly limit. On <Link href="/bench">Veto Bench</Link>, a plain policy (an allowlist and
+              a per-payment cap) lets 17 of 50 attacks through, every one to a listed supplier. Veto&apos;s screen, running in NEAR AI&apos;s
+              enclave, catches all 50 and pays all 42 honest payments to saved suppliers. Both hold the 8 first payments to new suppliers
+              for the owner to approve.
             </p>
           </section>
 
-          <section id="flow" className={styles.section} data-reveal>
+          <section id="flow" className={styles.section}>
             <h2>How a payment flows</h2>
             <ol className={styles.steps}>
               <li>
                 <strong>The agent proposes.</strong> It calls <code>propose</code> on the vault with the payee, amount and invoice number,
-                and sends the evidence behind it (the email, the invoice) to the guardian. Only a hash of that evidence goes on-chain at this point, so the agent is committed to it before anyone screens anything.
+                and sends the evidence behind it (the email, the invoice) to the guardian. Only a hash of that evidence goes on-chain at this
+                point, so the agent is committed to it before anyone screens anything.
               </li>
               <li>
                 <strong>The contract checks the hard limits.</strong> Per-payment and weekly caps, listed assets, agent allowed, vault not
                 frozen. Anything over a cap is refused right here.
               </li>
               <li>
-                <strong>The guardian screens it in the enclave.</strong> It asks the vault for the screening facts, which the vault writes from its own
-                state (the mandate, the payee list, recent payments and deterministic risk signals: lookalike, new payee, duplicate), and sends them
-                with the evidence to a model running in a TEE on NEAR AI Cloud. The model answers PASS or VETO with reason codes, and the enclave
-                signs the exact request and response.
+                <strong>The guardian screens it in the enclave.</strong> It asks the vault for the screening facts, which the vault writes from
+                its own state (the rules, the payee list, recent payments and fixed risk signals: lookalike, new payee, duplicate), and sends
+                them with the evidence to a model running in a TEE on NEAR AI Cloud. The model answers PASS or VETO with reason codes, and the
+                enclave signs the exact request and response.
               </li>
               <li>
-                <strong>The contract checks the verdict.</strong> With checked screening (the default) it rebuilds the request byte for byte: its
-                pinned screening prompt, the facts written again from its own state, and the evidence, which must match the hash from step one. It
-                recovers the signer of that request and the response with <code>ecrecover</code>, checks it is an approved model key, checks the
-                response names this exact proposal, then records the verdict. So the guardian can&apos;t show the model a different email, mandate
-                or payee list: the signature wouldn&apos;t cover what the vault rebuilt.
+                <strong>The contract checks the verdict.</strong> With checked screening (the default) it rebuilds the request byte for byte:
+                its pinned screening prompt, the facts written again from its own state, and the evidence, which must match the hash from step
+                one. It recovers the signer of that request and the response with <code>ecrecover</code>, checks it is an approved model key,
+                checks the response names this exact proposal, then records the verdict. So the guardian can&apos;t show the model a different
+                email, rules or payee list: the signature wouldn&apos;t cover what the vault rebuilt.
               </li>
               <li>
                 <strong>PASS pays, VETO blocks.</strong> A pass is re-checked against the caps and paid. A veto stays blocked unless the owner
@@ -233,8 +361,8 @@ export function DocsView() {
             </ol>
           </section>
 
-          <section id="rule" className={styles.section} data-reveal>
-            <h2>The rule: the AI can only say no</h2>
+          <section id="rule" className={styles.section}>
+            <h2>The AI can only say no</h2>
             <p>
               The design keeps the AI out of the decision to move money. It can only add a no. That way an AI mistake can never cost more than
               the limits you already accepted.
@@ -245,11 +373,11 @@ export function DocsView() {
                 <ul>
                   <li>The vault contract, which is public and tested.</li>
                   <li>The guardian service to send honest context to the model.</li>
-                  <li>NEAR AI Cloud's TEE hardware for privacy and signatures.</li>
+                  <li>NEAR AI Cloud&apos;s TEE hardware for privacy and signatures.</li>
                 </ul>
               </div>
               <div className={styles.tile}>
-                <h3>What can't hurt you</h3>
+                <h3>What can&apos;t hurt you</h3>
                 <ul>
                   <li>A tricked or compromised agent: it can only propose.</li>
                   <li>A forged verdict: the contract rejects unapproved signers.</li>
@@ -259,55 +387,63 @@ export function DocsView() {
             </div>
           </section>
 
-          <section id="proof" className={styles.section} data-reveal>
+          <section id="proof" className={styles.section}>
             <h2>How anyone can check a decision</h2>
             <p>Every verdict on the vault records the model, the signer, the chat id and the hashes of what the model saw and said. To check one:</p>
             <ol className={styles.steps}>
-              <li>Open the decision's <strong>Proof</strong> page in the app, or read it from the contract with <code>get_proposal</code>.</li>
-              <li>The signer is the model's key, published in NEAR AI Cloud's attestation report and backed by an Intel TDX quote. The vault approved that key before any verdict.</li>
+              <li>Open the decision&apos;s <strong>Proof</strong> page in the app, or read it from the contract with <code>get_proposal</code>.</li>
+              <li>The signer is the model&apos;s key, published in NEAR AI Cloud&apos;s attestation report and backed by an Intel TDX quote. The vault approved that key before any verdict.</li>
               <li>On the Proof page, <strong>Check the enclave now</strong> verifies that from scratch with a fresh random nonce: the TDX quote against Intel&apos;s certificates, the GPU evidence with NVIDIA&apos;s attestation service, that the quote binds the key and the nonce, the app the enclave runs, NEAR AI&apos;s gateway, and that the attested key signed this verdict. <code>node bench/verify.ts --attested</code> runs the same checks from a terminal.</li>
               <li>The signature covers <code>model:sha256(request):sha256(response)</code>. In the shared sandbox the exact request and response bytes are published, and the Proof page re-hashes them in your browser: they match what the enclave signed and the vault checked, and the email inside the request matches the hash the agent put on-chain before screening. A vault someone owns keeps them private; the standalone guardian (<code>services/guardian</code>) keeps them in a private audit record, so an owner can show the exact prompt to an auditor.</li>
-              <li>NEAR AI's own verifier confirms the signature independently, and Veto Bench results can be re-checked offline with <code>node bench/verify.ts</code>.</li>
+              <li>NEAR AI&apos;s own verifier confirms the signature independently, and Veto Bench results can be re-checked offline with <code>node bench/verify.ts</code>.</li>
             </ol>
             <p className={styles.note}>
-              What this proves: the verdict came from that model inside a genuine enclave. It doesn't prove the model judged correctly, which is why the AI can only say no.
+              What this proves: the verdict came from that model inside a genuine enclave. It can&apos;t prove the model judged correctly, which is why the AI can only say no.
             </p>
           </section>
 
-          <section id="cross-chain" className={styles.section} data-reveal>
+          <section id="cross-chain" className={styles.section}>
             <h2>Paying suppliers on other chains</h2>
             <p>
               Suppliers hold USDC on many chains. The vault sits on NEAR and pays out through NEAR Intents: the owner sets a route (for example
-              "base: USDC on NEAR to USDC on Base, fee at most 1%"), and when a cross-chain payment passes the screen the guardian brings a
+              &ldquo;base: USDC on NEAR to USDC on Base, fee at most 1%&rdquo;), and when a cross-chain payment passes the screen the guardian brings a
               1Click quote for exactly that amount to exactly that address.
             </p>
             <p>
-              The vault checks 1Click's ed25519 signature on the quote itself and confirms it pays the screened payee, on the screened chain,
+              The vault checks 1Click&apos;s ed25519 signature on the quote itself and confirms it pays the screened payee, on the screened chain,
               for the screened amount, refunds only to the vault and stays under the fee cap. The caps count what actually leaves the vault,
               fees included. Then it sends the deposit. A doctored quote is refused on-chain.
             </p>
-            <h3 className={styles.h3}>Or from the vault's own address</h3>
+            <p>
+              This runs on mainnet. On 12 Nov 2026 the vault{" "}
+              <a href="https://nearblocks.io/address/treasury.veto-mainnet.near" target="_blank" rel="noreferrer" className={styles.mono}>
+                treasury.veto-mainnet.near
+              </a>{" "}
+              screened a $2.00 invoice from a supplier on Base, checked the request and 1Click&apos;s signed quote on-chain, and paid it in
+              USDC. 1Click delivered exactly $2.00 on Base.
+            </p>
+            <h3 className={styles.h3}>Or from the vault&apos;s own address</h3>
             <p>
               The vault can also hold its own address on an EVM chain through NEAR Chain Signatures. When a payment to a Base supplier
-              passes, the vault builds the transfer itself: exactly the screened payee and amount, gas under the owner's cap. Then it asks
-              NEAR's MPC network to sign that transaction's hash. The guardian only broadcasts the signed bytes and reports the hash, so the
-              vault's Base address can never send anything that didn't pass both gates.
+              passes, the vault builds the transfer itself: exactly the screened payee and amount, gas under the owner&apos;s cap. Then it asks
+              NEAR&apos;s MPC network to sign that transaction&apos;s hash. The guardian only broadcasts the signed bytes and reports the hash, so the
+              vault&apos;s Base address can never send anything that didn&apos;t pass both gates.
             </p>
           </section>
 
-          <section id="outlayer" className={styles.section} data-reveal>
+          <section id="outlayer" className={styles.section}>
             <h2>Agent wallets on OutLayer</h2>
             <p>
-              Some agents don't pay from a vault at all. They hold an OutLayer wallet: keys inside a TEE, with an owner policy that can require
-              approvals. Veto plugs in as one of those approvers, so the same screen covers a wallet it doesn't hold.
+              Some agents don&apos;t pay from a vault at all. They hold an OutLayer wallet: keys inside a TEE, with an owner policy that can require
+              approvals. Veto plugs in as one of those approvers, so the same screen covers a wallet it doesn&apos;t hold.
             </p>
             <ol className={styles.steps}>
               <li>
-                <strong>The agent asks its wallet to pay.</strong> The wallet's policy needs an approval, so OutLayer holds the payment and
+                <strong>The agent asks its wallet to pay.</strong> The wallet&apos;s policy needs an approval, so OutLayer holds the payment and
                 returns an approval id. The agent hands that id and its evidence to the guardian.
               </li>
               <li>
-                <strong>The vault records it.</strong> The guardian reads the held operation, checks OutLayer's hash of it, and records the
+                <strong>The vault records it.</strong> The guardian reads the held operation, checks OutLayer&apos;s hash of it, and records the
                 payment on your vault with <code>propose_external</code>. Your caps apply exactly as they do to vault payments.
               </li>
               <li>
@@ -327,7 +463,7 @@ export function DocsView() {
             </p>
           </section>
 
-          <section id="agent-api" className={styles.section} data-reveal>
+          <section id="agent-api" className={styles.section}>
             <h2>NEAR Intents Agent API wallets</h2>
             <p>
               The NEAR Intents Agent API gives an AI agent its own account on NEAR Intents. The owner signs one policy, which is the hard
@@ -335,11 +471,11 @@ export function DocsView() {
             </p>
             <ol className={styles.steps}>
               <li>
-                <strong>Veto holds the only grant.</strong> The AI agent has none, so it can't move money. It can only ask Veto.
+                <strong>Veto holds the only grant.</strong> The AI agent has none, so it can&apos;t move money. It can only ask Veto.
               </li>
               <li>
-                <strong>Veto screens the request.</strong> The same enclave model reads the agent's evidence against the mandate and the
-                business's payment history, and Veto requires the verdict to be signed by a key the vault approves.
+                <strong>Veto screens the request.</strong> The same enclave model reads the agent&apos;s evidence against the owner&apos;s rules and
+                the business&apos;s payment history, and Veto requires the verdict to be signed by a key the vault approves.
               </li>
               <li>
                 <strong>Only a pass is sent.</strong> A supplier on NEAR gets a transfer; a salary is a withdrawal that NEAR Intents pays out
@@ -354,13 +490,14 @@ export function DocsView() {
               </li>
             </ol>
             <p className={styles.note}>
-              The demo&apos;s account lives on mainnet and holds a few real dollars, so the inbox&apos;s amounts are scaled 1:2000 on this path: the examples that pass cost $0.09 and $0.075, and the owner&apos;s policy allows at most $0.10 a payment. The
-              sandbox vault is on testnet, so these decisions aren&apos;t recorded on it; the enclave&apos;s signed verdict and the API&apos;s own
-              operation record are the trail.
+              The demo&apos;s account lives on mainnet and holds a few real dollars, so the inbox&apos;s amounts are scaled 1:2000 on this path: the
+              examples that pass cost $0.09 and $0.075, and the owner&apos;s policy allows at most $0.10 a payment. The sandbox vault is on
+              testnet, so these decisions aren&apos;t recorded on it; the enclave&apos;s signed verdict and the API&apos;s own operation record are the
+              trail.
             </p>
           </section>
 
-          <section id="privacy" className={styles.section} data-reveal>
+          <section id="privacy" className={styles.section}>
             <h2>What stays private</h2>
             <p>
               Each vault picks. Checking the whole request on-chain means putting the evidence on-chain, so the owner chooses which matters more
@@ -372,7 +509,7 @@ export function DocsView() {
                 <h3>Checked screening (default)</h3>
                 <ul>
                   <li>The evidence goes on-chain with the verdict, and the vault rebuilds the exact request the model saw.</li>
-                  <li>Nothing about the prompt is taken on trust: not the email, the mandate, the payee list, the recent payments or the signals.</li>
+                  <li>Nothing about the prompt is taken on trust: not the email, the rules, the payee list, the recent payments or the signals.</li>
                   <li>The sandbox and every vault the factory makes use it. Their emails are made up, or written by visitors who were told.</li>
                 </ul>
               </div>
@@ -386,33 +523,34 @@ export function DocsView() {
             </div>
           </section>
 
-          <section id="try" className={styles.section} data-reveal>
+          <section id="try" className={styles.section}>
             <h2>Try it on testnet</h2>
             <p>
-              The live demo is at <a href="https://veto-beta.vercel.app/app">veto-beta.vercel.app</a>, with nothing to install. The shared sandbox is <a href={`${EXPLORER}/address/${VAULT_ID}`} target="_blank" rel="noreferrer" className={styles.mono}>{VAULT_ID}</a>,
-              a made-up business called Lagoon Goods that holds test USDC and pays three suppliers (two on NEAR, one on Base) and a member of staff. Anyone can act as its owner, and it goes back to its default rules for each new visitor. For a vault only you control, start with step 1.
+              The live demo is at <a href="https://veto-beta.vercel.app/app">veto-beta.vercel.app</a>, with nothing to install. The shared
+              sandbox is{" "}
+              <a href={`${EXPLORER}/address/${VAULT_ID}`} target="_blank" rel="noreferrer" className={styles.mono}>
+                {VAULT_ID}
+              </a>
+              , a made-up business called Lagoon Goods that holds test USDC and pays three suppliers (two on NEAR, one on Base) and a member
+              of staff. Anyone can act as its owner, and it goes back to its default rules for each new visitor. For a vault only you control,
+              start with step 1.
             </p>
-            <ol className={styles.doSee}>
-              <li><span>Do</span> open <Link href="/start/vault">Create your vault</Link>, connect a NEAR testnet wallet (Meteor Wallet at meteorwallet.app makes a testnet account for free; switch it to testnet first), name your business and sign. A new wallet starts with no NEAR, so Veto sends it 0.3 test NEAR for gas when it connects. <span>See</span> your own vault live in a few seconds, with $5,000 test USDC, two suppliers and its own test agent. From here on, overrides, freezes and rule changes need your wallet&apos;s signature.</li>
-              <li><span>Do</span> open <Link href="/app">the app</Link> and press <strong>Try it</strong> (the green V on a phone, <strong>Try the agent</strong> at the top of the sidebar on desktop). <span>See</span> the agent's inbox: a real invoice, a real salary and four scams that look ordinary.</li>
-              <li><span>Do</span> let the agent pay the real Kano Cotton Mills invoice. <span>See</span> "Agent proposed", "Screening in the enclave", then <strong>Paid</strong>, with testnet transaction links.</li>
-              <li><span>Do</span> let it pay "Updated payment details". <span>See</span> <strong>Vetoed</strong>: a lookalike address, a new payee and changed payout details, while the payment was inside the weekly limit.</li>
-              <li><span>Do</span> open the decision, then <strong>Proof</strong>. <span>See</span> the signer, the hashes and the on-chain check, then the exact bytes the model saw, re-hashed in your browser.</li>
-              <li><span>Do</span> on that page, press <strong>Check the enclave now</strong>. <span>See</span> eight checks of NEAR AI&apos;s enclave run live: Intel&apos;s quote, NVIDIA&apos;s GPUs and the key that signed the verdict.</li>
-              <li><span>Do</span> open <strong>Activity</strong> and press <strong>Download CSV</strong>. <span>See</span> one row per payment, ready for an accountant: date, payee, amount, status, reference, verdict and reasons, the payout transaction and a link to its proof.</li>
-              <li><span>Do</span> press <strong>Override</strong> (your wallet signs it in your own vault; in the sandbox anyone can). <span>See</span> a countdown; the override pays only after the delay and can be cancelled.</li>
-              <li><span>Do</span> in the sandbox, switch <strong>Pay from</strong> to <strong>OutLayer wallet</strong> and repeat. <span>See</span> the paid invoice approved by Veto on OutLayer and sent by the wallet; the scam stays held, and <strong>Keep it blocked</strong> rejects it there for good.</li>
-              <li><span>Do</span> press <strong>Write your own email</strong> and write the agent an invoice, or a scam. <span>See</span> a real AI agent on NEAR AI read it and propose whatever it asks for, then Veto screen that payment like any other.</li>
-              <li><span>Do</span> in the sandbox, let the agent pay <strong>Tunde Bello&apos;s salary</strong>. <span>See</span> <strong>Paid</strong> on Base, the chain Tunde chose, sent from the vault&apos;s own Base Sepolia address with NEAR Chain Signatures, with a Base explorer link.</li>
-              <li><span>Do</span> let it pay <strong>&ldquo;New wallet for my salary&rdquo;</strong>. <span>See</span> <strong>Vetoed</strong>: the address imitates Tunde&apos;s saved one, it has never been paid, and the request came from outside the company.</li>
+            <ol className={`${styles.steps} ${styles.try}`}>
+              {TRY.map((step, i) => (
+                <li key={i}>
+                  <p className={styles.tryAct}>{step.act}</p>
+                  <p className={styles.trySee}>{step.see}</p>
+                </li>
+              ))}
             </ol>
             <p className={styles.note}>
-              Verdicts are signed by Qwen3-VL-30B inside NEAR AI's enclave, and each decision's Proof page shows which key signed it (a few early sandbox decisions were signed by a labelled test key). The sandbox and the vaults
-              you create trust only the enclave key, so without an answer the payment expires unpaid.
+              Verdicts are signed by Qwen3-VL-30B inside NEAR AI&apos;s enclave, and each decision&apos;s Proof page shows which key signed it (a few
+              early sandbox decisions were signed by a labelled test key). The sandbox and the vaults you create trust only the enclave key, so
+              without an answer the payment expires unpaid.
             </p>
           </section>
 
-          <section id="developers" className={styles.section} data-reveal>
+          <section id="developers" className={styles.section}>
             <h2>For developers</h2>
             <p>An agent connects with a key that can only call <code>propose</code>:</p>
             <pre className={styles.code}>
@@ -436,6 +574,7 @@ const { id } = await veto.propose({
 const decision = await veto.decision(id); // Paid, Vetoed, Expired…`}</code>
             </pre>
             <h3 className={styles.h3}>Contract methods</h3>
+            <p>Each method, who can call it, and what it does.</p>
             <div className={styles.tableWrap}>
               <table className={styles.table}>
                 <thead>
@@ -468,7 +607,7 @@ pnpm demo:setup                   # optional: your own testnet sandbox from the 
             </pre>
           </section>
 
-          <section id="near" className={styles.section} data-reveal>
+          <section id="near" className={styles.section}>
             <h2>Built on NEAR</h2>
             <ul className={styles.bullets}>
               <li><strong>NEAR AI Cloud.</strong> Models in TEEs (Intel TDX and NVIDIA confidential GPUs) that sign every answer; the vault checks that signature on-chain.</li>
@@ -480,22 +619,23 @@ pnpm demo:setup                   # optional: your own testnet sandbox from the 
             </ul>
           </section>
 
-          <section id="status" className={styles.section} data-reveal>
+          <section id="status" className={styles.section}>
             <h2>What works today</h2>
+            <p>Everything here runs on NEAR testnet today, except where marked.</p>
             <ul className={styles.status}>
               {STATUS.map((s) => (
                 <li key={s.part}>
-                  <span className={`${styles.badge} ${styles[s.status]}`}>{STATUS_TEXT[s.status]}</span>
-                  <div>
+                  <span className={styles.statusHead}>
                     <strong>{s.part}</strong>
-                    <p>{s.note}</p>
-                  </div>
+                    {s.status !== "live" && <span className={`${styles.badge} ${styles[s.status]}`}>{STATUS_TEXT[s.status]}</span>}
+                  </span>
+                  <p>{s.note}</p>
                 </li>
               ))}
             </ul>
           </section>
 
-          <section id="faq" className={styles.section} data-reveal>
+          <section id="faq" className={styles.section}>
             <h2>Questions</h2>
             <div className={styles.faq}>
               {FAQ.map((f) => (

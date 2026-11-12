@@ -5,9 +5,9 @@
 }
 
 .layout {
-  max-width: 1180px;
+  max-width: 1328px;
   margin: 0 auto;
-  padding: 48px 20px 96px;
+  padding: 48px 48px 72px;
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
   gap: 64px;
@@ -90,24 +90,14 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
-  padding-bottom: 72px;
+  padding-bottom: 64px;
   scroll-margin-top: 110px;
-}
-
-.eyebrow {
-  align-self: flex-start;
-  padding: 6px 14px;
-  border-radius: var(--r-pill);
-  background: var(--green-soft);
-  color: var(--green);
-  font-size: 13.5px;
-  font-weight: 600;
 }
 
 .h1 {
   margin: 0;
-  font-size: clamp(40px, 6vw, 68px);
-  font-weight: 600;
+  font-size: clamp(40px, 5vw, 64px);
+  font-weight: 500;
   letter-spacing: -0.04em;
   line-height: 1.02;
 }
@@ -121,7 +111,7 @@
 }
 
 .circuitCard {
-  margin-top: 12px;
+  margin: 12px 0 0;
   padding: 28px 22px 22px;
   border-radius: var(--r-card);
   background: var(--card);
@@ -130,31 +120,32 @@
   gap: 18px;
 }
 
-.circuitCard p {
-  margin: 0;
+.circuitCard figcaption {
   padding-top: 16px;
-  border-top: 1px solid var(--hairline);
+  border-top: 1px solid color-mix(in srgb, var(--sand) 10%, transparent);
   font-size: 14.5px;
+  line-height: 1.5;
   color: var(--muted);
 }
 
 .section {
   padding: 56px 0;
-  border-top: 1px solid var(--hairline);
+  border-top: 1px solid color-mix(in srgb, var(--sand) 10%, transparent);
   scroll-margin-top: 96px;
 }
 
 .section h2 {
   margin: 0 0 18px;
-  font-size: clamp(26px, 3vw, 32px);
+  font-size: clamp(24px, 2.6vw, 30px);
   font-weight: 600;
   letter-spacing: -0.025em;
   line-height: 1.15;
+  text-wrap: balance;
 }
 
 .h3,
 .tile h3 {
-  margin: 32px 0 14px;
+  margin: 36px 0 12px;
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -188,12 +179,20 @@
   font-size: 0.86em;
 }
 
+/* Inline code wraps anywhere, so a long identifier never pushes a phone sideways. */
 .section p code,
 .section li code {
   padding: 2px 7px;
   border-radius: 7px;
   background: var(--control);
   color: var(--sand);
+  overflow-wrap: anywhere;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.section a.mono {
+  overflow-wrap: anywhere;
 }
 
 .bullets {
@@ -224,45 +223,62 @@
   background: var(--green);
 }
 
+/* Numbered steps: one list, a hairline between steps, the number in the margin. */
 .steps {
-  margin: 0 0 16px;
+  margin: 4px 0 20px;
   padding: 0;
   list-style: none;
   counter-reset: step;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
 }
 
-.steps li {
+.steps > li {
   counter-increment: step;
   position: relative;
-  padding: 18px 20px 18px 66px;
-  border-radius: var(--r-tile);
-  background: var(--card);
+  padding: 16px 0 16px 40px;
+  border-top: 1px solid color-mix(in srgb, var(--sand) 10%, transparent);
   font-size: 16px;
   line-height: 1.65;
   color: var(--muted);
 }
 
-.steps li::before {
-  content: counter(step);
-  position: absolute;
-  left: 20px;
-  top: 16px;
-  font-size: 30px;
-  font-weight: 900;
-  font-stretch: condensed;
-  line-height: 1;
-  color: var(--green);
+.steps > li:last-child {
+  border-bottom: 1px solid color-mix(in srgb, var(--sand) 10%, transparent);
 }
 
-.note {
+.steps > li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 16px;
+  min-width: 24px;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.65;
+  font-variant-numeric: tabular-nums;
+  color: var(--green-fg);
+}
+
+.steps .tryAct {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--sand);
+}
+
+.steps .trySee {
+  margin: 4px 0 0;
+  font-size: 15.5px;
+  line-height: 1.6;
+}
+
+.section .note {
+  margin-top: 24px;
   padding: 16px 18px;
   border-radius: var(--r-tile);
   background: var(--purple-tint);
-  color: var(--sand) !important;
-  font-size: 15px !important;
+  color: var(--sand);
+  font-size: 15px;
+  line-height: 1.6;
 }
 
 .twoCol {
@@ -288,48 +304,12 @@
   line-height: 1.55;
 }
 
-.doSee {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.doSee li {
-  padding: 18px 20px;
-  border-radius: var(--r-tile);
-  background: var(--card);
-  font-size: 16px;
-  line-height: 1.7;
-  color: var(--muted);
-}
-
-.doSee li > span {
-  display: inline-block;
-  margin-right: 6px;
-  padding: 1px 10px;
-  border-radius: var(--r-pill);
-  background: var(--green);
-  color: var(--green-ink);
-  font-size: 12.5px;
-  font-weight: 700;
-}
-
-.doSee li > span + span,
-.doSee li > span:nth-of-type(2) {
-  margin-left: 6px;
-  background: var(--control);
-  color: var(--sand);
-}
-
 .code {
   margin: 0 0 16px;
   padding: 20px 22px;
   border-radius: var(--r-tile);
   background: var(--input);
-  border: 1px solid var(--hairline);
+  border: 1px solid color-mix(in srgb, var(--sand) 8%, transparent);
   overflow-x: auto;
   font-family: var(--font-mono), ui-monospace, monospace;
   font-size: 13.5px;
@@ -356,13 +336,13 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--muted);
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: 1px solid color-mix(in srgb, var(--sand) 10%, transparent);
 }
 
 .table td {
   padding: 14px 16px;
   vertical-align: top;
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: 1px solid color-mix(in srgb, var(--sand) 10%, transparent);
   color: var(--muted);
   line-height: 1.55;
 }
@@ -375,52 +355,57 @@
   color: var(--sand);
   font-size: 12.5px;
   width: 42%;
+  overflow-wrap: anywhere;
 }
 
+.table td:nth-child(2) {
+  white-space: nowrap;
+}
+
+/* What works today: one list; only the parts that aren't plain "live on testnet" carry a badge. */
 .status {
-  margin: 0;
+  margin: 4px 0 0;
   padding: 0;
   list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
 }
 
 .status li {
-  display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
-  padding: 18px 20px;
-  border-radius: var(--r-tile);
-  background: var(--card);
+  padding: 16px 0;
+  border-top: 1px solid color-mix(in srgb, var(--sand) 10%, transparent);
+}
+
+.status li:last-child {
+  border-bottom: 1px solid color-mix(in srgb, var(--sand) 10%, transparent);
+}
+
+.statusHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
 }
 
 .status strong {
-  display: block;
-  font-size: 15.5px;
-  margin-bottom: 4px;
+  font-size: 16px;
 }
 
-.status p {
-  margin: 0;
-  font-size: 14.5px;
-  line-height: 1.55;
+.section .status p {
+  margin: 4px 0 0;
+  font-size: 15px;
+  line-height: 1.6;
 }
 
 .badge {
-  justify-self: start;
-  padding: 5px 12px;
+  padding: 3px 10px;
   border-radius: var(--r-pill);
   font-size: 12.5px;
   font-weight: 650;
   white-space: nowrap;
 }
 
-.live,
 .mainnet {
   background: var(--green);
-  color: var(--green-ink);
+  color: var(--on-accent);
 }
 
 .built {
@@ -428,31 +413,23 @@
   color: var(--sand);
 }
 
-.next {
-  background: var(--purple-soft);
-  color: var(--purple);
-}
-
 .faq {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--sand) 10%, transparent);
 }
 
 .faq details {
-  border-radius: var(--r-tile);
-  background: var(--card);
-  overflow: hidden;
+  border-bottom: 1px solid color-mix(in srgb, var(--sand) 10%, transparent);
 }
 
 .faq summary {
   list-style: none;
   cursor: pointer;
   min-height: 56px;
-  padding: 16px 52px 16px 20px;
+  padding: 16px 44px 16px 0;
   position: relative;
-  font-size: 16px;
+  font-size: 16.5px;
   font-weight: 600;
+  line-height: 1.45;
   color: var(--sand);
 }
 
@@ -463,7 +440,7 @@
 .faq summary::after {
   content: "+";
   position: absolute;
-  right: 20px;
+  right: 6px;
   top: 50%;
   transform: translateY(-50%);
   font-size: 22px;
@@ -476,10 +453,31 @@
   transform: translateY(-50%) rotate(45deg);
 }
 
-.faq details p {
+.section .faq details p {
   margin: 0;
-  padding: 0 20px 20px;
+  padding: 0 0 20px;
   font-size: 15.5px;
+}
+
+/* Sections rise a little as they scroll in. They only move, never fade, so the page is whole at
+   rest: in a screenshot, a link preview or with scripts off. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .section {
+      animation: rise-in linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 35%;
+    }
+  }
+}
+
+@keyframes rise-in {
+  from {
+    transform: translateY(28px);
+  }
+  to {
+    transform: none;
+  }
 }
 
 /* Phones: the contents become a scrolling row of chips under the header */
@@ -487,7 +485,7 @@
   .layout {
     grid-template-columns: minmax(0, 1fr);
     gap: 24px;
-    padding-top: 20px;
+    padding: 20px 20px 56px;
   }
 
   .toc {
@@ -528,9 +526,57 @@
     color: var(--black);
   }
 
-  .status li {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
-  }
+}
 
+/* Phones: each contract method stacks its name, who can call it and what it does, instead of a
+   table scrolling off the edge. */
+@media (max-width: 699px) {
+  .tableWrap {
+    overflow: visible;
+    border-radius: 0;
+    background: none;
+  }
+  .table,
+  .table tbody,
+  .table tr,
+  .table td {
+    display: block;
+    min-width: 0;
+  }
+  .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .table tr {
+    padding: 14px 0;
+    border-top: 1px solid color-mix(in srgb, var(--sand) 10%, transparent);
+  }
+  .table tr:last-child {
+    border-bottom: 1px solid color-mix(in srgb, var(--sand) 10%, transparent);
+  }
+  .table td {
+    padding: 0;
+    border: 0;
+  }
+  .table td:first-child {
+    width: auto;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .table td:nth-child(2) {
+    margin-top: 4px;
+    font-size: 13.5px;
+    white-space: normal;
+    color: var(--green-fg);
+  }
+  .table td:nth-child(2)::before {
+    content: "Called by: ";
+  }
+  .table td:nth-child(3) {
+    margin-top: 6px;
+    font-size: 15px;
+  }
 }

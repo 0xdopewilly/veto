@@ -1,13 +1,10 @@
+/* The landing. Every block shares the site's frame: 1280px wide at most, 12px from the edge on a
+   phone and 24px on a desktop, the same as the header bar and the footer. */
+
 .page {
   min-height: var(--app-h);
   background: var(--black);
   overflow-x: clip;
-}
-
-.wrap {
-  max-width: 1376px;
-  margin: 0 auto;
-  padding: 0 4px;
 }
 
 .desktopOnly {
@@ -18,8 +15,6 @@
 
 .hero {
   position: relative;
-  max-width: 1400px;
-  margin: 0 auto;
   padding: 12px 12px 0;
 }
 
@@ -28,28 +23,17 @@
   --notch-w: 236px;
   --notch-h: 36px;
   position: relative;
-  padding: 30px 22px 70px;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 34px 22px 74px;
   border-radius: 34px;
   background: var(--green);
-  color: var(--black);
+  color: var(--on-accent);
   display: flex;
   flex-direction: column;
-  gap: 34px;
+  gap: 36px;
   overflow: hidden;
   isolation: isolate;
-}
-
-.heroGlow {
-  position: absolute;
-  z-index: -1;
-  top: -30%;
-  right: -20%;
-  width: 80%;
-  height: 90%;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.5), transparent 62%);
-  filter: blur(30px);
-  pointer-events: none;
 }
 
 .heroText {
@@ -57,36 +41,9 @@
   flex-direction: column;
 }
 
-.kicker {
-  align-self: flex-start;
-  height: 32px;
-  padding: 0 14px 0 12px;
-  border-radius: 16px;
-  background: var(--black);
-  color: var(--sand);
-  font-size: 13px;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.kickerDot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--green);
-  animation: live 2.4s ease-out infinite;
-}
-
-@keyframes live {
-  0% { box-shadow: 0 0 0 0 rgba(0, 236, 151, 0.6); }
-  70%, 100% { box-shadow: 0 0 0 7px rgba(0, 236, 151, 0); }
-}
-
 .h1 {
-  margin: 22px 0 0;
-  font-size: clamp(36px, 10.2vw, 56px);
+  margin: 0;
+  font-size: clamp(40px, 11.4vw, 56px);
   font-weight: 500;
   letter-spacing: -0.045em;
   line-height: 0.98;
@@ -94,10 +51,10 @@
 
 .heroLead {
   margin: 20px 0 0;
-  max-width: 540px;
+  max-width: 34em;
   font-size: 17px;
   line-height: 1.5;
-  color: rgba(0, 0, 0, 0.74);
+  color: color-mix(in srgb, var(--on-accent) 74%, transparent);
   text-wrap: pretty;
 }
 
@@ -106,6 +63,13 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.heroStatus {
+  margin: 18px 0 0;
+  font-size: 14px;
+  font-weight: 550;
+  color: color-mix(in srgb, var(--on-accent) 66%, transparent);
 }
 
 .primary,
@@ -124,8 +88,8 @@
 
 .primary {
   padding: 0 7px 0 24px;
-  background: var(--black);
-  color: var(--sand);
+  background: var(--on-accent);
+  color: var(--on-ink);
   box-shadow: 0 18px 36px -18px rgba(0, 0, 0, 0.7);
 }
 
@@ -134,7 +98,7 @@
   height: 42px;
   border-radius: 50%;
   background: var(--green);
-  color: var(--black);
+  color: var(--on-accent);
   display: grid;
   place-items: center;
   transition: transform var(--spring-bounce-ms) var(--spring-bounce);
@@ -147,12 +111,12 @@
 
 .secondary {
   padding: 0 22px;
-  color: var(--black);
-  box-shadow: inset 0 0 0 1.5px rgba(0, 0, 0, 0.6);
+  color: var(--on-accent);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--on-accent) 60%, transparent);
 }
 
 .secondary:hover {
-  background: rgba(0, 0, 0, 0.06);
+  background: color-mix(in srgb, var(--on-accent) 6%, transparent);
 }
 
 .heroVisual {
@@ -161,10 +125,11 @@
   flex-direction: column;
 }
 
+/* The example decision overlaps this card's foot, so the card keeps that strip clear of text. */
 .circuitCard {
-  padding: 26px 14px 20px;
+  padding: 26px 14px 54px;
   border-radius: 28px;
-  background: var(--black);
+  background: var(--panel);
   color: var(--sand);
   box-shadow: 0 40px 80px -40px rgba(0, 0, 0, 0.7);
 }
@@ -176,6 +141,7 @@
   font-size: 14.5px;
   line-height: 1.5;
   color: var(--muted);
+  text-wrap: pretty;
 }
 
 .slamWrap {
@@ -184,18 +150,18 @@
   align-self: flex-end;
   width: 88%;
   max-width: 340px;
-  margin-top: -26px;
+  margin-top: -30px;
   margin-right: -6px;
 }
 
 .slam {
-  padding: 18px 20px;
+  padding: 18px 20px 20px;
   border-radius: 24px;
   background: var(--coral);
-  color: var(--black);
+  color: var(--on-accent);
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
   box-shadow: 0 30px 60px -24px rgba(0, 0, 0, 0.55);
   transform: rotate(-2deg);
   animation: slam 800ms cubic-bezier(0.2, 1.25, 0.3, 1) 1.9s backwards;
@@ -209,43 +175,33 @@
 }
 
 .slamLabel {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
   font-size: 13.5px;
   font-weight: 650;
-}
-
-.slamDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--black);
 }
 
 .slamAmount {
   font-size: 34px;
   font-weight: 400;
   letter-spacing: -0.04em;
-  line-height: 1.05;
-}
-
-.slamAmount span {
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0;
+  line-height: 1.1;
 }
 
 .slamReason {
+  margin-top: 2px;
   font-size: 14.5px;
-  font-weight: 550;
+  font-weight: 600;
   line-height: 1.4;
   color: var(--coral-ink);
 }
 
 .slamAddress {
-  font-size: 12.5px;
+  font-size: 13.5px;
+  line-height: 1.4;
   color: var(--coral-ink);
+}
+
+.slamAddress :global(.mono) {
+  font-size: 12.5px;
 }
 
 .scrollPill {
@@ -265,102 +221,103 @@
   align-items: center;
   gap: 6px;
   white-space: nowrap;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--sand) 6%, transparent);
 }
 
 .scrollPill svg {
-  animation: nudge 2.2s ease-in-out infinite;
+  transition: transform var(--spring-bounce-ms) var(--spring-bounce);
 }
 
-@keyframes nudge {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(3px); }
+.scrollPill:hover svg {
+  transform: translateY(3px);
 }
 
 /* ------------------------------------------------------------ sections */
 
-.section {
-  padding: 16px 12px 0;
-  scroll-margin-top: 72px;
-}
-
-.panel {
-  max-width: 1376px;
-  margin: 0 auto;
-  padding: 30px 20px;
-  border-radius: 36px;
-  background: var(--card);
-}
-
-.h2 {
-  margin: 0;
-  font-size: clamp(32px, 8vw, 40px);
-  font-weight: 500;
-  letter-spacing: -0.04em;
-  line-height: 1.02;
-}
-
-.lead {
-  margin: 16px 0 0;
-  max-width: 560px;
-  font-size: 16.5px;
-  line-height: 1.55;
-  color: var(--muted);
-}
-
+.section,
 .sand {
   padding: 16px 12px 0;
   scroll-margin-top: 72px;
 }
 
-.sandInner {
-  max-width: 1376px;
+.panel,
+.sandInner,
+.wrap,
+.benchPanel {
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 34px 20px 22px;
-  border-radius: 36px;
+}
+
+.panel {
+  padding: 32px 20px;
+  border-radius: 34px;
+  background: var(--card);
+}
+
+/* One heading scale for every section on the page. */
+.h2 {
+  margin: 0;
+  font-size: clamp(32px, 8.4vw, 40px);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+
+.lead {
+  margin: 16px 0 0;
+  max-width: 34em;
+  font-size: 16.5px;
+  line-height: 1.55;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+/* The sand block inverts the theme: --black is its ink here. */
+.sandInner {
+  padding: 34px 20px 26px;
+  border-radius: 34px;
   background: var(--sand);
   color: var(--black);
 }
 
 .sandLead {
-  margin: 14px 0 0;
+  margin: 16px 0 0;
+  max-width: 36em;
   font-size: 16.5px;
-  color: #4a4945;
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--black) 72%, var(--sand));
+  text-wrap: pretty;
 }
 
 .theftGrid {
-  margin-top: 28px;
+  list-style: none;
+  margin: 28px 0 0;
+  padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .theft {
-  padding: 22px 20px 24px;
-  border-radius: 24px;
-  background: rgba(0, 0, 0, 0.055);
-  display: flex;
-  flex-direction: column;
-}
-
-.theftNumber {
-  font-size: 13px;
-  font-weight: 650;
-  color: rgba(0, 0, 0, 0.45);
+  padding: 20px 0 22px;
+  border-top: 1px solid color-mix(in srgb, var(--black) 14%, transparent);
 }
 
 .theft h3 {
-  margin: 28px 0 0;
-  font-size: 20px;
+  margin: 0;
+  font-size: 19px;
   font-weight: 600;
   letter-spacing: -0.02em;
+  line-height: 1.25;
 }
 
 .theft p {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
+  max-width: 40em;
   font-size: 15px;
   line-height: 1.55;
-  color: #4a4945;
+  color: color-mix(in srgb, var(--black) 72%, var(--sand));
+  text-wrap: pretty;
 }
 
 .proofGrid {
@@ -389,37 +346,40 @@
 }
 
 .note {
-  margin: 18px 0 0;
-  max-width: 460px;
+  margin: 20px 0 0;
+  max-width: 30em;
   font-size: 15px;
   line-height: 1.55;
   color: var(--muted);
+  text-wrap: pretty;
 }
 
+/* Three checks in order, one resting on the next. */
 .chain {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
 }
 
 .chainStep {
   display: grid;
   grid-template-columns: 48px minmax(0, 1fr);
-  padding: 20px;
-  border-radius: 22px;
-  background: var(--tile);
+  padding: 22px 0;
+  border-top: 1px solid color-mix(in srgb, var(--sand) 10%, transparent);
+}
+
+.chainStep:first-child {
+  padding-top: 4px;
+  border-top: 0;
 }
 
 .chainNumber {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: var(--green);
-  color: var(--black);
-  font-size: 15px;
+  color: var(--on-accent);
+  font-size: 14.5px;
   font-weight: 700;
   display: grid;
   place-items: center;
@@ -432,19 +392,35 @@
 }
 
 .chainTitle {
-  font-size: 16.5px;
+  padding-top: 4px;
+  font-size: 17px;
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .chainText {
-  font-size: 14.5px;
-  line-height: 1.5;
+  font-size: 15px;
+  line-height: 1.55;
   color: var(--muted);
 }
 
 .chainValue {
+  font-size: 13.5px;
+  font-weight: 550;
+  color: var(--green-fg);
+}
+
+.chainValue:global(.mono) {
   font-size: 12.5px;
-  color: var(--green);
+  font-weight: 400;
+}
+
+.wrap {
+  padding: 40px 0 0;
+}
+
+.wrapTitle {
+  padding: 0 20px;
 }
 
 .nearGrid {
@@ -469,51 +445,131 @@
   height: 46px;
   border-radius: 50%;
   background: var(--control);
-  color: var(--green);
+  color: var(--green-fg);
   display: grid;
   place-items: center;
 }
 
 .nearTitle {
-  margin-top: 40px;
+  margin: 36px 0 0;
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.015em;
 }
 
 .nearText {
+  margin: 0;
   font-size: 14.5px;
   line-height: 1.55;
   color: var(--muted);
+  text-wrap: pretty;
 }
 
 .benchPanel {
-  max-width: 1376px;
-  margin: 0 auto;
-  padding: 30px 22px;
-  border-radius: 36px;
-  background:
-    radial-gradient(70% 120% at 100% 0%, rgba(255, 255, 255, 0.4), transparent 60%),
-    var(--green);
-  color: var(--black);
+  padding: 32px 22px;
+  border-radius: 34px;
+  background: var(--green);
+  color: var(--on-accent);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 24px;
+  gap: 28px;
 }
 
 .benchLead {
   margin: 14px 0 0;
-  max-width: 560px;
+  max-width: 34em;
   font-size: 16.5px;
   line-height: 1.55;
-  color: rgba(0, 0, 0, 0.74);
+  color: color-mix(in srgb, var(--on-accent) 74%, transparent);
+  text-wrap: pretty;
+}
+
+.benchFigures {
+  align-self: stretch;
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.benchFigures div {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+  padding: 14px 0;
+  border-top: 1px solid color-mix(in srgb, var(--on-accent) 18%, transparent);
+}
+
+.benchFigures dt {
+  font-size: 14.5px;
+  font-weight: 550;
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--on-accent) 70%, transparent);
+}
+
+.benchFigures dd {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
 }
 
 .benchButton {
   padding: 0 7px 0 24px;
-  background: var(--black);
-  color: var(--sand);
+  background: var(--on-accent);
+  color: var(--on-ink);
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+/* Phones: the six NEAR parts read as one grouped list, not six stacked cards. */
+@media (max-width: 699px) {
+  .nearGrid {
+    gap: 0;
+    padding: 4px 20px;
+    border-radius: 28px;
+    background: var(--card);
+  }
+  .nearTile {
+    min-height: 0;
+    padding: 20px 0;
+    border-radius: 0;
+    background: none;
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    column-gap: 14px;
+    row-gap: 4px;
+    align-items: start;
+  }
+  .nearTile + .nearTile {
+    border-top: 1px solid color-mix(in srgb, var(--sand) 10%, transparent);
+  }
+  .nearIcon {
+    grid-row: 1 / 3;
+    width: 40px;
+    height: 40px;
+  }
+  .nearTitle {
+    margin: 0;
+    padding-top: 8px;
+    font-size: 17px;
+  }
+}
+
+/* -------------------------------------------------------------- tablet */
+
+@media (min-width: 700px) {
+  .theftGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 32px;
+  }
+  .benchFigures {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 24px;
+  }
 }
 
 /* ------------------------------------------------------------- desktop */
@@ -540,7 +596,7 @@
     align-items: center;
   }
   .h1 {
-    font-size: clamp(52px, 5.2vw, 84px);
+    font-size: clamp(56px, 5.6vw, 84px);
   }
   .heroLead {
     font-size: 18.5px;
@@ -549,11 +605,11 @@
     margin-top: 36px;
   }
   .circuitCard {
-    padding: 44px 28px 28px;
+    padding: 44px 28px 72px;
     border-radius: 34px;
   }
   .slamWrap {
-    margin-top: -40px;
+    margin-top: -46px;
     margin-right: -20px;
   }
   .scrollPill {
@@ -568,26 +624,30 @@
     padding: 64px 56px;
     border-radius: 44px;
   }
+  .sandInner {
+    padding-bottom: 40px;
+  }
   .wrap {
-    padding: 48px 32px 0;
+    padding-top: 56px;
+  }
+  .wrapTitle {
+    padding: 0 56px;
   }
   .h2 {
-    font-size: clamp(44px, 4.6vw, 72px);
+    font-size: clamp(44px, 4.6vw, 64px);
     font-weight: 400;
     letter-spacing: -0.045em;
   }
   .theftGrid {
     margin-top: 44px;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
+    column-gap: 40px;
   }
   .theft {
-    min-height: 260px;
-    padding: 26px;
+    padding: 24px 0 36px;
   }
   .theft h3 {
-    margin-top: auto;
-    padding-top: 40px;
+    font-size: 20px;
   }
   .proofGrid {
     gap: 56px;
@@ -604,14 +664,26 @@
   .benchPanel {
     padding: 56px;
     border-radius: 44px;
-    flex-direction: row;
-    align-items: flex-end;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    column-gap: 48px;
+    row-gap: 40px;
+  }
+  .benchFigures {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    column-gap: 40px;
+  }
+  .benchFigures dd {
+    font-size: 44px;
   }
 }
 
 /* -------------------------------------------------------------- reveal */
 
+/* Blocks rise into place as they scroll in. They only move, never fade, so a section is whole
+   at rest: in a screenshot, a link preview or with scripts off. */
 @media (prefers-reduced-motion: no-preference) {
   @supports (animation-timeline: view()) {
     .reveal {
@@ -619,38 +691,48 @@
       animation-timeline: view();
       animation-range: entry 0% entry 70%;
     }
+    .lines :global(.lr-line) {
+      overflow: visible;
+    }
+    /* The grouped list on phones moves as one; its rows don't move on their own. */
+    @media (max-width: 699px) {
+      .nearGrid {
+        animation: reveal linear both;
+        animation-timeline: view();
+        animation-range: entry 0% entry 50%;
+      }
+      .nearTile.reveal {
+        animation: none;
+      }
+    }
     .lines :global(.lr-inner) {
       animation: linesIn linear both;
       animation-timeline: view();
-      animation-range: entry 10% entry 80%;
+      animation-range: entry 0% entry 60%;
       animation-delay: 0s;
     }
   }
   :global(html[data-reveal-mode="io"]) .reveal {
-    opacity: 0;
-    transform: translateY(32px) scale(0.985);
-    transition: opacity 700ms var(--ease-out-expo), transform var(--spring-surface-ms) var(--spring-surface);
+    transform: translateY(28px);
+    transition: transform var(--spring-surface-ms) var(--spring-surface);
   }
   :global(html[data-reveal-mode="io"]) .reveal[data-in] {
-    opacity: 1;
     transform: none;
   }
 }
 
 @keyframes reveal {
   from {
-    opacity: 0;
-    transform: translateY(40px) scale(0.98);
+    transform: translateY(28px);
   }
   to {
-    opacity: 1;
     transform: none;
   }
 }
 
 @keyframes linesIn {
   from {
-    transform: translateY(105%) rotate(1.5deg);
+    transform: translateY(0.35em);
   }
   to {
     transform: none;
@@ -661,9 +743,8 @@
   .slam {
     animation: fadeIn 300ms ease 0.6s backwards;
   }
-  .kickerDot,
   .scrollPill svg {
-    animation: none;
+    transition: none;
   }
 }
 

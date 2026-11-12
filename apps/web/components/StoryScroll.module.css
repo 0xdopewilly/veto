@@ -8,17 +8,17 @@
   position: sticky;
   top: 0;
   height: 100svh;
-  padding: 84px 12px 16px;
+  padding: 84px 12px 12px;
   display: flex;
 }
 
 .panel {
   flex: 1;
   min-height: 0;
-  max-width: 1376px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: 26px 20px 22px;
-  border-radius: 36px;
+  border-radius: 34px;
   background: var(--card);
   display: flex;
   flex-direction: column;
@@ -32,12 +32,13 @@
   min-height: 0;
 }
 
+/* The landing's section heading scale (landing.module.css .h2). */
 .title {
   margin: 0;
-  font-size: 30px;
+  font-size: clamp(30px, 8.4vw, 40px);
   font-weight: 500;
-  letter-spacing: -0.035em;
-  line-height: 1.05;
+  letter-spacing: -0.04em;
+  line-height: 1.02;
   text-wrap: balance;
 }
 
@@ -61,7 +62,7 @@
   gap: 14px;
   padding: 12px 14px 12px 12px;
   border-radius: var(--r-tile);
-  opacity: 0.42;
+  opacity: 0.55;
   transition: opacity 400ms ease, background-color 400ms ease;
 }
 
@@ -122,14 +123,15 @@
   padding: 0 10px;
   border-radius: 12px;
   background: var(--tone);
-  color: var(--black);
+  color: var(--on-accent);
   font-size: 11.5px;
   font-weight: 650;
   display: inline-flex;
   align-items: center;
 }
 
-/* Only the lit gate shows its explanation on phones. */
+/* Only the lit gate shows its explanation where the pinned panel is short (phones, short
+   laptop screens); tall desktop screens show all three. */
 .collapse {
   display: grid;
   grid-template-rows: 0fr;
@@ -176,42 +178,16 @@
   max-width: 560px;
 }
 
-.glow {
-  position: absolute;
-  z-index: -1;
-  inset: -40%;
-  background: radial-gradient(40% 40% at 50% 50%, rgba(0, 236, 151, 0.16), transparent 70%);
-  transition: background 700ms ease;
-}
-
-.glow[data-stage="1"] {
-  background: radial-gradient(40% 40% at 60% 50%, rgba(255, 121, 102, 0.22), transparent 70%);
-}
-
-.glow[data-stage="2"] {
-  background: radial-gradient(40% 40% at 50% 70%, rgba(151, 151, 255, 0.2), transparent 70%);
-}
-
 .override {
   margin: 16px 0 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
   max-width: 440px;
-  padding: 12px 14px;
+  padding: 12px 16px;
   border-radius: 16px;
   background: var(--purple-soft);
   font-size: 13.5px;
   line-height: 1.45;
-}
-
-.overrideDot {
-  flex: none;
-  margin-top: 5px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--purple);
+  text-align: center;
+  text-wrap: pretty;
 }
 
 .progress {
@@ -224,8 +200,17 @@
 .progressFill {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--green), var(--coral) 70%, var(--purple));
+  background: var(--green);
   transform-origin: left;
+  transition: background-color 400ms ease;
+}
+
+.progress[data-stage="1"] .progressFill {
+  background: var(--coral);
+}
+
+.progress[data-stage="2"] .progressFill {
+  background: var(--purple);
 }
 
 @media (min-width: 900px) {
@@ -233,17 +218,19 @@
     height: 320vh;
   }
   .sticky {
-    padding: 96px 16px 16px;
+    padding: 96px 24px 16px;
   }
   .panel {
-    padding: 48px;
+    padding: 48px 56px;
+    border-radius: 44px;
     display: grid;
     grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
     gap: 48px;
     align-items: center;
   }
+  /* The landing's heading scale, eased down on short screens so the pinned panel never clips. */
   .title {
-    font-size: clamp(40px, 4.2vw, 64px);
+    font-size: clamp(40px, min(4.6vw, 7.4vh), 64px);
     font-weight: 400;
     letter-spacing: -0.045em;
   }
@@ -291,6 +278,32 @@
 
 .calm .gate {
   opacity: 1;
+}
+
+@media (min-width: 900px) and (min-height: 940px) {
+  .collapse {
+    grid-template-rows: 1fr;
+  }
+}
+
+@media (min-width: 900px) and (max-height: 820px) {
+  .lead {
+    display: none;
+  }
+}
+
+/* Short phones: the override note repeats the third gate's text, so it gives way for the gates. */
+@media (max-height: 760px) and (max-width: 899px) {
+  .override {
+    display: none;
+  }
+  .circuitCard {
+    padding: 18px 12px 16px;
+  }
+  .gate {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
 }
 
 @media (max-height: 700px) and (max-width: 899px) {

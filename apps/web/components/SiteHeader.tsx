@@ -11,6 +11,7 @@ import { useIsDesktop } from "@/lib/media";
 import { SPRING_SURFACE, SPRING_UI, useCalm } from "@/lib/motion";
 import { Lockup, Mark } from "./Logo";
 import { Icon } from "./Icon";
+import { ThemeToggle } from "./ThemeToggle";
 import { Magnetic } from "./Magnetic";
 import styles from "./SiteHeader.module.css";
 
@@ -43,7 +44,7 @@ export function AppButton({ full = false }: { full?: boolean }) {
   );
 }
 
-/** One header for the landing, Docs and Bench: the same links everywhere, the page you're on marked. */
+/** One header for the landing, Docs and Bench: the same width and links everywhere, the page you're on marked. */
 export function SiteHeader() {
   const pathname = usePathname();
   const calm = useCalm();
@@ -61,7 +62,7 @@ export function SiteHeader() {
   }, [open]);
 
   return (
-    <header className={styles.top} data-wide={pathname === "/" || undefined} data-back={back ? true : undefined}>
+    <header className={styles.top} data-back={back ? true : undefined}>
       <AnimatePresence>
         {open && (
           <motion.button
@@ -106,6 +107,7 @@ export function SiteHeader() {
         </nav>
 
         <div className={styles.end}>
+          <ThemeToggle className={styles.themeButton} />
           <AppButton />
           <button
             type="button"

@@ -23,10 +23,10 @@ const MAX_VAULTS = 3;
 
 /** What a new testnet vault starts with; the owner can change all of it. */
 const STARTER: { icon: IconName; text: string }[] = [
-  { icon: "wallet", text: "$5,000 test USDC" },
+  { icon: "wallet", text: "$5,000 in test USDC" },
   { icon: "shield", text: "Up to $500 a payment and $3,000 a week" },
   { icon: "users", text: "Two test suppliers: Kano Cotton Mills and Ibadan Dye Works" },
-  { icon: "bot", text: "Its own test agent, screened by Qwen3 in a NEAR AI enclave" },
+  { icon: "bot", text: "Its own test agent, screened by Qwen3-VL-30B in NEAR AI's enclave" },
 ];
 
 export function WelcomeView() {
@@ -65,7 +65,7 @@ export function WelcomeView() {
             router.push("/start/vault");
           }}
         >
-          {accountId ? "Create your vault" : "Connect a NEAR wallet"}
+          {accountId ? "Create your vault" : "Connect wallet"}
         </Pill>
         <Pill
           variant="secondary"
@@ -260,7 +260,7 @@ export function VaultSetupView() {
           ) : (
             <button type="button" className={`${styles.connectRow} press`} onClick={connect} disabled={!ready}>
               <Icon name="wallet" size={17} />
-              {ready ? "Connect a NEAR testnet wallet" : "Loading wallets…"}
+              {ready ? "Connect wallet" : "Loading wallets…"}
             </button>
           )}
         </div>
@@ -301,7 +301,7 @@ export function VaultSetupView() {
         </label>
 
         <label className={`${styles.field} rise`} style={delay(290)}>
-          <span>Mandate</span>
+          <span>Rules</span>
           <textarea value={mandate} onChange={(e) => setMandate(e.target.value.slice(0, 2000))} rows={3} disabled={busy} />
           <span className={styles.help}>What your agent may pay for, in your words. The AI screen reads it on every payment.</span>
         </label>
@@ -364,7 +364,7 @@ export function VaultSetupView() {
 
       <div className={`${styles.buttons} rise`} style={delay(400)}>
         <Pill full icon={accountId ? "plus" : "wallet"} onClick={create} loading={busy || fueling} disabled={phase.step === "done" || (!!accountId && atLimit)}>
-          {!accountId ? "Connect a wallet" : atLimit ? `You have ${MAX_VAULTS} vaults, the testnet limit` : fueling ? "Getting your wallet gas" : phase.step === "signing" ? "Confirm in your wallet" : phase.step === "creating" ? "Creating your vault" : "Create vault"}
+          {!accountId ? "Connect wallet" : atLimit ? `You have ${MAX_VAULTS} vaults, the testnet limit` : fueling ? "Getting your wallet gas" : phase.step === "signing" ? "Confirm in your wallet" : phase.step === "creating" ? "Creating your vault" : "Create vault"}
         </Pill>
         <Pill
           variant="secondary"

@@ -299,7 +299,7 @@ So screening a payment costs under one cent all in, while what it stops is the w
 | Agent inbox, guardian, owner actions in the app | Live on testnet |
 | The agent's real email inbox, veto-agent@agentmail.to (AgentMail, Svix-signed webhook; replies with the decision) | Live on testnet: the sender's SPF/DKIM/DMARC results are part of the screened evidence and appear on the Proof page |
 | MCP server on npm ([veto-mcp](https://www.npmjs.com/package/veto-mcp)) | Live: `npx -y veto-mcp`, sandbox mode with no keys or your own vault; `pnpm pack:mcp` rebuilds it and tests the packed tarball |
-| Private screen on NEAR AI Cloud (Qwen3-VL-30B in a TDX enclave) | Live on testnet; about 1.5 s per verdict |
+| Private screen on NEAR AI Cloud (Qwen3-VL-30B in a TDX enclave) | Live on testnet; 1.3 s median per verdict on the bench |
 | The sandbox's exact verdict bytes, published and re-hashed on every Proof page (request, response, and the email against the hash committed on-chain) | Live on testnet for decisions from #109 |
 | Enclave verification (Intel TDX quote, NVIDIA GPUs, key and nonce binding, gateway) | Live on every Proof page and in `verify.ts --attested`; tested offline on a captured real quote |
 | Veto Bench | Live: on our 100 scenarios, 50/50 attacks caught, 42/42 honest payments to saved suppliers paid (8 first payments to new suppliers held for the owner, as the allowlist baseline also does), 100/100 signatures verified |

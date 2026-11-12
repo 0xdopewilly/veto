@@ -66,7 +66,9 @@
   background: var(--green);
 }
 
+/* No glow blobs: the gate's own colour and the ring that spreads from it carry the moment. */
 .glow {
+  display: none;
   position: absolute;
   inset: -40%;
   border-radius: 50%;

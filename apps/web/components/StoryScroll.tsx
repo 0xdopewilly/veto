@@ -16,15 +16,18 @@ export interface StoryGate {
 /**
  * "Two gates": a tall section whose inside stays pinned while you scroll. Scrolling drives
  * the circuit: the packet leaves the vault, passes the cap, and is stopped by the AI screen,
- * while the copy for each gate lights up in turn. Reduced motion gets a static layout.
+ * while the copy for each gate lights up in turn. It rests on the first gate already passed,
+ * so the section is never empty before you scroll it. Reduced motion gets a static layout.
  */
 export function StoryScroll({ title, lead, gates }: { title: string; lead: string; gates: readonly StoryGate[] }) {
   const calm = useCalm();
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end end"] });
-  const t = useTransform(scrollYProgress, [0.06, 0.8], [0, 1], { clamp: true });
-  const overrideIn = useTransform(t, [0.86, 0.96], [0, 1], { clamp: true });
-  const overrideY = useTransform(t, [0.86, 0.96], [16, 0], { clamp: true });
+  // At rest the cap has passed (0.36); the first stretch of scroll lingers there, then the
+  // packet runs on to the AI screen and its veto.
+  const t = useTransform(scrollYProgress, [0.04, 0.22, 0.8], [0.36, 0.4, 1], { clamp: true });
+  const overrideIn = useTransform(t, [0.86, 0.96], [0.45, 1], { clamp: true });
+  const overrideY = useTransform(t, [0.86, 0.96], [10, 0], { clamp: true });
   const [active, setActive] = useState(0);
   useMotionValueEvent(t, "change", (v) => setActive(v < 0.42 ? 0 : v < 0.84 ? 1 : 2));
 
@@ -61,15 +64,13 @@ export function StoryScroll({ title, lead, gates }: { title: string; lead: strin
           </div>
           <div className={styles.visual}>
             <div className={styles.circuitCard}>
-              <span className={styles.glow} data-stage={active} aria-hidden="true" />
               <Circuit ai="veto" paid={false} large progress={calm ? undefined : t} />
               <motion.p className={styles.override} style={calm ? { opacity: 1, y: 0 } : { opacity: overrideIn, y: overrideY }}>
-                <span className={styles.overrideDot} aria-hidden="true" />
                 You can still override it. It pays only after a delay, and you can cancel until then.
               </motion.p>
             </div>
             {!calm && (
-              <div className={styles.progress} aria-hidden="true">
+              <div className={styles.progress} data-stage={active} aria-hidden="true">
                 <motion.span className={styles.progressFill} style={{ scaleX: scrollYProgress }} />
               </div>
             )}

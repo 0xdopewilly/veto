@@ -10,25 +10,19 @@
 .bar {
   position: relative;
   z-index: 2;
-  max-width: 1180px;
+  max-width: 1280px;
   margin: 0 auto;
   min-height: 60px;
   padding: 0 8px 0 18px;
   border-radius: 30px;
-  background: rgba(17, 17, 17, 0.9);
+  background: var(--bar-glass);
   backdrop-filter: blur(24px) saturate(150%);
   -webkit-backdrop-filter: blur(24px) saturate(150%);
-  box-shadow: 0 16px 40px -20px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: var(--float-shadow), inset 0 1px 0 color-mix(in srgb, var(--sand) 5%, transparent);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  transition: max-width var(--spring-surface-ms) var(--spring-surface);
-}
-
-/* The landing runs wider; the bar eases between the two widths as you move. */
-.top[data-wide] .bar {
-  max-width: 1376px;
 }
 
 .brand {
@@ -106,7 +100,7 @@
   padding: 0 5px 0 16px;
   border-radius: 22px;
   background: var(--green);
-  color: var(--black);
+  color: var(--on-accent);
   font-size: 14px;
   font-weight: 650;
   text-decoration: none;
@@ -129,7 +123,7 @@
   height: 34px;
   border-radius: 50%;
   background: var(--black);
-  color: var(--green);
+  color: var(--green-fg);
   display: grid;
   place-items: center;
   transition: transform var(--spring-bounce-ms) var(--spring-bounce);
@@ -166,6 +160,19 @@
 /* ------------------------------------------------------------ phone menu */
 
 .menuButton {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--control);
+  color: var(--sand);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.themeButton {
   flex: none;
   width: 44px;
   height: 44px;
@@ -217,7 +224,7 @@
   z-index: 0;
   padding: 0;
   border: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--backdrop);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   cursor: default;
@@ -234,8 +241,8 @@
   overscroll-behavior: contain;
   padding: 8px;
   border-radius: 28px;
-  background: rgba(17, 17, 17, 0.97);
-  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  background: var(--overlay-glass);
+  box-shadow: var(--float-shadow), inset 0 1px 0 color-mix(in srgb, var(--sand) 5%, transparent);
   transform-origin: top right;
   display: flex;
   flex-direction: column;
@@ -289,8 +296,8 @@
   flex: none;
   padding: 5px 10px;
   border-radius: var(--r-pill);
-  background: rgba(0, 236, 151, 0.12);
-  color: var(--green);
+  background: var(--green-soft);
+  color: var(--green-fg);
   font-size: 12px;
   font-weight: 600;
 }
@@ -299,12 +306,12 @@
   padding: 8px 2px 2px;
 }
 
-/* Phones showing "Back to …": the V alone, so the label keeps its words. */
+/* Narrow phones: the V alone, so the app button keeps all its words ("Open the app", "Back to …"). */
 @media (max-width: 429px) {
-  .top[data-back] .lockup {
+  .lockup {
     display: none;
   }
-  .top[data-back] .markOnly {
+  .markOnly {
     display: inline-flex;
   }
 }
