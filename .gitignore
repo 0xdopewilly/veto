@@ -12,3 +12,4 @@ bench/runs/
 next-env.d.ts
 *.tsbuildinfo
 .vercel/
+packages/mcp/npm/

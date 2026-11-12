@@ -13,11 +13,15 @@
     "start": "pnpm --filter @veto/web start",
     "guardian": "node services/guardian/src/main.ts",
     "build:contracts": "cd contract && RUSTFLAGS='--cfg near -C link-arg=-s' cargo build --target wasm32-unknown-unknown --release && cd ../test-token && RUSTFLAGS='--cfg near -C link-arg=-s' cargo build --target wasm32-unknown-unknown --release && cd ../factory && RUSTFLAGS='--cfg near -C link-arg=-s' cargo build --target wasm32-unknown-unknown --release",
+    "pack:mcp": "node scripts/pack-mcp.mjs --check",
     "shrink:vault": "npx -y -p binaryen@123.0.0 wasm-opt --mvp-features --enable-bulk-memory --enable-sign-ext --enable-mutable-globals -Oz --converge --strip-debug --strip-producers contract/target/wasm32-unknown-unknown/release/veto_vault.wasm -o contract/target/wasm32-unknown-unknown/release/veto_vault.opt.wasm",
     "demo:setup": "node scripts/demo-setup.ts",
     "demo:health": "node scripts/demo-health.ts",
     "demo:check": "node scripts/demo-check.ts",
     "bench": "node bench/run.ts",
     "test": "node --test packages/core/test/core.test.ts && node --test packages/mcp/test/mcp.test.ts && cd contract && cargo test && cd ../factory && cargo test"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
   }
 }

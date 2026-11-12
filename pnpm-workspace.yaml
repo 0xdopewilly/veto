@@ -4,3 +4,5 @@ packages:
   - "apps/*"
   - "bench"
   - "scripts"
+allowBuilds:
+  esbuild: false
