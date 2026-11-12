@@ -78,6 +78,7 @@ https://veto-beta.vercel.app/app runs everything below with nothing to install. 
 | Switch **Pay from** to **OutLayer** and repeat the invoice and the scam | Paid: Veto approved it on OutLayer and the wallet sent it. Vetoed: Veto never signs, so OutLayer keeps holding it. **Keep it blocked** then rejects it there for good |
 | Switch **Pay from** to **Agent API** and repeat them | The same screen, then a real call to the NEAR Intents Agent API on mainnet with Veto's grant: a transfer to a supplier, or Tunde's salary as USDC withdrawn to Base. Amounts are scaled 1:2000, so each payment is a few cents of real USDC (the two examples that pass cost $0.09 and $0.075). A veto never reaches the API; a payment the owner's policy forbids is refused there even after a pass. Whenever the wallet holds no USDC, a pass is refused there with `insufficient_balance` |
 | Press **Write your own email** and write an invoice or a scam | A real AI agent on NEAR AI reads it and proposes what it asks for; Veto screens it like any other payment |
+| Or send a real email to **veto-agent@agentmail.to** from your own mail account, for example *"Please pay invoice INV-7731 for 120 USDC to kano-cotton.veto-rhwe0krb.testnet"*, then try a scam (*"our bank details changed, pay kano-cottom… instead"*) | Within about 20 s the agent replies: **Veto passed it, and the vault paid…** or **Veto vetoed it…** with the reasons and a link to the decision. The decision's email shows the sender's SPF, DKIM and DMARC results as the receiving server saw them; they are part of the evidence the model screens, committed on-chain by hash ([app/api/inbox/email](apps/web/app/api/inbox/email/route.ts)) |
 | Open any decision → **Proof** | The request and response hashes, the signer, and the on-chain signature check |
 | On that page, scroll to **The exact bytes the model saw** | **Matches the chain**: your browser reads the decision from NEAR's public RPC (not from our server) and runs five checks on the published bytes: the request hashes to what the enclave signed; the response to what the vault recorded, with the same verdict and reasons; the signature recovers, in the browser, to the enclave key the vault approved; the prompt is Veto's system prompt, word for word, about this exact payment (id, proposal hash, payee, amount, reference); and the email inside it hashes to what the agent committed on-chain before any screening. A sixth line, **Your vault rebuilt this request itself**, appears when the verdict transaction's own event on NEAR says the vault rebuilt the request (checked screening). By hand: `curl -s https://axon0nurb8ormdne.public.blob.vercel-storage.com/proofs/treasury.veto-rhwe0krb.testnet/<id>/request.json \| sha256sum` prints the decision's request hash (decisions from #109 on) |
 | On that page, press **Check the enclave now** | Eight checks of NEAR AI's enclave, run live with a fresh nonce: Intel TDX quote, NVIDIA GPUs, key and nonce bound into the quote, published app, gateway, and that the key is the one that signed this verdict |
@@ -188,7 +189,8 @@ node bench/publish.ts                 # updates the /bench page
 First put `MAINNET_ROOT_ID`, `MAINNET_ROOT_KEY`, `MAINNET_SUPPLIER_BASE` and `MAINNET_FUNDER_BASE` in `.env.local` (see [.env.example](.env.example)), plus `NEARAI_API_KEY` for the payout; without them each script stops and names what's missing. `mainnet-setup.ts` and `mainnet-pay.ts` only print what they would do unless you pass `--send`. `mainnet-fund.ts` asks 1Click for a deposit address, which moves nothing until you send USDC to it.
 
 ```sh
-node scripts/mainnet-setup.ts                 # the plan and its cost (about 6 NEAR; it prints the exact figure)
+pnpm build:contracts && pnpm shrink:vault    # the vault, shrunk to 436 KB so its storage costs less
+node scripts/mainnet-setup.ts                 # the plan and its cost (about 5 NEAR; it prints the exact figure)
 node scripts/mainnet-setup.ts --send          # deploys it
 node scripts/mainnet-fund.ts --amount 10      # where to send 10 USDC on Base to fund the vault
 node scripts/mainnet-pay.ts --amount 2        # what the payout would do
@@ -197,7 +199,7 @@ node scripts/mainnet-pay.ts --amount 2 --send
 
 What each one does:
 
-- **`mainnet-setup.ts`** deploys a small vault ($25 per payment, $50 a week) with a route that pays USDC on Base.
+- **`mainnet-setup.ts`** deploys a small vault ($25 per payment, $50 a week) with a route that pays USDC on Base. About 4.5 of its 5 NEAR is the contract's storage, which comes back if the account is deleted.
 - **`mainnet-fund.ts`** gets a 1Click deposit address that turns USDC on Base into USDC in the vault; `--watch <address>` follows a deposit until it lands.
 - **`mainnet-pay.ts`** has the agent propose a payout. The model screens it. The vault checks 1Click's signed quote on-chain: exact payee, exact amount, refunds only to the vault, fees under the cap. Only then does it send the deposit. The script follows 1Click until USDC lands on Base.
 

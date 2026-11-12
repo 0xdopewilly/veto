@@ -424,6 +424,8 @@ export function InboxSheet({ open, onClose }: { open: boolean; onClose: () => vo
   );
 }
 
+const AGENT_EMAIL = process.env.NEXT_PUBLIC_AGENT_EMAIL;
+
 /** Write the agent an email: a real model reads it and proposes whatever it asks for. */
 function Composer({ vault, compact }: { vault: string; compact: boolean }) {
   const demo = useDemo();
@@ -440,17 +442,34 @@ function Composer({ vault, compact }: { vault: string; compact: boolean }) {
   const busy = Object.values(demo.runs).some(inFlight);
 
   if (!open) {
+    // The sandbox agent also has a real inbox (app/api/inbox/email): mail it from your own account.
+    const realInbox = AGENT_EMAIL && demo.info?.sandbox && demo.payFrom !== "agentapi";
+    const mailto = `mailto:${AGENT_EMAIL}?subject=${encodeURIComponent("Invoice INV-7731")}&body=${encodeURIComponent(`Hello, please pay invoice INV-7731 for 120 USDC to kano-cotton.${root}. Thanks!`)}`;
     return (
-      <button type="button" className={`${styles.composeToggle} press`} onClick={() => setOpen(true)}>
-        <span className={styles.composeIcon} aria-hidden="true">
-          <Icon name="plus" size={16} stroke={2.5} />
-        </span>
-        <span className={styles.composeText}>
-          <strong>Write your own email</strong>
-          <span>A real AI agent reads it and pays what it asks. Try to sneak a scam past Veto.</span>
-        </span>
-        <Icon name="arrowRight" size={16} className={styles.composeChevron} />
-      </button>
+      <>
+        <button type="button" className={`${styles.composeToggle} press`} onClick={() => setOpen(true)}>
+          <span className={styles.composeIcon} aria-hidden="true">
+            <Icon name="plus" size={16} stroke={2.5} />
+          </span>
+          <span className={styles.composeText}>
+            <strong>Write your own email</strong>
+            <span>A real AI agent reads it and pays what it asks. Try to sneak a scam past Veto.</span>
+          </span>
+          <Icon name="arrowRight" size={16} className={styles.composeChevron} />
+        </button>
+        {realInbox && (
+          <p className={styles.realInbox}>
+            <Icon name="mail" size={15} />
+            <span>
+              Or email it for real at{" "}
+              <a href={mailto} className="mono">
+                {AGENT_EMAIL}
+              </a>
+              . It replies with Veto&apos;s decision.
+            </span>
+          </p>
+        )}
+      </>
     );
   }
   return (

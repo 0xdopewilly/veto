@@ -30,7 +30,7 @@ interface Check {
   detail: string;
 }
 
-type Email = { from?: string; subject?: string; body?: string };
+type Email = { from?: string; to?: string; subject?: string; body?: string; sender_checks?: string };
 type Status =
   | { kind: "loading" }
   | { kind: "missing"; expected: boolean }
@@ -280,6 +280,16 @@ export function ProofBytes({ vault, id }: { vault: string; id: string }) {
           {status.email.from && (
             <p>
               <span>From</span> {status.email.from}
+            </p>
+          )}
+          {status.email.to && (
+            <p>
+              <span>To</span> {status.email.to}
+            </p>
+          )}
+          {status.email.sender_checks && (
+            <p>
+              <span>Sender</span> {status.email.sender_checks}
             </p>
           )}
           {status.email.subject && (

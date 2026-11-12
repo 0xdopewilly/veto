@@ -17,12 +17,20 @@ const NETWORK = "mainnet";
 const SEND = process.argv.includes("--send");
 const USDC_TOKEN = "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1";
 const USD = 1_000_000n;
-const WASM = new URL("../contract/target/wasm32-unknown-unknown/release/veto_vault.wasm", import.meta.url);
+// The release build shrunk by `pnpm shrink:vault` (binaryen, using only the wasm features the plain
+// build already uses): 436 KB instead of 548 KB, so about 1.1 NEAR less storage. Without it, the
+// plain build is deployed.
+const SHRUNK = new URL("../contract/target/wasm32-unknown-unknown/release/veto_vault.opt.wasm", import.meta.url);
+const PLAIN = new URL("../contract/target/wasm32-unknown-unknown/release/veto_vault.wasm", import.meta.url);
+const WASM = existsSync(SHRUNK) ? SHRUNK : PLAIN;
 const MANDATE = "Pay listed suppliers only, in USDC. No single payment over $25. Ask me before paying a new or changed address.";
 // Small on purpose: this vault exists to prove one real payout.
 const POLICY = { period_limit: String(50n * USD), max_single: String(25n * USD) };
 const ROUTE = { token: USDC_TOKEN, origin_asset: USDC.near, destination_asset: USDC.base, max_fee_bps: 300 };
-const SUBS = { treasury: "0.1", buyer: "0.1", guardian: "0.3" } as const;
+// Each signer must hold about 0.001 NEAR per Tgas it attaches while a call is in flight (most comes
+// back): the agent's propose attaches 30 Tgas, the guardian's verdict 100. The treasury's share pays
+// for its own state and the 1Click deposit address's USDC registration.
+const SUBS = { treasury: "0.07", buyer: "0.05", guardian: "0.13" } as const;
 
 loadEnv(new URL("../.env.local", import.meta.url));
 const rootId = process.env.MAINNET_ROOT_ID ?? "";
@@ -38,14 +46,15 @@ if (PROTECTED && (rootId === PROTECTED || rootId.endsWith(`.${PROTECTED}`))) thr
 const state = loadState(NETWORK);
 state.root = { accountId: rootId, key: rootKey };
 const root = account(state.root, NETWORK);
+if (!existsSync(WASM)) throw new Error("build the vault first: pnpm build:contracts && pnpm shrink:vault");
 const code = new Uint8Array(readFileSync(WASM));
 const storage = BigInt(code.length) * 10n ** 19n;
-const needed = storage + Object.values(SUBS).reduce((s, n) => s + nearToYocto(n), 0n) + nearToYocto("0.5");
+const needed = storage + Object.values(SUBS).reduce((s, n) => s + nearToYocto(n), 0n) + nearToYocto("0.15");
 const balance = (await exists(rootId, NETWORK)) ? await root.getBalance() : 0n;
 const vaultId = `treasury.${rootId}`;
 
 console.log(`${SEND ? "Setting up" : "Dry run:"} a mainnet vault ${vaultId}`);
-console.log(`  contract storage  ${yoctoToNear(storage, 2)} NEAR (${Math.round(code.length / 1024)} KB)`);
+console.log(`  contract storage  ${yoctoToNear(storage, 2)} NEAR (${Math.round(code.length / 1024)} KB${WASM === PLAIN ? "; pnpm shrink:vault saves about 1.1 NEAR" : ", shrunk"})`);
 console.log(`  sub-accounts      ${Object.entries(SUBS).map(([k, v]) => `${k} ${v}`).join(", ")} NEAR`);
 console.log(`  needs about       ${yoctoToNear(needed, 2)} NEAR; ${rootId} holds ${yoctoToNear(balance, 2)} NEAR`);
 console.log(`  policy            $25 per payment, $50 a week, USDC only`);

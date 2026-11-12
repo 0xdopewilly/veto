@@ -1,8 +1,7 @@
 import { allow, demo, vaultAccounts, visitor } from "@/lib/server/demo";
-import { readEmail } from "@/lib/server/agent";
-import { evmDemo } from "@/lib/server/evm";
+import { requestFromEmail, Unpayable } from "@/lib/server/intake";
 import { outlayerEnabled } from "@/lib/server/outlayer";
-import { refusal, startPayment, units } from "@/lib/server/pay";
+import { refusal, startPayment } from "@/lib/server/pay";
 import { agentApiDemo, runViaAgentApi } from "@/lib/server/agentapi";
 
 export const runtime = "nodejs";
@@ -10,8 +9,6 @@ export const dynamic = "force-dynamic";
 // The agent reads the email, then screening continues after the response.
 export const maxDuration = 120;
 
-const NEAR_ACCOUNT = /^(?=.{2,64}$)(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/;
-const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
 /**
@@ -33,34 +30,17 @@ export async function POST(req: Request) {
   }
 
   try {
-    const reading = await readEmail(email);
-    if (!reading.pay) return Response.json({ error: "The agent read it and found nothing to pay." }, { status: 422 });
-    // The first number in what the agent read ("$64.00", "64 USDC", "1,250.5").
-    const amount = (reading.amount.match(/\d[\d,]*(?:\.\d+)?/)?.[0] ?? "").replace(/,/g, "");
-    if (!/^\d+(\.\d+)?$/.test(amount) || Number(amount) <= 0) return Response.json({ error: "The agent couldn't find an amount to pay." }, { status: 422 });
-    const memo = reading.reference.trim().slice(0, 64) || null;
-
-    let request;
-    if (reading.currency === "ETH") {
-      if (!accounts.sandbox) return Response.json({ error: "Your vault pays test USDC on NEAR. ETH on Base Sepolia is in the sandbox." }, { status: 422 });
-      const evm = await evmDemo();
-      if (!evm?.funded) return Response.json({ error: "This demo pays ETH only on Base Sepolia, and that route has no test ETH right now." }, { status: 422 });
-      if (!EVM_ADDRESS.test(reading.payee)) return Response.json({ error: `ETH goes to a 0x address on Base Sepolia; the email gave "${reading.payee}".` }, { status: 422 });
-      request = { chain: evm.chain, asset: evm.asset, payee: reading.payee, amount: units(amount, 18), memo };
-    } else {
-      const payee = reading.payee.trim().toLowerCase();
-      if (!NEAR_ACCOUNT.test(payee)) return Response.json({ error: `USDC goes to a NEAR account (like name.testnet); the email gave "${reading.payee}".` }, { status: 422 });
-      request = { chain: "near", asset: demo.token, payee, amount: units(amount, 6), memo };
-    }
+    const { request, agent } = await requestFromEmail(accounts, email);
 
     if (via === "agentapi") {
       if (request.chain !== "near") return Response.json({ error: "The Agent API wallet pays USDC on NEAR. Ask for USDC instead." }, { status: 422 });
       const agentapi = await runViaAgentApi({ payee: request.payee, amount: request.amount, memo: request.memo ?? null, evidence: { source: "email", ...email }, scaled: false });
-      return Response.json({ agentapi, agent: { payee: request.payee, amount, currency: reading.currency, reference: memo } });
+      return Response.json({ agentapi, agent });
     }
     const result = await startPayment(accounts, request, { source: "email", ...email }, via);
-    return Response.json({ ...result, agent: { payee: request.payee, amount, currency: reading.currency, reference: memo } });
+    return Response.json({ ...result, agent });
   } catch (e) {
+    if (e instanceof Unpayable) return Response.json({ error: e.message }, { status: 422 });
     return refusal(e);
   }
 }

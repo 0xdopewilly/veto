@@ -2,11 +2,14 @@
 // `pnpm build:contracts` just built and compares them with the code deployed for the live demo.
 // Read-only and keyless.
 //   pnpm build:contracts && node scripts/check-deployed.ts [root account]
+//   pnpm build:contracts && pnpm shrink:vault && node scripts/check-deployed.ts --mainnet
+// --mainnet checks the mainnet vault that made the first real payout instead (the shrunk build).
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 
-const root = process.argv[2] ?? "veto-rhwe0krb.testnet";
-const RPC = "https://test.rpc.fastnear.com";
+const MAINNET = process.argv.includes("--mainnet");
+const root = process.argv.slice(2).find((a) => !a.startsWith("--")) ?? (MAINNET ? "veto-mainnet.near" : "veto-rhwe0krb.testnet");
+const RPC = MAINNET ? "https://rpc.mainnet.fastnear.com" : "https://test.rpc.fastnear.com";
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 /** NEAR writes code hashes in base58. */
 function base58(bytes: Uint8Array): string {
@@ -34,7 +37,9 @@ const view = async <T>(account: string, method: string) => {
   return JSON.parse(Buffer.from(r.result).toString()) as T;
 };
 
-const checks: [string, URL, () => Promise<string>][] = [
+const checks: [string, URL, () => Promise<string>][] = MAINNET ? [
+  [`mainnet vault treasury.${root} (pnpm shrink:vault)`, new URL("veto_vault.opt.wasm", wasm("contract")), () => deployedCode(`treasury.${root}`)],
+] : [
   ["vault (the shared sandbox)", new URL("veto_vault.wasm", wasm("contract")), () => deployedCode(`treasury.${root}`)],
   ["vault code every factory vault runs (global contract)", new URL("veto_vault.wasm", wasm("contract")), () => view<string>(`vaults.${root}`, "get_code_hash")],
   ["factory", new URL("veto_factory.wasm", wasm("factory")), () => deployedCode(`vaults.${root}`)],
@@ -43,7 +48,7 @@ const checks: [string, URL, () => Promise<string>][] = [
 
 let mismatches = 0;
 for (const [name, file, deployed] of checks) {
-  if (!existsSync(file)) throw new Error(`${file.pathname} is missing: run pnpm build:contracts first`);
+  if (!existsSync(file)) throw new Error(`${file.pathname} is missing: run pnpm build:contracts${MAINNET ? " && pnpm shrink:vault" : ""} first`);
   const [local, live] = [hashOf(file), await deployed()];
   const same = local === live;
   if (!same) mismatches++;

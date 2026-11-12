@@ -78,7 +78,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Where do the payment requests come from?",
-    a: "From what the agent reads. The inbox holds example emails (a supplier's invoice and a salary, both genuine, and four common scams), and Write your own email sends the agent anything you type: a real model on NEAR AI reads it and proposes whatever it asks for, the way an accounts-payable agent would. In production that is the agent's own inbox, a supplier portal or a web page. Veto never trusts the request; it screens the payment against the evidence.",
+    a: "From what the agent reads. The inbox holds example emails (a supplier's invoice and a salary, both genuine, and four common scams), and Write your own email sends the agent anything you type: a real model on NEAR AI reads it and proposes whatever it asks for, the way an accounts-payable agent would. The agent also has a real inbox, veto-agent@agentmail.to: mail it from your own account and it replies with Veto's decision, with the sender's SPF, DKIM and DMARC results in the evidence. In production that is the business's own inbox, a supplier portal or a web page. Veto never trusts the request; it screens the payment against the evidence.",
   },
   {
     q: "Which model screens the payments?",

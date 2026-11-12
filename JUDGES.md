@@ -14,6 +14,7 @@ Open https://veto-beta.vercel.app/app and press **Try it** (the green V on a pho
 | On that Proof page, **The exact bytes the model saw** | **Matches the chain**: your browser reads the decision from NEAR's public RPC and runs five checks on the published bytes (request and response hashes, the signature recovered to the vault's approved key, the prompt about this exact payment, and the email against the hash the agent committed before screening), plus a sixth, **Your vault rebuilt this request itself**, read from the verdict transaction's own event |
 | Back in the inbox, let the agent pay **"Invoice IKF-…: Lagos to Ibadan haulage"** | **Paid** on Base from the vault's own address, signed by NEAR's MPC network (Chain Signatures) |
 | **Activity** → **Download CSV** | One row per payment, with its verdict, reasons, transaction and proof link |
+| Email **veto-agent@agentmail.to** from your own account: *"Please pay invoice INV-7731 for 120 USDC to kano-cotton.veto-rhwe0krb.testnet"*, then a "bank details changed" scam to `kano-cottom.veto-rhwe0krb.testnet` | The agent replies within about 20 s: **paid**, then **vetoed**, with the reasons and the decision's link. Its Proof page shows the email, including the sender's SPF/DKIM/DMARC results the model weighed |
 
 The sandbox is shared, and anyone can act as its owner, so it goes back to its default rules for each new visitor. Runs are limited per visitor, to about 15 every 10 minutes.
 
