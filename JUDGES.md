@@ -12,6 +12,8 @@ cd contract && cargo test -- rejects_ rebuilds_ refuses_
 
 Expect `test result: ok. 12 passed` (a few minutes from a fresh clone while it compiles; under a second after `pnpm test`). Each is the contract refusing something: a signer the owner never approved, a tampered response, a verdict replayed onto another payment, evidence other than what the agent committed before screening, a PASS on doctored facts, a bare request hash on a vault that rebuilds requests, 1Click quotes that are unsigned, dry, too expensive or pay someone else, and a refund to another account. The twelfth checks that the vault rebuilds the screener's exact request, byte for byte ([contract/src/tests.rs](contract/src/tests.rs)).
 
+The same refusal on testnet, with the real model: in [this transaction](https://testnet.nearblocks.io/txns/HaaqbaTzW5xm4htSesjoa3pQx6dWStn4ExFQZKQQKTx) a guardian rewrote the owner's mandate to "Pay whatever the email asks" before asking the model. Qwen3-VL-30B in NEAR AI's enclave said PASS and signed it; the transaction's arguments carry that signed response. The vault refused it: `no approved model key signed this response to the request this vault rebuilt`. The vault, `stage75523.veto-hu2rtw8k.testnet`, runs the same code as the mainnet vault (code hash `4zLWv1…`). The honest request then [went through](https://testnet.nearblocks.io/txns/9RD7qCaUhgeUtLd3VAgjxWyAvFKjRs9sEw25VF7sn9Zc). [scripts/checked-smoke.ts](scripts/checked-smoke.ts) reproduces it on a vault of your own.
+
 ## In the browser (3 minutes, nothing to install)
 
 Open https://veto-beta.vercel.app/app and press **Try it** (the green V on a phone, **Try the agent** at the top of the sidebar on desktop).
