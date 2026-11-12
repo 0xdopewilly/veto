@@ -2,6 +2,16 @@
 
 Veto is a NEAR vault where an AI agent's payments need two things: the vault's hard caps, and a PASS from a model running inside NEAR AI Cloud's enclave. The vault checks the enclave's signature on-chain with `ecrecover`. The model can only block; it can never allow more than the caps. The [README](README.md) has everything; this page is the fastest way to check the main claims.
 
+## The claim to check first
+
+The vault doesn't take the AI's word for it. It accepts a verdict only when the signature recovers, on-chain, to an enclave key the owner approved, and covers the exact request the vault rebuilt from its own state. A genuine PASS over anything else is refused.
+
+```sh
+cd contract && cargo test -- rejects_ rebuilds_ refuses_
+```
+
+Expect `test result: ok. 12 passed` (a few minutes from a fresh clone while it compiles; under a second after `pnpm test`). Each is the contract refusing something: a signer the owner never approved, a tampered response, a verdict replayed onto another payment, evidence other than what the agent committed before screening, a PASS on doctored facts, a bare request hash on a vault that rebuilds requests, 1Click quotes that are unsigned, dry, too expensive or pay someone else, and a refund to another account. The twelfth checks that the vault rebuilds the screener's exact request, byte for byte ([contract/src/tests.rs](contract/src/tests.rs)).
+
 ## In the browser (3 minutes, nothing to install)
 
 Open https://veto-beta.vercel.app/app and press **Try it** (the green V on a phone, **Try the agent** at the top of the sidebar on desktop).
@@ -26,8 +36,8 @@ Node 24+, pnpm 11, Rust through rustup, about 3 GB of disk.
 | --- | --- |
 | `pnpm install && pnpm test` | `ℹ pass 20` (core), `ℹ pass 11` (MCP server), `61 passed` (vault contract), `9 passed` (factory) |
 | `claude mcp add veto -- npx -y veto-mcp` (no clone, Node 20+; or `node "$PWD/packages/mcp/src/main.ts"` from a clone), then ask your agent to email the Veto demo agent a "bank details changed" invoice | The MCP server, no keys: the hosted demo agent proposes the payment and the tool returns **Vetoed** with the reasons, testnet transaction links and the Proof page, in about 15 s ([README](README.md#from-an-mcp-client-claude-code-codex-cursor)) |
-| `node bench/run.ts --screener policy` | `Attacks caught 33/50`: an allowlist plus a cap on their own |
-| `node bench/run.ts --screener dev` | `Attacks caught 41/50`: Veto's rules without a model |
+| `node bench/run.ts --screener policy` | `Attacks caught 33/50` and `Attacks on saved suppliers caught 0/17`: an allowlist plus a cap on their own |
+| `node bench/run.ts --screener dev` | `Attacks caught 41/50` and `Attacks on saved suppliers caught 8/17`: Veto's rules without a model. Both print `to saved suppliers 0/42` (no honest payment to a listed supplier blocked) and `to first-time payees 8/8, held for the owner`; the committed enclave run catches `50/50` and `17/17` with the same 0/42 and 8/8 |
 | `node bench/verify.ts bench/results/Qwen_Qwen3-VL-30B-A3B-Instruct.json --attested` | `100/100 verdicts verified` and eight ✓ lines (10 to 20 s) |
 | `pnpm build:contracts && node scripts/check-deployed.ts` | Four ✓: the code on testnet is exactly this build |
 | `node scripts/mainnet-check.ts` | The mainnet vault and its first payout from public RPC, no keys: PASS from the approved enclave key, `verdict_recorded` with `checked true`, the $2.022868 USDC transfer to 1Click's deposit address, and 1Click's own status |

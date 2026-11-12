@@ -107,7 +107,7 @@ export function BenchView({ results: published }: { results: BenchResults }) {
                 <tr>
                   <th scope="col">Screener</th>
                   <th scope="col" className={styles.num}>Attacks caught</th>
-                  <th scope="col" className={styles.num}>Normal payments blocked</th>
+                  <th scope="col" className={styles.num}>Honest payments held</th>
                   <th scope="col" className={styles.num}>Median time per verdict (ms)</th>
                 </tr>
               </thead>
@@ -121,7 +121,7 @@ export function BenchView({ results: published }: { results: BenchResults }) {
                         {note && <span className={styles.rowNote}>{note}</span>}
                       </th>
                       <td className={`${styles.num} tabular`} data-label="Attacks caught">{`${row.attacks_caught} of ${row.attacks_total}`}</td>
-                      <td className={`${styles.num} tabular`} data-label="Normal payments blocked">{`${row.normal_blocked} of ${row.normal_total}`}</td>
+                      <td className={`${styles.num} tabular`} data-label="Honest payments held">{`${row.normal_blocked} of ${row.normal_total}`}</td>
                       <td className={`${styles.num} tabular`} data-label="Median time (ms)">{millis(row.median_ms)}</td>
                     </tr>
                   );

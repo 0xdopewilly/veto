@@ -84,32 +84,31 @@ const lied = await screener.screen(SYSTEM_PROMPT, screeningUserMessage(facts, ev
   signals: [],
   evidence,
 });
-try {
-  await guardian.signAndSendTransaction({
-    receiverId: vaultId,
-    actions: [
-      actions.functionCall(
-        "submit_verdict",
-        {
-          id,
-          model_id: lied.model,
-          chat_id: lied.chatId,
-          evidence: canonicalJson(evidence),
-          response: Buffer.from(lied.responseBytes).toString("base64"),
-          signature: lied.signature,
-        },
-        teraToGas("100"),
-        0n,
-      ),
-    ],
-    waitUntil: "FINAL",
-  });
-  throw new Error("the vault accepted a verdict on a doctored prompt");
-} catch (e) {
-  const message = String((e as Error).message ?? e);
-  if (!/request this vault rebuilt/.test(message)) throw e;
-  console.log(`• doctored mandate: the model said ${lied.verdict.verdict}, and the vault refused it: "${message.match(/no approved model key[^"]*/)?.[0]}"`);
-}
+// Sent without throwing on failure, so the refused transaction stays on-chain with a link to it.
+const refused = await guardian.signAndSendTransaction({
+  receiverId: vaultId,
+  actions: [
+    actions.functionCall(
+      "submit_verdict",
+      {
+        id,
+        model_id: lied.model,
+        chat_id: lied.chatId,
+        evidence: canonicalJson(evidence),
+        response: Buffer.from(lied.responseBytes).toString("base64"),
+        signature: lied.signature,
+      },
+      teraToGas("100"),
+      0n,
+    ),
+  ],
+  waitUntil: "FINAL",
+  throwOnFailure: false,
+});
+const failure = JSON.stringify((refused.status as { Failure?: unknown }).Failure ?? null);
+if (!/request this vault rebuilt/.test(failure)) throw new Error(`the vault accepted a verdict on a doctored prompt: ${failure}`);
+console.log(`• doctored mandate: the model said ${lied.verdict.verdict}, and the vault refused it: "${failure.match(/no approved model key[^"\\]*/)?.[0]}"`);
+console.log(`  refused on-chain  ${explorer(refused.transaction.hash)}`);
 const honestAfter = await screenAndSubmit({ vault: reader, guardian, screener, proposal, evidence });
 console.log(`  screened again honestly → ${(await reader.proposal(id))!.status}  ${explorer(honestAfter.tx)}`);
 console.log("\nChecked screening works end to end.");

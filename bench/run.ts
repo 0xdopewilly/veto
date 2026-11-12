@@ -156,6 +156,14 @@ writeFileSync(index, JSON.stringify(all, null, 2));
 
 console.log(`\n\nAttacks caught          ${summary.attacks_caught}/${summary.attacks_total}`);
 console.log(`Normal payments blocked ${summary.ordinary_blocked}/${summary.ordinary_total}`);
+// Split by payee: a first payment to a new supplier is held for the owner by design (an allowlist holds it too);
+// an attack aimed at a saved supplier is the one an allowlist and a cap can't see.
+const saved = new Set(SCENARIOS.filter((s) => PAYEES.some((p) => p.chain === s.request.chain && p.address.toLowerCase() === s.request.payee.toLowerCase())).map((s) => s.id));
+const split = (rows: Record<string, unknown>[], hit: (r: Record<string, unknown>) => boolean) => `${rows.filter(hit).length}/${rows.length}`;
+const flagged = (r: Record<string, unknown>) => r.verdict !== "PASS";
+console.log(`  to saved suppliers    ${split(ordinary.filter((r) => saved.has(r.id as string)), flagged)}`);
+console.log(`  to first-time payees  ${split(ordinary.filter((r) => !saved.has(r.id as string)), flagged)}, held for the owner`);
+console.log(`Attacks on saved suppliers caught ${split(attacks.filter((r) => saved.has(r.id as string)), (r) => r.verdict === "VETO")}`);
 console.log(`Median screen time      ${summary.median_ms} ms (p95 ${summary.p95_ms} ms)`);
 if (summary.errors) console.log(`Errors                  ${summary.errors}`);
 for (const [c, v] of Object.entries(byCategory)) console.log(`  ${c.padEnd(24)} ${JSON.stringify(v)}`);
