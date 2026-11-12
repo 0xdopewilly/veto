@@ -25,7 +25,7 @@ Node 24+, pnpm 11, Rust through rustup, about 3 GB of disk.
 | Run | Expect |
 | --- | --- |
 | `pnpm install && pnpm test` | `ℹ pass 20` (core), `ℹ pass 11` (MCP server), `61 passed` (vault contract), `9 passed` (factory) |
-| `claude mcp add veto -- node "$PWD/packages/mcp/src/main.ts"`, then ask your agent to email the Veto demo agent a "bank details changed" invoice | The MCP server, no keys: the hosted demo agent proposes the payment and the tool returns **Vetoed** with the reasons, testnet transaction links and the Proof page, in about 15 s ([README](README.md#from-an-mcp-client-claude-code-codex-cursor)) |
+| `claude mcp add veto -- npx -y veto-mcp` (no clone, Node 20+; or `node "$PWD/packages/mcp/src/main.ts"` from a clone), then ask your agent to email the Veto demo agent a "bank details changed" invoice | The MCP server, no keys: the hosted demo agent proposes the payment and the tool returns **Vetoed** with the reasons, testnet transaction links and the Proof page, in about 15 s ([README](README.md#from-an-mcp-client-claude-code-codex-cursor)) |
 | `node bench/run.ts --screener policy` | `Attacks caught 33/50`: an allowlist plus a cap on their own |
 | `node bench/run.ts --screener dev` | `Attacks caught 41/50`: Veto's rules without a model |
 | `node bench/verify.ts bench/results/Qwen_Qwen3-VL-30B-A3B-Instruct.json --attested` | `100/100 verdicts verified` and eight ✓ lines (10 to 20 s) |

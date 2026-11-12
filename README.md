@@ -93,10 +93,10 @@ The sandbox keeps the $500 per-payment cap the scam story relies on. Its weekly 
 
 ## From an MCP client (Claude Code, Codex, Cursor)
 
-[packages/mcp](packages/mcp/src/server.ts) is an MCP server over stdio. With no settings it drives the hosted sandbox above: no keys, no funds. Without cloning anything (Node 20+), from the packaged release:
+[packages/mcp](packages/mcp/src/server.ts) is an MCP server over stdio. With no settings it drives the hosted sandbox above: no keys, no funds. Without cloning anything (Node 20+), from npm ([veto-mcp](https://www.npmjs.com/package/veto-mcp)):
 
 ```sh
-claude mcp add veto -- npx -y https://github.com/0xdopewilly/veto/releases/download/mcp-v0.1.0/veto-mcp-0.1.0.tgz
+claude mcp add veto -- npx -y veto-mcp
 ```
 
 Or from a clone, with Node 24+ and `pnpm install` (no Rust), from the repo root:

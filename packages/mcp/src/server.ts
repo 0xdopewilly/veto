@@ -9,7 +9,7 @@ import { describeProposal, describeRules, payoutTx, proposalText, rulesText, toU
 import type { Sandbox } from "./sandbox.ts";
 import type { OwnVault } from "./vault.ts";
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.1.1";
 
 type Extra = RequestHandlerExtra<ServerRequest, ServerNotification>;
 
