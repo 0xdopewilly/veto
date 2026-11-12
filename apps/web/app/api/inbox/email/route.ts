@@ -37,9 +37,14 @@ export async function POST(req: Request) {
 }
 
 async function handle(mail: AgentMail, accounts: VaultAccounts, messageId: string, unauthenticated: boolean) {
-  const reply = (text: string) => mail.reply(messageId, text).catch((e) => console.error("inbox reply failed:", (e as Error).message));
+  // A forged From would make every reply land on whoever was impersonated, so a sender that fails
+  // authentication is still screened (its decision is public like any other) but never answered.
+  let answerable = false;
+  const reply = (text: string) => (answerable ? mail.reply(messageId, text).catch((e) => console.error("inbox reply failed:", (e as Error).message)) : Promise.resolve());
   try {
     const m = await mail.message(messageId);
+    const auth = m.authentication_results;
+    answerable = !unauthenticated && auth?.dmarc !== "fail" && (auth?.spf === "pass" || auth?.dkim === "pass");
     // Svix retries deliveries, and each server instance has its own memory: the label is the record.
     if (m.labels?.includes(HANDLED) || isMachineMail(m, mail.inbox)) return;
     await mail.label(messageId, HANDLED);
