@@ -30,6 +30,7 @@ Node 24+, pnpm 11, Rust through rustup, about 3 GB of disk.
 | `node bench/run.ts --screener dev` | `Attacks caught 41/50`: Veto's rules without a model |
 | `node bench/verify.ts bench/results/Qwen_Qwen3-VL-30B-A3B-Instruct.json --attested` | `100/100 verdicts verified` and eight ✓ lines (10 to 20 s) |
 | `pnpm build:contracts && node scripts/check-deployed.ts` | Four ✓: the code on testnet is exactly this build |
+| `node scripts/mainnet-check.ts` | The mainnet vault and its first payout from public RPC, no keys: PASS from the approved enclave key, `verdict_recorded` with `checked true`, the $2.022868 USDC transfer to 1Click's deposit address, and 1Click's own status |
 
 `git status` stays clean afterwards: the bench runs write to `bench/runs/`, which git ignores.
 

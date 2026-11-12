@@ -94,7 +94,12 @@ if (info.agentapi && (!only || agentApiOnly)) {
       ["payroll", "pass"],
       ["payroll-diverted", "veto"],
     ] as const
-  ).filter(([id]) => info.scenarios.some((s) => s.id === id) && (!only || only.includes(id)));
+  ).filter(([id]) => {
+    // The same emails the inbox offers on this path: a payout on another chain only when it has an Agent API
+    // version (once this month's salary is paid, the repeat runs on the vault path only).
+    const s = info.scenarios.find((x) => x.id === id) as { symbol?: string; agentapi?: unknown } | undefined;
+    return !!s && (!s.symbol || !!s.agentapi) && (!only || only.includes(id));
+  });
   for (const [scenario, expect] of aaPlan) {
     const started = Date.now();
     const res = await fetch(`${base}/api/demo/run`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ scenario, via: "agentapi", vault: info.vault }) });
