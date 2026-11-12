@@ -198,7 +198,7 @@ node bench/publish.ts                 # updates the /bench page
 
 1. The agent proposed it and committed the invoice email's hash: [CWy7WyFK…](https://nearblocks.io/txns/CWy7WyFK8N78WHVR5LWzCRZxJCb2e6ufRMCP2pwhivQM).
 2. Qwen3-VL-30B in NEAR AI's enclave said PASS. In one transaction the vault rebuilt the request the model saw, recovered the enclave's signature over it, checked 1Click's signed quote (exactly $2.00 out to that address, refunds only to the vault, a 1.1% fee under the 3% cap) and sent $2.022868 USDC to 1Click's deposit address: [41G7RkNd…](https://nearblocks.io/txns/41G7RkNdw9VowSAZuJuesoJ4b55MkqSHHs2WKKLPxXbo).
-3. Delivery on Base is 1Click's step, from there: [its status on the NEAR Intents explorer](https://explorer.near-intents.org/transactions/1217a741212abec7216aa9e41ea82f8449eed578766d9e81482b14dfb3a9ac02).
+3. 1Click delivered exactly $2.00 USDC to the supplier's address on Base at 08:05 UTC, after about five and a half hours in its queue: [0xc068441e…](https://basescan.org/tx/0xc068441ef726e5dd7a9ded95d89165952778416d4687397cb0efdb7c5012f8dd) ([the swap on the NEAR Intents explorer](https://explorer.near-intents.org/transactions/1217a741212abec7216aa9e41ea82f8449eed578766d9e81482b14dfb3a9ac02)).
 
 Check all of it without a browser or keys:
 
@@ -303,7 +303,7 @@ So screening a payment costs under one cent all in, while what it stops is the w
 | The sandbox's exact verdict bytes, published and re-hashed on every Proof page (request, response, and the email against the hash committed on-chain) | Live on testnet for decisions from #109 |
 | Enclave verification (Intel TDX quote, NVIDIA GPUs, key and nonce binding, gateway) | Live on every Proof page and in `verify.ts --attested`; tested offline on a captured real quote |
 | Veto Bench | Live: on our 100 scenarios, 50/50 attacks caught, 42/42 honest payments to saved suppliers paid (8 first payments to new suppliers held for the owner, as the allowlist baseline also does), 100/100 signatures verified |
-| Payouts to other chains through NEAR Intents | Run on mainnet on 12 Nov 2026: [treasury.veto-mainnet.near](https://nearblocks.io/address/treasury.veto-mainnet.near) screened a $2 USDC payout to Base, checked the request and 1Click's signed quote on-chain, and paid 1Click's deposit address ([transaction](https://nearblocks.io/txns/41G7RkNdw9VowSAZuJuesoJ4b55MkqSHHs2WKKLPxXbo)); delivery on Base is 1Click's step. Contract also tested against a real executable quote |
+| Payouts to other chains through NEAR Intents | Run on mainnet on 12 Nov 2026: [treasury.veto-mainnet.near](https://nearblocks.io/address/treasury.veto-mainnet.near) screened a $2 USDC payout to Base, checked the request and 1Click's signed quote on-chain, and paid 1Click's deposit address ([transaction](https://nearblocks.io/txns/41G7RkNdw9VowSAZuJuesoJ4b55MkqSHHs2WKKLPxXbo)); 1Click delivered exactly $2.00 USDC on Base ([transaction](https://basescan.org/tx/0xc068441ef726e5dd7a9ded95d89165952778416d4687397cb0efdb7c5012f8dd)). Contract also tested against a real executable quote |
 | Shield incident check before cross-chain payouts | Built; holds a payout while a NEAR Intents Shield incident touches its route. Runs when `SHIELD_JWT` is set |
 
 ## Layout
