@@ -1,12 +1,16 @@
-// The first mainnet payout, checked from public sources with no keys and no browser: the vault's
-// settings and payment #0 from NEAR RPC, the events its transactions emitted (from an archival node,
-// since public nodes drop transactions after a few days), and 1Click's own status for the deposit.
+// The mainnet vault's payments, checked from public sources with no keys and no browser: the vault's
+// settings and each payment from NEAR RPC, the events its transactions emitted (from an archival node,
+// since public nodes drop transactions after a few days), and 1Click's own status for each deposit.
+// #0 and #2 are invoices the model passed and the vault paid out to Base through NEAR Intents; #1 is a
+// "our wallet changed" scam the model vetoed, so nothing moved.
 //   node scripts/mainnet-check.ts
 const VAULT = "treasury.veto-mainnet.near";
-const ID = "0";
-const TXS = [
-  { hash: "CWy7WyFK8N78WHVR5LWzCRZxJCb2e6ufRMCP2pwhivQM", signer: "buyer.veto-mainnet.near", what: "the agent's proposal" },
-  { hash: "41G7RkNdw9VowSAZuJuesoJ4b55MkqSHHs2WKKLPxXbo", signer: "guardian.veto-mainnet.near", what: "the verdict, quote check and deposit" },
+const AGENT = "buyer.veto-mainnet.near";
+const GUARDIAN = "guardian.veto-mainnet.near";
+const PAYMENTS = [
+  { id: "0", propose: "CWy7WyFK8N78WHVR5LWzCRZxJCb2e6ufRMCP2pwhivQM", verdict: "41G7RkNdw9VowSAZuJuesoJ4b55MkqSHHs2WKKLPxXbo" },
+  { id: "1", propose: "9rmgMxr6xVUBriWfjeq2tFc94YAWs5QJbKbpJ2NfTn1J", verdict: "3gEJXNCeyY9m1woHDFDM6UBnm4XdxznqA1HvTFeqsWGd" },
+  { id: "2", propose: "51Mcucki78rBdHPny4DRwSTN2WicjLjoSdJphJWL6qGQ", verdict: "HLsrBmMq4wSChzLKapD5wZG9T1MLuS2XuT8aPnPmbBRq" },
 ];
 const RPC = ["https://rpc.mainnet.near.org", "https://free.rpc.fastnear.com"];
 const ARCHIVAL = "https://archival-rpc.mainnet.fastnear.com";
@@ -43,37 +47,46 @@ type P = {
   verdict: { pass: boolean; reasons: string[]; model_id: string; signer: string } | null;
   quote: { deposit_address: string; amount_in: string; amount_out: string; destination_asset: string } | null;
 };
-const p = await view<P | null>("get_proposal", { id: ID });
-if (!p) throw new Error(`payment #${ID} not found`);
-console.log(`\nPayment #${ID}: ${usd(p.request.amount)} USDC to ${p.request.payee} on ${p.request.chain} (${p.request.memo}), vault status ${p.status}`);
-if (p.verdict) console.log(`  verdict: ${p.verdict.pass ? "PASS" : "VETO"} from ${p.verdict.model_id}, signed by enclave key ${p.verdict.signer}${p.verdict.reasons.length ? `, reasons ${p.verdict.reasons.join(", ")}` : ""}`);
-if (p.quote) console.log(`  1Click quote the vault checked: ${usd(p.quote.amount_in)} in, ${usd(p.quote.amount_out)} out as ${p.quote.destination_asset}, deposit address ${p.quote.deposit_address}`);
+for (const pay of PAYMENTS) {
+  const p = await view<P | null>("get_proposal", { id: pay.id });
+  if (!p) throw new Error(`payment #${pay.id} not found`);
+  console.log(`\nPayment #${pay.id}: ${usd(p.request.amount)} USDC to ${p.request.payee} on ${p.request.chain} (${p.request.memo}), vault status ${p.status}`);
+  if (p.verdict) console.log(`  verdict: ${p.verdict.pass ? "PASS" : "VETO"} from ${p.verdict.model_id}, signed by enclave key ${p.verdict.signer}${p.verdict.reasons.length ? `, reasons ${p.verdict.reasons.join(", ")}` : ""}`);
+  if (p.quote) console.log(`  1Click quote the vault checked: ${usd(p.quote.amount_in)} in, ${usd(p.quote.amount_out)} out as ${p.quote.destination_asset}, deposit address ${p.quote.deposit_address}`);
 
-console.log("\nTransactions (events read from the chain):");
-for (const t of TXS) {
-  const out = await rpc<{ status: Record<string, unknown>; transaction_outcome: { outcome: { gas_burnt: number } }; receipts_outcome: { outcome: { logs: string[]; gas_burnt: number } }[] }>([ARCHIVAL, ...RPC], "EXPERIMENTAL_tx_status", { tx_hash: t.hash, sender_account_id: t.signer, wait_until: "FINAL" });
-  const ok = "SuccessValue" in out.status;
-  const gas = out.receipts_outcome.reduce((s, r) => s + r.outcome.gas_burnt, out.transaction_outcome.outcome.gas_burnt) / 1e12;
-  console.log(`  ${ok ? "✓" : "✗"} ${t.hash}  ${t.what}, ${gas.toFixed(1)} Tgas`);
-  for (const log of out.receipts_outcome.flatMap((r) => r.outcome.logs)) {
-    if (!log.startsWith("EVENT_JSON:")) continue;
-    const e = JSON.parse(log.slice("EVENT_JSON:".length)) as { standard?: string; event: string; data: Record<string, unknown>[] };
-    if (e.standard === "veto") {
-      const d = e.data[0] ?? {};
-      const note = e.event === "verdict_recorded" ? ` (pass ${d.pass}, checked ${d.checked}: the vault rebuilt the request itself)` : "";
-      console.log(`      event ${e.event}${note}`);
-    } else if (e.event === "ft_transfer") {
-      for (const d of e.data) console.log(`      USDC ${usd(String(d.amount))} ${d.old_owner_id} -> ${d.new_owner_id}`);
+  let moved = 0;
+  for (const t of [
+    { hash: pay.propose, signer: AGENT, what: "the agent's proposal" },
+    { hash: pay.verdict, signer: GUARDIAN, what: p.quote ? "the verdict, quote check and deposit" : "the verdict" },
+  ]) {
+    const out = await rpc<{ status: Record<string, unknown>; transaction_outcome: { outcome: { gas_burnt: number } }; receipts_outcome: { outcome: { logs: string[]; gas_burnt: number } }[] }>([ARCHIVAL, ...RPC], "EXPERIMENTAL_tx_status", { tx_hash: t.hash, sender_account_id: t.signer, wait_until: "FINAL" });
+    const ok = "SuccessValue" in out.status;
+    const gas = out.receipts_outcome.reduce((s, r) => s + r.outcome.gas_burnt, out.transaction_outcome.outcome.gas_burnt) / 1e12;
+    console.log(`  ${ok ? "✓" : "✗"} ${t.hash}  ${t.what}, ${gas.toFixed(1)} Tgas`);
+    for (const log of out.receipts_outcome.flatMap((r) => r.outcome.logs)) {
+      if (!log.startsWith("EVENT_JSON:")) continue;
+      const e = JSON.parse(log.slice("EVENT_JSON:".length)) as { standard?: string; event: string; data: Record<string, unknown>[] };
+      if (e.standard === "veto") {
+        const d = e.data[0] ?? {};
+        const note = e.event === "verdict_recorded" ? ` (pass ${d.pass}, checked ${d.checked}: the vault rebuilt the request itself)` : "";
+        console.log(`      event ${e.event}${note}`);
+      } else if (e.event === "ft_transfer") {
+        for (const d of e.data) {
+          moved++;
+          console.log(`      USDC ${usd(String(d.amount))} ${d.old_owner_id} -> ${d.new_owner_id}`);
+        }
+      }
     }
   }
-}
+  if (!p.verdict?.pass) console.log(`  vetoed: ${moved ? `${moved} USDC transfer(s) found, which should not happen` : "no USDC moved"}`);
 
-if (p.quote) {
-  const s = (await (await fetch(ONECLICK + p.quote.deposit_address, { signal: AbortSignal.timeout(20_000) })).json()) as {
-    status: string;
-    swapDetails?: { destinationChainTxHashes?: { hash: string; explorerUrl?: string }[]; refundedAmountFormatted?: string };
-  };
-  const dest = s.swapDetails?.destinationChainTxHashes?.[0];
-  console.log(`\n1Click (public status API): ${s.status}${dest ? `, delivered on Base in ${dest.explorerUrl || dest.hash}` : ""}${s.status === "REFUNDED" ? `, refunded ${s.swapDetails?.refundedAmountFormatted} USDC to the vault` : ""}`);
-  console.log(`  https://explorer.near-intents.org/transactions/${p.quote.deposit_address}`);
+  if (p.quote) {
+    const s = (await (await fetch(ONECLICK + p.quote.deposit_address, { signal: AbortSignal.timeout(20_000) })).json()) as {
+      status: string;
+      swapDetails?: { destinationChainTxHashes?: { hash: string; explorerUrl?: string }[]; refundedAmountFormatted?: string };
+    };
+    const dest = s.swapDetails?.destinationChainTxHashes?.[0];
+    console.log(`  1Click (public status API): ${s.status}${dest ? `, delivered on Base in ${dest.explorerUrl || dest.hash}` : ""}${s.status === "REFUNDED" ? `, refunded ${s.swapDetails?.refundedAmountFormatted} USDC to the vault` : ""}`);
+    console.log(`  https://explorer.near-intents.org/transactions/${p.quote.deposit_address}`);
+  }
 }

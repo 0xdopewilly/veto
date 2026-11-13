@@ -8,6 +8,8 @@ A NEAR vault where every payment an AI agent makes needs a second signer that ca
 
 **Live demo (NEAR testnet):** https://veto-beta.vercel.app. Open the app and press **Try it** in the shared sandbox, with nothing to install. Or connect a NEAR testnet wallet and create your own vault: one transaction, and from then on only your wallet can change its rules or override a veto.
 
+**Try to trick it.** Email a scam to **veto-agent@agentmail.to** from any mail account: a changed bank account, a lookalike address, an invoice that was already paid, an instruction hidden in the text. The agent proposes whatever your email asks, Veto screens it, and the reply says what happened. Every payment anyone has asked the sandbox for is public in [Activity](https://veto-beta.vercel.app/app/decisions), with its verdict, reasons and proof: 166 so far, 99 vetoed and 67 paid (13 Nov 2026).
+
 Each payment has to pass two gates before money moves:
 
 1. **Hard caps in the vault contract**: per-payment and per-week limits per asset.
