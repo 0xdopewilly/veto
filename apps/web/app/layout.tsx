@@ -10,6 +10,22 @@ export const metadata: Metadata = {
   description:
     "A vault where every payment your AI agent makes needs a second signer that can only say no: hard caps on NEAR plus a private AI screen in a TEE.",
   applicationName: "Veto",
+  metadataBase: new URL("https://veto-beta.vercel.app"),
+  openGraph: {
+    type: "website",
+    siteName: "Veto",
+    title: "Veto: the AI can only say no",
+    description:
+      "Every payment an AI agent makes needs a second signer: a model in NEAR AI's enclave whose verdict the vault checks on-chain. Live on NEAR mainnet.",
+    images: [{ url: "/og.png", width: 2400, height: 1260, alt: "Veto: a \"new wallet\" scam email, vetoed on NEAR mainnet; nothing moved" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Veto: the AI can only say no",
+    description:
+      "Every payment an AI agent makes needs a second signer: a model in NEAR AI's enclave whose verdict the vault checks on-chain. Live on NEAR mainnet.",
+    images: ["/og.png"],
+  },
   appleWebApp: { capable: true, title: "Veto", statusBarStyle: "black-translucent" },
   formatDetection: { telephone: false },
 };
