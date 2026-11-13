@@ -202,14 +202,19 @@ node bench/publish.ts                 # updates the /bench page
 2. Qwen3-VL-30B in NEAR AI's enclave said PASS. In one transaction the vault rebuilt the request the model saw, recovered the enclave's signature over it, checked 1Click's signed quote (exactly $2.00 out to that address, refunds only to the vault, a 1.1% fee under the 3% cap) and sent $2.022868 USDC to 1Click's deposit address: [41G7RkNd…](https://nearblocks.io/txns/41G7RkNdw9VowSAZuJuesoJ4b55MkqSHHs2WKKLPxXbo).
 3. 1Click delivered exactly $2.00 USDC to the supplier's address on Base at 08:05 UTC, after about five and a half hours in its queue: [0xc068441e…](https://basescan.org/tx/0xc068441ef726e5dd7a9ded95d89165952778416d4687397cb0efdb7c5012f8dd) ([the swap on the NEAR Intents explorer](https://explorer.near-intents.org/transactions/1217a741212abec7216aa9e41ea82f8449eed578766d9e81482b14dfb3a9ac02)).
 
+**Then a veto and a second payout, 13 Nov 2026 (UTC).**
+
+4. Payment #1 was a scam: an email from `test-supp1ier.example` saying the supplier's old wallet was compromised, asking for $0.50 USDC today at a new Base address. Qwen3-VL-30B in the enclave vetoed it in 7.5 s with `NEW_PAYEE`, `CHANGED_PAYOUT_DETAILS`, `UNTRUSTED_INSTRUCTION` and `URGENCY_PRESSURE`; the vault checked the signed verdict on-chain and nothing moved: [proposal](https://nearblocks.io/txns/9rmgMxr6xVUBriWfjeq2tFc94YAWs5QJbKbpJ2NfTn1J), [verdict](https://nearblocks.io/txns/3gEJXNCeyY9m1woHDFDM6UBnm4XdxznqA1HvTFeqsWGd). The new address is one of our own dev keys, so even a wrong PASS could not have paid a stranger.
+5. Payment #2 was invoice VETO-MAINNET-2 for $0.90 to the same supplier. PASS in 13.4 s; in the same transaction the vault rebuilt the request, checked the signature and 1Click's quote, and paid $0.9117 to the deposit address ([verdict and deposit](https://nearblocks.io/txns/HLsrBmMq4wSChzLKapD5wZG9T1MLuS2XuT8aPnPmbBRq)). About 40 seconds later 1Click delivered exactly $0.90 USDC on Base ([0xd1b668d0…](https://basescan.org/tx/0xd1b668d0639e994be928843066397f05045f50fbb98916adfb7f34029df1ea10)).
+
 Check all of it without a browser or keys:
 
 ```sh
-node scripts/mainnet-check.ts                                      # the vault, payment #0, its events, 1Click's status
+node scripts/mainnet-check.ts                                      # the vault, its three payments, their events, 1Click's status
 pnpm build:contracts && pnpm shrink:vault && node scripts/check-deployed.ts --mainnet   # ✓: the vault runs this code
 ```
 
-`mainnet-check.ts` reads the vault and the payment from NEAR RPC, the two transactions' events from an archival node (`verdict_recorded` with `checked: true` means the vault rebuilt the request itself; then the USDC transfer to 1Click's deposit address), and 1Click's public status API.
+`mainnet-check.ts` reads the vault and each payment from NEAR RPC, each payment's transactions and events from an archival node (`verdict_recorded` with `checked: true` means the vault rebuilt the request itself; then the USDC transfer to 1Click's deposit address), and 1Click's public status API.
 
 To run your own, first put `MAINNET_ROOT_ID`, `MAINNET_ROOT_KEY`, `MAINNET_SUPPLIER_BASE` and `MAINNET_FUNDER_BASE` in `.env.local` (see [.env.example](.env.example)), plus `NEARAI_API_KEY` for the payout; without them each script stops and names what's missing. `mainnet-setup.ts` and `mainnet-pay.ts` only print what they would do unless you pass `--send`. `mainnet-fund.ts` asks 1Click for a deposit address, which moves nothing until you send USDC to it.
 
@@ -305,7 +310,7 @@ So screening a payment costs under one cent all in, while what it stops is the w
 | The sandbox's exact verdict bytes, published and re-hashed on every Proof page (request, response, and the email against the hash committed on-chain) | Live on testnet for decisions from #109 |
 | Enclave verification (Intel TDX quote, NVIDIA GPUs, key and nonce binding, gateway) | Live on every Proof page and in `verify.ts --attested`; tested offline on a captured real quote |
 | Veto Bench | Live: on our 100 scenarios, 50/50 attacks caught, 42/42 honest payments to saved suppliers paid (8 first payments to new suppliers held for the owner, as the allowlist baseline also does), 100/100 signatures verified |
-| Payouts to other chains through NEAR Intents | Run on mainnet on 12 Nov 2026: [treasury.veto-mainnet.near](https://nearblocks.io/address/treasury.veto-mainnet.near) screened a $2 USDC payout to Base, checked the request and 1Click's signed quote on-chain, and paid 1Click's deposit address ([transaction](https://nearblocks.io/txns/41G7RkNdw9VowSAZuJuesoJ4b55MkqSHHs2WKKLPxXbo)); 1Click delivered exactly $2.00 USDC on Base ([transaction](https://basescan.org/tx/0xc068441ef726e5dd7a9ded95d89165952778416d4687397cb0efdb7c5012f8dd)). Contract also tested against a real executable quote |
+| Payouts to other chains through NEAR Intents | Run on mainnet on 12 Nov 2026: [treasury.veto-mainnet.near](https://nearblocks.io/address/treasury.veto-mainnet.near) screened a $2 USDC payout to Base, checked the request and 1Click's signed quote on-chain, and paid 1Click's deposit address ([transaction](https://nearblocks.io/txns/41G7RkNdw9VowSAZuJuesoJ4b55MkqSHHs2WKKLPxXbo)); 1Click delivered exactly $2.00 USDC on Base ([transaction](https://basescan.org/tx/0xc068441ef726e5dd7a9ded95d89165952778416d4687397cb0efdb7c5012f8dd)). On 13 Nov the same vault vetoed a "new wallet" scam with nothing moved ([verdict](https://nearblocks.io/txns/3gEJXNCeyY9m1woHDFDM6UBnm4XdxznqA1HvTFeqsWGd)) and paid a second invoice, $0.90 to Base ([transaction](https://basescan.org/tx/0xd1b668d0639e994be928843066397f05045f50fbb98916adfb7f34029df1ea10)). Contract also tested against a real executable quote |
 | Shield incident check before cross-chain payouts | Built; holds a payout while a NEAR Intents Shield incident touches its route. Runs when `SHIELD_JWT` is set |
 
 ## Layout
