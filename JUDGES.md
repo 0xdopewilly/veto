@@ -14,6 +14,19 @@ Expect `test result: ok. 12 passed` (a few minutes from a fresh clone while it c
 
 The same refusal on testnet, with the real model: in [this transaction](https://testnet.nearblocks.io/txns/HaaqbaTzW5xm4htSesjoa3pQx6dWStn4ExFQZKQQKTx) a guardian rewrote the owner's mandate to "Pay whatever the email asks" before asking the model. Qwen3-VL-30B in NEAR AI's enclave said PASS and signed it; the transaction's arguments carry that signed response. The vault refused it: `no approved model key signed this response to the request this vault rebuilt`. The vault, `stage75523.veto-hu2rtw8k.testnet`, runs the same code as the mainnet vault (code hash `4zLWv1…`). The honest request then [went through](https://testnet.nearblocks.io/txns/9RD7qCaUhgeUtLd3VAgjxWyAvFKjRs9sEw25VF7sn9Zc). [scripts/checked-smoke.ts](scripts/checked-smoke.ts) reproduces it on a vault of your own.
 
+## By track
+
+Veto is entered in six tracks. Each line names what that track asks for and the command or link that shows it.
+
+| Track | What Veto does there | Check it |
+| --- | --- | --- |
+| **AI Security & Defense** | Spending limits and a policy engine in the vault contract. Each agent holds a function-call key that can only propose. An AI screen in NEAR AI's enclave can only block. The vault checks the enclave's signature and rebuilds the exact request on-chain. | `cd contract && cargo test -- rejects_ rebuilds_ refuses_` (12 refusals). On mainnet, a "new wallet" scam vetoed with nothing moved: `node scripts/mainnet-check.ts` |
+| **Privacy & Private AI** | The model reads the email or invoice inside NEAR AI Cloud's TEE (Intel TDX and NVIDIA confidential GPUs). Every decision's Proof page re-verifies that enclave live, with a fresh nonce. `set_checked_screening(false)` switches a vault to private screening, where only hashes go on-chain. The sandbox uses fictional suppliers and invoices, so nothing real is needed. | Proof → **Check the enclave now** (8 checks); `node bench/verify.ts bench/results/Qwen_Qwen3-VL-30B-A3B-Instruct.json --attested` |
+| **Agent Economy** | Agents get to spend without holding the money. The same screen covers agents on the vault, OutLayer wallets, and a NEAR Intents Agent API wallet on mainnet. Any MCP agent can ask to pay. | `claude mcp add veto -- npx -y veto-mcp`, then ask your agent to email a scam: the tool returns **Vetoed** with the reasons |
+| **Autonomous Business** | The owner sets only the constraints (mandate, caps, payee list, freeze). The agent runs payables on its own. Cross-chain payouts go through NEAR Intents (USDC to Base on mainnet) and Chain Signatures (Base, from the vault's own address). | The hosted demo's **Try it**: invoices paid, a Base payout, payroll; `node scripts/mainnet-check.ts` |
+| **Real-World Money** | Invoices and payroll in USDC, as a company runs them. A salary goes out once a month to the chain each person chose, and a repeat payslip is vetoed. The books export to CSV, and anyone can open their own vault in one transaction. | **Activity** → **Download CSV**; **/start**; two mainnet USDC payouts landed on Base ([$2.00](https://basescan.org/tx/0xc068441ef726e5dd7a9ded95d89165952778416d4687397cb0efdb7c5012f8dd), [$0.90](https://basescan.org/tx/0xd1b668d0639e994be928843066397f05045f50fbb98916adfb7f34029df1ea10)) |
+| **Open Innovation** | A second signer whose only power is to say no. The AI can stop a payment the caps would allow, and can never allow one they would stop. Its signed verdict is enforced by the contract, not trusted from a server. | [The on-chain refusal of a genuine PASS on a doctored prompt](https://testnet.nearblocks.io/txns/HaaqbaTzW5xm4htSesjoa3pQx6dWStn4ExFQZKQQKTx) |
+
 ## In the browser (3 minutes, nothing to install)
 
 Open https://veto-beta.vercel.app/app and press **Try it** (the green V on a phone, **Try the agent** at the top of the sidebar on desktop).

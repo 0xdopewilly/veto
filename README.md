@@ -6,6 +6,8 @@ A NEAR vault where every payment an AI agent makes needs a second signer that ca
 
 **Contents:** [Check it yourself](#check-it-yourself-no-keys-no-funds) · [Try the hosted demo](#try-the-agent-on-the-hosted-demo) · [From an MCP client](#from-an-mcp-client-claude-code-codex-cursor) · [Run your own copy](#run-your-own-copy-on-testnet) · [With a NEAR AI key](#with-a-near-ai-key) · [Mainnet payout](#mainnet-a-real-payout-to-base-through-near-intents) · [How it works](#how-it-works) · [Costs](#what-it-costs-to-run-and-who-pays) · [Status](#status) · [Layout](#layout) · [Built at NEAR HACKATHON](#built-at-near-hackathon). Judging? [JUDGES.md](JUDGES.md) is the short path.
 
+**Judging a track?** [JUDGES.md](JUDGES.md#by-track) maps each of Veto's six tracks (security, privacy, agents, business, real-world money, open) to the command or link that shows it.
+
 **Live demo (NEAR testnet):** https://veto-beta.vercel.app. Open the app and press **Try it** in the shared sandbox, with nothing to install. Or connect a NEAR testnet wallet and create your own vault: one transaction, and from then on only your wallet can change its rules or override a veto.
 
 **Try to trick it.** Email a scam to **veto-agent@agentmail.to** from any mail account: a changed bank account, a lookalike address, an invoice that was already paid, an instruction hidden in the text. The agent proposes whatever your email asks, Veto screens it, and the reply says what happened. Every payment anyone has asked the sandbox for is public in [Activity](https://veto-beta.vercel.app/app/decisions), with its verdict, reasons and proof: 166 so far, 99 vetoed and 67 paid (13 Nov 2026).
