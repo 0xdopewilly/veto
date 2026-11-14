@@ -29,8 +29,11 @@ async function decimalsOf(vault: VaultReader, asset: string) {
   return decimalsCache.get(asset)!;
 }
 
-/** How many times a checked screening is tried when the vault's facts change under it. */
-const CHECKED_TRIES = 3;
+/**
+ * How many times a checked screening is tried when the vault's facts change under it. Each verdict
+ * that lands changes the facts for every payment screened beside it, so a burst of N needs up to N.
+ */
+const CHECKED_TRIES = 6;
 /** What a checked vault says when the signed request isn't the one it rebuilt (contract/src/lib.rs). */
 const REBUILT_MISMATCH = /request this vault rebuilt/;
 
