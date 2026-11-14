@@ -7,7 +7,7 @@ import { challengeStats } from "@/lib/server/challenge";
 export const revalidate = 30;
 
 const description =
-  "Email Veto's agent a scam: a changed bank account, a lookalike address, an invoice already paid, a hidden instruction. Six tricks real invoice fraud uses, live counts of how often each was caught, and the next trick in every reply.";
+  "Email Veto's agent a scam: a changed bank account, a lookalike address, an invoice already paid, a hidden instruction. Six tricks real invoice fraud uses, each with an email to start from and a live count of how often Veto has caught it.";
 
 export const metadata: Metadata = {
   title: "Can you fool Veto?",

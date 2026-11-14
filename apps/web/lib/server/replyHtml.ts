@@ -1,8 +1,7 @@
 // Server-only: the demo agent's replies as HTML, in Veto's colours: the verdict as a coral (vetoed)
-// or green (paid) band, why, the player's progress on "Can you fool Veto?" and the next trick with
-// an email to send. Mail clients ignore stylesheets and web fonts, so it's tables and inline styles
-// with system fonts. The plain-text reply goes alongside it for clients that don't show HTML.
-import { LADDER, mailtoFor, type Sandbox, type Trick } from "@/lib/challenge";
+// or green (paid) band, why, what happens next, who screened it, and the way to the proof. Straight
+// to the point, like any payment notice. Mail clients ignore stylesheets and web fonts, so it's
+// tables and inline styles with system fonts. The plain-text reply goes alongside it.
 
 const C = {
   black: "#000000",
@@ -30,14 +29,16 @@ export interface ReplyModel {
   currency: string;
   payee: string;
   reference: string | null;
-  /** One line under the payee. */
+  /** One line in the band, under the payee. */
   line: string;
   /** Reason titles, in the verdict's order. */
   reasons: string[];
-  ladder: { done: Set<string>; counted: boolean; sandbox: Sandbox } | null;
+  /** What happens now (a veto) or what was checked (a payment). */
+  next: string | null;
+  /** Who screened it and how fast. */
+  screened: string | null;
   decisionUrl: string;
-  challengeUrl: string;
-  note: string | null;
+  proofUrl: string;
   footer: string;
 }
 
@@ -59,7 +60,7 @@ function band(m: ReplyModel) {
 
 function reasons(m: ReplyModel) {
   if (!m.reasons.length) return "";
-  const title = m.verdict === "vetoed" ? "Why Veto said no" : "What Veto checked";
+  const title = "Why Veto said no";
   const rows = m.reasons
     .map(
       (r, i) => `
@@ -75,58 +76,6 @@ function reasons(m: ReplyModel) {
 <tr><td style="padding:26px 6px 4px;">
   <div style="font:700 20px/1.2 ${SANS};letter-spacing:-0.3px;color:${C.black};margin-bottom:6px;">${title}</div>
   <table role="presentation" cellpadding="0" cellspacing="0" width="100%">${rows}</table>
-</td></tr>`;
-}
-
-function ladder(m: ReplyModel) {
-  if (!m.ladder) return "";
-  const { done, counted, sandbox } = m.ladder;
-  const next: Trick | null = LADDER.find((t) => !done.has(t.code)) ?? null;
-  const cells = LADDER.map(
-    (t) => `<td style="padding:0 3px 0 0;"><div style="height:8px;border-radius:4px;background:${done.has(t.code) ? C.coral : C.dim};font-size:0;line-height:0;">&nbsp;</div></td>`,
-  ).join("");
-  const rows = LADDER.map((t) => {
-    const hit = done.has(t.code);
-    return `
-      <tr>
-        <td width="26" style="padding:5px 0;font:700 15px/1.3 ${SANS};color:${hit ? C.coral : C.ink2};">${hit ? "&#10003;" : "&ndash;"}</td>
-        <td style="padding:5px 0;font:${hit ? 600 : 500} 15px/1.3 ${SANS};color:${hit ? C.sand : C.muted};">${t.level}. ${esc(t.name)}</td>
-        <td align="right" style="padding:5px 0;font:600 12px/1.3 ${SANS};color:${hit ? C.coral : C.ink2};">${hit ? "caught" : ""}</td>
-      </tr>`;
-  }).join("");
-  const headline = !done.size
-    ? `Six tricks real invoice fraud uses. Start with the first.`
-    : counted
-      ? `You've been caught on ${done.size} of ${LADDER.length} tricks`
-      : `This email was caught on ${done.size} of the ${LADDER.length} tricks`;
-  const nextBlock = next
-    ? `
-  <div style="margin-top:22px;padding-top:20px;border-top:1px solid #262626;">
-    <div style="font:600 13px/1.3 ${SANS};color:${C.muted};">Next up: trick ${next.level}</div>
-    <div style="font:700 22px/1.25 ${SANS};letter-spacing:-0.3px;color:${C.sand};margin-top:4px;">${esc(next.name)}</div>
-    <div style="font:500 15px/1.5 ${SANS};color:${C.sand};margin-top:6px;">${esc(next.how)}</div>
-    <div style="font:400 14px/1.5 ${SANS};color:${C.muted};margin-top:4px;">${esc(next.why)}</div>
-    <div style="margin-top:14px;padding:16px 18px;border-radius:16px;background:${C.tile};">
-      <div style="font:500 12.5px/1.6 ${SANS};color:${C.muted};">Subject: <span style="color:${C.sand};">${esc(next.subject)}</span></div>
-      <div style="font:400 13.5px/1.6 ${MONO};color:${C.sand};margin-top:8px;white-space:pre-wrap;word-break:break-word;">${esc(next.example(sandbox))}</div>
-    </div>
-    <div style="margin-top:16px;">${button(mailtoFor(next, sandbox), "Write it in your mail app", C.green, C.black)}</div>
-  </div>`
-    : `
-  <div style="margin-top:22px;padding-top:20px;border-top:1px solid #262626;font:600 17px/1.45 ${SANS};color:${C.sand};">
-    That's all six. Invent a seventh: any email that gets the vault to pay what it shouldn't.
-  </div>`;
-  return `
-<tr><td style="padding:22px 0 0;">
-  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${C.black};border-radius:24px;">
-    <tr><td style="padding:26px 26px 22px;color:${C.sand};">
-      <div style="font:900 26px/1.1 ${DISPLAY};letter-spacing:-0.8px;color:${C.sand};">Can you fool Veto?</div>
-      <div style="font:500 15px/1.4 ${SANS};color:${C.muted};margin-top:6px;">${headline}</div>
-      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-top:16px;"><tr>${cells}</tr></table>
-      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-top:14px;">${rows}</table>
-      ${nextBlock}
-    </td></tr>
-  </table>
 </td></tr>`;
 }
 
@@ -148,16 +97,29 @@ ${inner}
 </body></html>`;
 }
 
-/** A decision: the verdict band, why, the challenge card and the links. */
+/** A decision: the verdict band, why, what happens now, who screened it, and the links. */
 export function decisionHtml(m: ReplyModel): string {
+  const next = m.next
+    ? `<tr><td style="padding:${m.reasons.length ? 14 : 24}px 6px 0;font:500 16px/1.55 ${SANS};color:${C.black};">${esc(m.next)}</td></tr>`
+    : "";
+  const screened = m.screened
+    ? `
+<tr><td style="padding:18px 0 0;">
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#ffffff;border-radius:18px;">
+    <tr>
+      <td width="34" valign="top" style="padding:16px 0 16px 18px;"><div style="width:10px;height:10px;border-radius:5px;background:${C.green};margin-top:5px;font-size:0;line-height:0;">&nbsp;</div></td>
+      <td style="padding:14px 18px 14px 0;font:500 14px/1.5 ${SANS};color:${C.ink2};">${esc(m.screened)}</td>
+    </tr>
+  </table>
+</td></tr>`
+    : "";
   const actions = `
-<tr><td style="padding:24px 0 0;">
-  ${button(m.decisionUrl, "See the decision and its proof", C.black, C.sand)}${button(m.challengeUrl, "All six tricks, live counts", "transparent", C.black, C.black)}
+<tr><td style="padding:22px 0 0;">
+  ${button(m.decisionUrl, "Review the decision", C.black, C.sand)}${button(m.proofUrl, "See the proof", "transparent", C.black, C.black)}
 </td></tr>`;
-  const note = m.note ? `<tr><td style="padding:10px 6px 0;font:500 14px/1.5 ${SANS};color:${C.ink2};">${esc(m.note)}</td></tr>` : "";
   const footer = `<tr><td style="padding:22px 6px 0;border-top:1px solid #dcdbd3;font:400 12.5px/1.55 ${SANS};color:${C.ink2};">${esc(m.footer)}</td></tr>`;
-  const pre = m.verdict === "vetoed" ? `Vetoed: ${m.amount} ${m.currency} to ${m.payee}. Nothing was paid.` : m.verdict === "paid" ? `Paid: ${m.amount} ${m.currency} to ${m.payee}.` : `${m.word}: ${m.amount} ${m.currency} to ${m.payee}.`;
-  return shell(band(m) + reasons(m) + ladder(m) + actions + note + `<tr><td style="height:18px;"></td></tr>` + footer, pre);
+  const pre = `${m.word === "VETOED" ? "Vetoed" : m.word === "PAID" ? "Paid" : m.word}: ${m.amount} ${m.currency} to ${m.payee}. ${m.line}`;
+  return shell(band(m) + reasons(m) + next + screened + actions + `<tr><td style="height:18px;"></td></tr>` + footer, pre);
 }
 
 /** Any other reply (help, a refusal before screening, NEAR AI down) as the same frame around its text. */

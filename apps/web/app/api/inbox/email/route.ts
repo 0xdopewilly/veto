@@ -8,9 +8,8 @@ import { addressOf, agentMail, isMachineMail, senderChecks, verifyWebhook, type 
 import { allow, demo, vaultAccounts, type VaultAccounts } from "@/lib/server/demo";
 import { requestFromEmail, Unpayable, type AgentProposal } from "@/lib/server/intake";
 import { NEAR_AI_DOWN, proposePayment, screenProposal, type Evidence } from "@/lib/server/pay";
-import { reasonText } from "@/lib/decision";
-import { LADDER, nextTrick, sandboxFrom, tricksIn, type Sandbox } from "@/lib/challenge";
-import { recordCaught } from "@/lib/server/challenge";
+import { isTestSigner, reasonText, STATUS_TEXT } from "@/lib/decision";
+import { formatDuration } from "@/lib/format";
 import { decisionHtml, noteHtml, type ReplyModel } from "@/lib/server/replyHtml";
 
 export const runtime = "nodejs";
@@ -79,90 +78,75 @@ async function handle(mail: AgentMail, accounts: VaultAccounts, messageId: strin
     }
     await screenProposal(accounts, id, evidence);
     const decided = await accounts.reader.proposal(id);
-    // Only a sender whose address checked out moves up the ladder, so a forged From can't.
-    const caught = decided?.status === "Vetoed" ? tricksIn(decided.verdict?.reasons ?? []).map((t) => t.code) : [];
-    const [progress, payees] = await Promise.all([answerable ? recordCaught(sender, caught) : null, accounts.reader.payees().catch(() => [])]);
-    const standing = { progress, caught, sandbox: sandboxFrom(payees) };
-    await reply(decision(decided, proposal, id, standing), decisionHtml(replyModel(decided, proposal, id, standing)));
+    const config = await accounts.reader.config().catch(() => null);
+    const delay = formatDuration(Number(config?.override_delay_secs ?? 180));
+    await reply(decision(decided, proposal, id, delay), decisionHtml(replyModel(decided, proposal, id, delay)));
   } catch (e) {
     if (isNearAiUnavailable(e)) return void (await reply(NEAR_AI_DOWN));
     console.error(`inbox message ${messageId} failed:`, (e as Error).message);
   }
 }
 
-const FOOTER = `This is Veto's demo agent. It pays test USDC on NEAR testnet from a shared sandbox vault, so nothing real moves. Watch every decision at ${SITE}/app/decisions.`;
+const FOOTER = `Veto demo agent on NEAR testnet. It pays test USDC from a shared sandbox vault, so nothing real moves.`;
 
-interface Ladder {
-  /** Every trick this sender has been caught on so far, or null when progress isn't kept. */
-  progress: Set<string> | null;
-  /** The tricks this email was caught on. */
-  caught: string[];
-  sandbox: Sandbox;
+/** "Screened in 6.2 s by Qwen3-VL-30B inside NEAR AI's enclave…", from the verdict itself. */
+function screened(p: Proposal): string | null {
+  const v = p.verdict;
+  if (!v) return null;
+  const secs = (Number(BigInt(v.recorded_at) - BigInt(p.created_at)) / 1e9).toFixed(1);
+  if (isTestSigner(v.model_id)) return `Screened in ${secs} s by a local test signer.`;
+  const model = (v.model_id.split("/").pop() ?? v.model_id).replace(/-Instruct$/i, "").replace(/-A\d+B$/i, "");
+  return `Screened in ${secs} s by ${model} inside NEAR AI's enclave. The vault checked its signature on-chain before acting.`;
 }
 
-const indent = (text: string) => text.split("\n").map((l) => (l ? `  ${l}` : "")).join("\n");
-
-/** Where the sender stands on "Can you fool Veto?", and the trick to try next with an email to start from. */
-function ladder({ progress, caught, sandbox }: Ladder): string {
-  const done = progress ?? new Set(caught);
-  const lines: string[] = [];
-  if (progress) {
-    lines.push(`Can you fool Veto? You've been caught on ${done.size} of ${LADDER.length} tricks:`);
-    for (const t of LADDER) lines.push(`  ${done.has(t.code) ? "✓" : "–"} ${t.level}. ${t.name}`);
-  } else if (caught.length) {
-    const names = tricksIn(caught).map((t) => `${t.name} (trick ${t.level} of ${LADDER.length})`);
-    lines.push(`Can you fool Veto? This one was caught as ${names.join(" and ")}.`);
-  } else {
-    lines.push(`Can you fool Veto? There are ${LADDER.length} tricks that real invoice fraud uses.`);
-  }
-  const next = nextTrick(done);
-  if (next) {
-    lines.push("", `Next, trick ${next.level}, ${next.name}: ${next.how}`, `Start from this (subject "${next.subject}"):`, "", indent(next.example(sandbox)));
-  } else {
-    lines.push("", "That's all six. Invent a seventh: any email that gets the vault to pay what it shouldn't.");
-  }
-  lines.push("", `Every trick, and how often Veto has caught each one: ${SITE}/challenge`);
-  return lines.join("\n");
-}
-
-function decision(p: Proposal | null, { agent }: AgentProposal, id: string, standing: Ladder): string {
+/** The decision, straight to the point: what happened, why, what happens next, and where the proof is. */
+function decision(p: Proposal | null, { agent }: AgentProposal, id: string, delay: string): string {
   const what = `${agent.amount} ${agent.currency} to ${agent.payee}${agent.reference ? ` (${agent.reference})` : ""}`;
-  const link = `The decision, with the enclave's signature and the exact bytes the model read:\n${SITE}/app/decisions/${id}`;
-  if (!p || p.status === "Screening") return `The agent asked to pay ${what}. Veto is still screening it.\n\n${link}\n\n${FOOTER}`;
+  const link = `The decision and its proof:\n${SITE}/app/decisions/${id}`;
+  const by = p ? screened(p) : null;
+  const parts = (...xs: (string | null)[]) => xs.filter(Boolean).join("\n\n");
+  if (!p || p.status === "Screening") return parts(`Screening: ${what}.`, "Veto hasn't decided yet. The decision page updates the moment it does.", link, FOOTER);
   if (p.status === "Vetoed") {
-    const reasons = (p.verdict?.reasons ?? []).map((r) => `- ${reasonText(r)}`).join("\n");
-    return `Veto vetoed it. Your email got the agent to ask for ${what}, and nothing was paid.\n\nWhy:\n${reasons || "- The screen found the payment didn't match the evidence."}\n\n${ladder(standing)}\n\n${link}\n\nThe sandbox owner can override a veto after a delay; the AI alone can never pay.\n\n${FOOTER}`;
+    const reasons = (p.verdict?.reasons ?? []).map((r) => `- ${reasonText(r)}`).join("\n") || "- The payment didn't match the evidence.";
+    return parts(
+      `Vetoed: ${what}. Nothing was paid.`,
+      `Why:\n${reasons}`,
+      `The payment is held in the vault. Its owner can keep it blocked, or override the veto, and then it pays after ${delay}. The AI alone can never pay.`,
+      by,
+      link,
+      FOOTER,
+    );
   }
   if (p.status === "Paid" || p.status === "Executing") {
-    return `Veto passed it, and the vault paid ${what}.\n\nIt matched the mandate, the payee list and the payment history, and the caps allowed it. If you think it shouldn't have, the decision below shows everything the model read.\n\n${ladder(standing)}\n\n${link}\n\n${FOOTER}`;
+    return parts(`Paid: ${what}.`, "It matched the owner's mandate, the payee list and the payment history, and it was within the vault's limits.", by, link, FOOTER);
   }
-  return `The agent asked to pay ${what}. The vault's decision: ${p.status}.\n\n${link}\n\n${FOOTER}`;
+  return parts(`${STATUS_TEXT[p.status]}: ${what}.`, link, FOOTER);
 }
 
 /** The same decision, laid out for the HTML reply. */
-function replyModel(p: Proposal | null, { agent }: AgentProposal, id: string, { progress, caught, sandbox }: Ladder): ReplyModel {
+function replyModel(p: Proposal | null, { agent }: AgentProposal, id: string, delay: string): ReplyModel {
   const status = p?.status ?? "Screening";
   const vetoed = status === "Vetoed";
   const paid = status === "Paid" || status === "Executing";
   return {
     verdict: vetoed ? "vetoed" : paid ? "paid" : "other",
-    word: vetoed ? "VETOED" : paid ? "PAID" : status === "Screening" ? "SCREENING" : status.toUpperCase(),
+    word: vetoed ? "VETOED" : paid ? "PAID" : STATUS_TEXT[status].toUpperCase(),
     amount: agent.amount,
     currency: agent.currency,
     payee: agent.payee,
     reference: agent.reference,
-    line: vetoed
-      ? "Your email got the agent to ask for this payment. Veto said no, and nothing was paid."
-      : paid
-        ? "It matched the mandate, the payee list and the payment history, and the caps allowed it. If you think it shouldn't have, the decision shows everything the model read."
-        : status === "Screening"
-          ? "Veto is still screening it. The decision page updates the moment the verdict lands."
-          : `The vault's decision: ${status}.`,
+    line: vetoed ? "Nothing was paid." : paid ? "Paid from the vault." : status === "Screening" ? "Veto hasn't decided yet." : `The vault's decision: ${STATUS_TEXT[status]}.`,
     reasons: vetoed ? (p?.verdict?.reasons ?? []).map(reasonText) : [],
-    ladder: vetoed || paid ? { done: progress ?? new Set(caught), counted: !!progress, sandbox } : null,
+    next: vetoed
+      ? `The payment is held in the vault. Its owner can keep it blocked, or override the veto, and then it pays after ${delay}. The AI alone can never pay.`
+      : paid
+        ? "It matched the owner's mandate, the payee list and the payment history, and it was within the vault's limits."
+        : status === "Screening"
+          ? "The decision page updates the moment the verdict lands."
+          : null,
+    screened: p ? screened(p) : null,
     decisionUrl: `${SITE}/app/decisions/${id}`,
-    challengeUrl: `${SITE}/challenge`,
-    note: vetoed ? "The sandbox owner can override a veto after a delay; the AI alone can never pay." : null,
+    proofUrl: `${SITE}/app/decisions/${id}/proof`,
     footer: FOOTER,
   };
 }
@@ -170,5 +154,5 @@ function replyModel(p: Proposal | null, { agent }: AgentProposal, id: string, { 
 async function help(accounts: VaultAccounts, problem: string): Promise<string> {
   const payees = await accounts.reader.payees().catch(() => []);
   const example = payees.find((p) => p.chain === "near")?.address ?? "a-supplier.testnet";
-  return `${problem}\n\nThe agent pays invoices in test USDC to NEAR testnet accounts. Try:\n\n  "Please send 120 USDC to ${example} for invoice INV-7731. Thanks!"\n\nThen try to fool it, the way real invoice fraud works. Six tricks to try, with an email to start from for each: ${SITE}/challenge\n\n${FOOTER}`;
+  return `${problem}\n\nThe agent pays invoices in test USDC to NEAR testnet accounts. Write the payment plainly, for example:\n\n  "Please send 120 USDC to ${example} for invoice INV-7731. Thanks!"\n\n${FOOTER}`;
 }

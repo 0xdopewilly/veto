@@ -1,10 +1,5 @@
-// Server-only: the numbers on "Can you fool Veto?" and each player's progress up the ladder.
-//
-// The counts come from the shared sandbox's own record: every payment anyone has asked it for, and
-// the reasons in each signed verdict. A player's progress is kept as one empty file per trick caught,
-// under a keyed hash of their address, so nothing stored names them.
-import { createHash, createHmac } from "node:crypto";
-import { list, put } from "@vercel/blob";
+// Server-only: the numbers on "Can you fool Veto?". They come from the shared sandbox's own record:
+// every payment anyone has asked it for, and the reasons in each signed verdict.
 import { VaultReader } from "@veto/core/vault";
 import type { Proposal } from "@veto/core/proposal";
 import { SANDBOX_ID } from "@/lib/config";
@@ -93,37 +88,4 @@ export async function challengeStats(): Promise<ChallengeStats> {
       inflight = null;
     });
   return inflight;
-}
-
-/* ------------------------------------------------------------- a player's progress */
-
-const token = () => process.env.BLOB_READ_WRITE_TOKEN?.trim() || "";
-
-/** A stable name for a sender that can't be turned back into their address without the server's secret. */
-function playerKey(sender: string): string {
-  const secret = createHash("sha256").update(`veto-challenge|${token()}`).digest();
-  return createHmac("sha256", secret).update(sender.trim().toLowerCase()).digest("hex").slice(0, 32);
-}
-
-/**
- * Records the tricks this sender just got caught on and returns every trick they've been caught
- * on so far. Null when there is nowhere to keep it (no blob store), so the reply just leaves the
- * progress out. Never throws: a reply must not fail over a scoreboard.
- */
-export async function recordCaught(sender: string, codes: string[]): Promise<Set<string> | null> {
-  if (!token() || !sender) return null;
-  const dir = `challenge/${playerKey(sender)}/`;
-  try {
-    const { blobs } = await list({ prefix: dir, limit: 50 });
-    const done = new Set(blobs.map((b) => b.pathname.slice(dir.length)).filter((c) => order.has(c)));
-    const fresh = codes.filter((c) => order.has(c) && !done.has(c));
-    await Promise.all(
-      fresh.map((c) => put(`${dir}${c}`, "1", { access: "public", addRandomSuffix: false, allowOverwrite: true, contentType: "text/plain" })),
-    );
-    for (const c of fresh) done.add(c);
-    return done;
-  } catch (e) {
-    console.error("challenge progress failed:", (e as Error).message);
-    return null;
-  }
 }

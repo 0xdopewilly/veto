@@ -89,7 +89,7 @@ export function ChallengeView({ stats: initial }: { stats: ChallengeStats | null
             <LineReveal as="h1" className={styles.h1} lines={["Can you", "fool Veto?"]} />
             <p className={`${styles.lead} rise`} style={{ animationDelay: "80ms" }}>
               Email Veto&apos;s agent a scam. The agent reads it and asks the vault to pay, the way an accounts-payable bot would. Veto screens that payment in NEAR AI&apos;s enclave
-              and can only say no. Six tricks that real invoice fraud uses, in order: every reply tells you which one Veto saw and hands you the next.
+              and can only say no. Here are six tricks that real invoice fraud uses, each with an email to start from. The agent replies with Veto&apos;s decision and why.
             </p>
             <div className={`${styles.ctas} rise`} style={{ animationDelay: "140ms" }}>
               <Pill href={mailtoFor(first, sandbox)} external icon="mail">
