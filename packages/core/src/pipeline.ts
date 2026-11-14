@@ -30,10 +30,12 @@ async function decimalsOf(vault: VaultReader, asset: string) {
 }
 
 /**
- * How many times a checked screening is tried when the vault's facts change under it. Each verdict
- * that lands changes the facts for every payment screened beside it, so a burst of N needs up to N.
+ * How many times, and for how long, a checked screening is tried when the vault's facts change under
+ * it. Every verdict and payout that lands changes the facts for each payment screened beside it, so a
+ * burst of simultaneous payments needs several tries; the time cap keeps it inside a 120 s function.
  */
-const CHECKED_TRIES = 6;
+const CHECKED_TRIES = 10;
+const CHECKED_BUDGET_MS = 90_000;
 /** What a checked vault says when the signed request isn't the one it rebuilt (contract/src/lib.rs). */
 const REBUILT_MISMATCH = /request this vault rebuilt/;
 
@@ -78,7 +80,10 @@ export async function screenAndSubmit(opts: {
       const screened = await screenOnce(opts, screeningUserMessage(facts, opts.evidence), signals, hash, { evidence, facts });
       return { ...screened, ms: Date.now() - started };
     } catch (e) {
-      if (attempt >= CHECKED_TRIES || !(e instanceof FactsChanged || REBUILT_MISMATCH.test(String((e as Error).message)))) throw e;
+      const retry = e instanceof FactsChanged || REBUILT_MISMATCH.test(String((e as Error).message));
+      if (!retry || attempt >= CHECKED_TRIES || Date.now() - started > CHECKED_BUDGET_MS) throw e;
+      // Payments screened at the same moment keep changing each other's facts: stagger the next try.
+      await new Promise((resolve) => setTimeout(resolve, 500 + Math.random() * 2000));
     }
   }
 }
