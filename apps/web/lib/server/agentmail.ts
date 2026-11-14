@@ -33,7 +33,8 @@ export interface AgentMail {
   inbox: string;
   secret: string;
   message(id: string): Promise<InboundMessage>;
-  reply(id: string, text: string): Promise<void>;
+  /** Replies in the thread: plain text, plus an HTML version for clients that show it. */
+  reply(id: string, text: string, html?: string): Promise<void>;
   /** Marks a message, so a webhook retry or a second server instance leaves it alone. */
   label(id: string, label: string): Promise<void>;
 }
@@ -57,8 +58,8 @@ export function agentMail(): AgentMail | null {
     inbox,
     secret,
     message: (id) => call(`/messages/${encodeURIComponent(id)}`),
-    reply: async (id, text) => {
-      await call(`/messages/${encodeURIComponent(id)}/reply`, { method: "POST", body: JSON.stringify({ text }) });
+    reply: async (id, text, html) => {
+      await call(`/messages/${encodeURIComponent(id)}/reply`, { method: "POST", body: JSON.stringify(html ? { text, html } : { text }) });
     },
     label: async (id, label) => {
       await call(`/messages/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ add_labels: [label], remove_labels: ["unread"] }) });

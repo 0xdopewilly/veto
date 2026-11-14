@@ -11,6 +11,7 @@ import { NEAR_AI_DOWN, proposePayment, screenProposal, type Evidence } from "@/l
 import { reasonText } from "@/lib/decision";
 import { LADDER, nextTrick, sandboxFrom, tricksIn, type Sandbox } from "@/lib/challenge";
 import { recordCaught } from "@/lib/server/challenge";
+import { decisionHtml, noteHtml, type ReplyModel } from "@/lib/server/replyHtml";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,7 +43,9 @@ async function handle(mail: AgentMail, accounts: VaultAccounts, messageId: strin
   // A forged From would make every reply land on whoever was impersonated, so a sender that fails
   // authentication is still screened (its decision is public like any other) but never answered.
   let answerable = false;
-  const reply = (text: string) => (answerable ? mail.reply(messageId, text).catch((e) => console.error("inbox reply failed:", (e as Error).message)) : Promise.resolve());
+  // Every reply goes as plain text plus the same in Veto's colours: a decision as its own layout, anything else in the frame.
+  const reply = (text: string, html = noteHtml(text)) =>
+    answerable ? mail.reply(messageId, text, html).catch((e) => console.error("inbox reply failed:", (e as Error).message)) : Promise.resolve();
   try {
     const m = await mail.message(messageId);
     const auth = m.authentication_results;
@@ -79,7 +82,8 @@ async function handle(mail: AgentMail, accounts: VaultAccounts, messageId: strin
     // Only a sender whose address checked out moves up the ladder, so a forged From can't.
     const caught = decided?.status === "Vetoed" ? tricksIn(decided.verdict?.reasons ?? []).map((t) => t.code) : [];
     const [progress, payees] = await Promise.all([answerable ? recordCaught(sender, caught) : null, accounts.reader.payees().catch(() => [])]);
-    await reply(decision(decided, proposal, id, { progress, caught, sandbox: sandboxFrom(payees) }));
+    const standing = { progress, caught, sandbox: sandboxFrom(payees) };
+    await reply(decision(decided, proposal, id, standing), decisionHtml(replyModel(decided, proposal, id, standing)));
   } catch (e) {
     if (isNearAiUnavailable(e)) return void (await reply(NEAR_AI_DOWN));
     console.error(`inbox message ${messageId} failed:`, (e as Error).message);
@@ -133,6 +137,34 @@ function decision(p: Proposal | null, { agent }: AgentProposal, id: string, stan
     return `Veto passed it, and the vault paid ${what}.\n\nIt matched the mandate, the payee list and the payment history, and the caps allowed it. If you think it shouldn't have, the decision below shows everything the model read.\n\n${ladder(standing)}\n\n${link}\n\n${FOOTER}`;
   }
   return `The agent asked to pay ${what}. The vault's decision: ${p.status}.\n\n${link}\n\n${FOOTER}`;
+}
+
+/** The same decision, laid out for the HTML reply. */
+function replyModel(p: Proposal | null, { agent }: AgentProposal, id: string, { progress, caught, sandbox }: Ladder): ReplyModel {
+  const status = p?.status ?? "Screening";
+  const vetoed = status === "Vetoed";
+  const paid = status === "Paid" || status === "Executing";
+  return {
+    verdict: vetoed ? "vetoed" : paid ? "paid" : "other",
+    word: vetoed ? "VETOED" : paid ? "PAID" : status === "Screening" ? "SCREENING" : status.toUpperCase(),
+    amount: agent.amount,
+    currency: agent.currency,
+    payee: agent.payee,
+    reference: agent.reference,
+    line: vetoed
+      ? "Your email got the agent to ask for this payment. Veto said no, and nothing was paid."
+      : paid
+        ? "It matched the mandate, the payee list and the payment history, and the caps allowed it. If you think it shouldn't have, the decision shows everything the model read."
+        : status === "Screening"
+          ? "Veto is still screening it. The decision page updates the moment the verdict lands."
+          : `The vault's decision: ${status}.`,
+    reasons: vetoed ? (p?.verdict?.reasons ?? []).map(reasonText) : [],
+    ladder: vetoed || paid ? { done: progress ?? new Set(caught), counted: !!progress, sandbox } : null,
+    decisionUrl: `${SITE}/app/decisions/${id}`,
+    challengeUrl: `${SITE}/challenge`,
+    note: vetoed ? "The sandbox owner can override a veto after a delay; the AI alone can never pay." : null,
+    footer: FOOTER,
+  };
 }
 
 async function help(accounts: VaultAccounts, problem: string): Promise<string> {
