@@ -21,6 +21,11 @@ export function DecisionsView() {
   const { state, vaultId } = useVault();
   const { kept } = useKeptBlocked();
   const [filter, setFilter] = useState<Filter>("all");
+  // A link can open the list filtered: /app/decisions?filter=paid (the challenge page's "every paid payment").
+  useEffect(() => {
+    const asked = new URLSearchParams(window.location.search).get("filter");
+    if (asked === "paid" || asked === "vetoed" || asked === "pending") setFilter(asked);
+  }, []);
   // Newest first, a page at a time: the list stays quick to open however many payments the vault has.
   const [shown, setShown] = useState(PAGE);
   const [allNeeds, setAllNeeds] = useState(false);

@@ -68,6 +68,7 @@ export interface DemoRun {
 
 export const OWNER_ACTIONS = [
   "override_veto",
+  "override_and_save",
   "cancel_override",
   "execute_override",
   "keep_blocked",

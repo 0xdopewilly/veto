@@ -36,10 +36,18 @@ interface WalletContextValue {
   disconnect: () => Promise<void>;
   /** Calls a method on the open vault from the connected wallet. */
   callVault: (methodName: string, args: Record<string, unknown>, gasTgas?: number) => Promise<unknown>;
+  /** Several calls on the open vault in one transaction: they all apply, or none do. */
+  callVaultActions: (calls: VaultCall[]) => Promise<unknown>;
   /** Calls a method on any contract from the connected wallet (e.g. the factory). */
   callContract: (receiverId: string, methodName: string, args: Record<string, unknown>, gasTgas?: number) => Promise<unknown>;
   /** Whether the connected wallet has test NEAR for gas, or is being sent some. */
   gas: GasStatus;
+}
+
+export interface VaultCall {
+  method: string;
+  args: Record<string, unknown>;
+  gasTgas?: number;
 }
 
 const WalletContext = createContext<WalletContextValue | null>(null);
@@ -142,10 +150,31 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     [vaultId, callContract],
   );
 
+  const callVaultActions = useCallback(
+    async (calls: VaultCall[]) => {
+      const instance = connector.current;
+      if (!instance) throw new Error("The wallet is still loading. Try again in a moment.");
+      if (!vaultId) throw new Error("The vault is still loading. Try again in a moment.");
+      const wallet = await instance.wallet();
+      try {
+        return await wallet.signAndSendTransaction({
+          receiverId: vaultId,
+          actions: calls.map(({ method, args, gasTgas = 50 }) => ({
+            type: "FunctionCall" as const,
+            params: { methodName: method, args, gas: (BigInt(gasTgas) * 10n ** 12n).toString(), deposit: "0" },
+          })),
+        });
+      } catch (e) {
+        throw new Error(walletMessage(e));
+      }
+    },
+    [vaultId],
+  );
+
   const isOwner = !!accountId && accountId === state?.config.owner;
   const value = useMemo(
-    () => ({ accountId, ready, isOwner, connect, disconnect, callVault, callContract, gas }),
-    [accountId, ready, isOwner, connect, disconnect, callVault, callContract, gas],
+    () => ({ accountId, ready, isOwner, connect, disconnect, callVault, callVaultActions, callContract, gas }),
+    [accountId, ready, isOwner, connect, disconnect, callVault, callVaultActions, callContract, gas],
   );
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
 }

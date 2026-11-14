@@ -13,7 +13,8 @@ import styles from "./SiteFooter.module.css";
 const NEXT: Record<string, { href: string; title: string; text: string }> = {
   "/": { href: "/docs", title: "How it works", text: "Every step from the agent's request to the payout, and how to check a verdict yourself." },
   "/docs": { href: "/bench", title: "Veto Bench", text: "100 payments, half of them attacks. What the screen catches, and what a plain policy lets through." },
-  "/bench": { href: "/docs", title: "How it works", text: "How the contract and the enclave screen decide each payment, and what stays private." },
+  "/bench": { href: "/challenge", title: "Can you fool Veto?", text: "Email the agent a scam yourself. Six tricks real fraud uses, and how often each one has been caught." },
+  "/challenge": { href: "/bench", title: "Veto Bench", text: "100 payments, half of them attacks, every verdict signed. What the screen catches, and what a plain policy lets through." },
 };
 
 /** The end of every public page: where to go next, then the same links as the header. */

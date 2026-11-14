@@ -1,0 +1,521 @@
+/* The challenge page shares the site's frame with Bench: blocks line up with the header bar and
+   text with the logo inside it. */
+
+.page {
+  min-height: var(--app-h);
+  background: var(--black);
+}
+
+.main {
+  max-width: 1328px;
+  margin: 0 auto;
+  padding: 40px 12px calc(24px + var(--safe-bottom));
+}
+
+/* ------------------------------------------------------------------ hero */
+
+.hero {
+  display: grid;
+  gap: 28px;
+  padding: 0 18px;
+}
+
+.h1 {
+  margin: 0;
+  font-size: clamp(48px, 7.4vw, 104px);
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  line-height: 0.98;
+}
+
+.lead {
+  margin: 20px 0 0;
+  max-width: 38em;
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.ctas {
+  margin-top: 26px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.address {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 0 8px 0 20px;
+  border: 1px solid var(--outline);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--sand);
+  font-size: 14.5px;
+  cursor: pointer;
+  max-width: 100%;
+}
+
+.address .mono {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.addressAction {
+  flex: none;
+  padding: 8px 14px;
+  border-radius: var(--r-pill);
+  background: var(--control);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.address:hover .addressAction {
+  background: var(--control-hover);
+}
+
+.alt {
+  margin: 16px 0 0;
+  font-size: 14.5px;
+  color: var(--muted);
+}
+
+.alt a {
+  color: var(--sand);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--outline);
+}
+
+.alt a:hover {
+  text-decoration-color: var(--sand);
+}
+
+/* The scoreboard: three running totals, the way a stadium shows them. */
+.board {
+  align-self: end;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px 12px;
+  padding: 24px 22px 20px;
+  border-radius: var(--r-card);
+  background: var(--card);
+}
+
+.figure {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.figLabel {
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.figValue {
+  font-size: clamp(36px, 4.4vw, 56px);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.coral {
+  color: var(--coral-fg);
+}
+
+.green {
+  color: var(--green-fg);
+}
+
+.boardNote {
+  grid-column: 1 / -1;
+  margin: 18px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid color-mix(in srgb, var(--sand) 10%, transparent);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.liveDot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .liveDot {
+    animation: live 2.4s ease-in-out infinite;
+  }
+}
+
+@keyframes live {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* ------------------------------------------------------------------ sections */
+
+.section {
+  margin-top: 16px;
+  padding: 24px 18px;
+  border-radius: var(--r-card);
+  background: var(--card);
+}
+
+.hero + .section {
+  margin-top: 40px;
+}
+
+.sectionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 24px;
+}
+
+.h2 {
+  margin: 0;
+  font-size: clamp(24px, 2.6vw, 30px);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+
+.small {
+  margin: 0;
+  max-width: 34em;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.body {
+  margin: 12px 0 20px;
+  max-width: 36em;
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------------ the ladder */
+
+.ladder {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+}
+
+.rung {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 4px 16px;
+  padding: 20px 0;
+  border-top: 1px solid color-mix(in srgb, var(--sand) 10%, transparent);
+}
+
+.level {
+  grid-row: span 2;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: var(--control);
+  font-size: 19px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.rungMain {
+  min-width: 0;
+}
+
+.rungName {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+}
+
+.rungHow {
+  margin: 6px 0 0;
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: var(--sand);
+  text-wrap: pretty;
+}
+
+.rungWhy {
+  margin: 4px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.toggle {
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sand);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toggle svg {
+  transition: transform var(--spring-ui-ms) var(--spring-ui);
+}
+
+.toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.email {
+  margin-top: 14px;
+  padding: 18px 20px;
+  border-radius: var(--r-tile);
+  background: var(--black);
+}
+
+.emailHead {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.7;
+}
+
+.emailBody {
+  margin: 12px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--sand);
+}
+
+.emailActions {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rungCount {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-top: 8px;
+}
+
+.caught {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--coral-fg);
+}
+
+.last {
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.untried {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: var(--r-pill);
+  background: var(--purple-soft);
+  color: var(--purple-fg);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------ lower panels */
+
+.lower {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+  align-items: start;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.lower .section {
+  margin-top: 0;
+}
+
+.through {
+  background: var(--coral-tint);
+}
+
+.through .body {
+  color: var(--sand);
+}
+
+.recent {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+
+.recent li + li {
+  border-top: 1px solid color-mix(in srgb, var(--sand) 10%, transparent);
+}
+
+.recentRow {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 13px 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.recentRow:hover .recentAmount {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.outcome {
+  justify-self: start;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  font-size: 12.5px;
+  font-weight: 650;
+  background: var(--control);
+  color: var(--sand);
+}
+
+.outcome[data-outcome="vetoed"] {
+  background: var(--coral-soft);
+  color: var(--coral-fg);
+}
+
+.outcome[data-outcome="paid"] {
+  background: var(--green-soft);
+  color: var(--green-fg);
+}
+
+.recentWhat {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.recentAmount {
+  font-size: 15px;
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+
+.recentTricks {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.recentWhen {
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Panels rise into place as they scroll in; they only move, never fade (see BenchView). */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 60%;
+    }
+  }
+  :global(html[data-reveal-mode="io"]) .reveal {
+    transform: translateY(28px);
+    transition: transform var(--spring-surface-ms) var(--spring-surface);
+  }
+  :global(html[data-reveal-mode="io"]) .reveal[data-in] {
+    transform: none;
+  }
+}
+
+@keyframes reveal {
+  from { transform: translateY(28px); }
+  to { transform: none; }
+}
+
+@media (min-width: 700px) {
+  .rung {
+    grid-template-columns: 52px minmax(0, 1fr) 200px;
+    gap: 4px 20px;
+  }
+  .level {
+    grid-row: auto;
+    width: 52px;
+    height: 52px;
+    font-size: 21px;
+  }
+  .rungCount {
+    grid-column: 3;
+    flex-direction: column;
+    align-items: flex-end;
+    margin-top: 2px;
+    text-align: right;
+  }
+}
+
+@media (min-width: 900px) {
+  .main {
+    padding: 56px 24px 24px;
+  }
+  .hero {
+    grid-template-columns: minmax(0, 1.25fr) minmax(360px, 1fr);
+    align-items: end;
+    gap: 40px;
+    padding: 0 24px;
+  }
+  .section {
+    padding: 32px 24px;
+  }
+}
+
+/* A phone: the address button wraps under the mail button and the scoreboard figures shrink. */
+@media (max-width: 480px) {
+  .ctas > * {
+    width: 100%;
+  }
+  .address {
+    justify-content: space-between;
+  }
+  .board {
+    padding: 20px 16px 16px;
+  }
+}

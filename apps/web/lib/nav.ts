@@ -5,6 +5,7 @@ export const ABOUT_LINKS: { href: string; label: string; external?: boolean }[] 
   { href: "/", label: "About Veto" },
   { href: "/docs", label: "Docs" },
   { href: "/bench", label: "Veto Bench" },
+  { href: "/challenge", label: "Can you fool Veto?" },
   { href: GITHUB_URL, label: "GitHub", external: true },
 ];
 
@@ -13,4 +14,5 @@ export const SITE_PAGES: { href: string; label: string; sub: string }[] = [
   { href: "/", label: "Overview", sub: "What Veto stops, and how" },
   { href: "/docs", label: "Docs", sub: "How it works, step by step" },
   { href: "/bench", label: "Bench", sub: "100 payments, every verdict signed" },
+  { href: "/challenge", label: "Challenge", sub: "Email it a scam. Six tricks to try" },
 ];

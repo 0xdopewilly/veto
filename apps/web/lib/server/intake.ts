@@ -20,8 +20,13 @@ export interface AgentProposal {
 export async function requestFromEmail(accounts: VaultAccounts, email: { from: string; subject: string; body: string }): Promise<AgentProposal> {
   const reading = await readEmail(email);
   if (!reading.pay) throw new Unpayable("The agent read it and found nothing to pay.");
-  // The first number in what the agent read ("$64.00", "64 USDC", "1,250.5").
-  const amount = (reading.amount.match(/\d[\d,]*(?:\.\d+)?/)?.[0] ?? "").replace(/,/g, "");
+  // The first number in what the agent read ("$64.00", "64 USDC", "1,250.5"). The model sometimes
+  // names the payee and leaves the amount blank; then it's the amount the email asks to pay or send.
+  const asked =
+    /\b(?:pay|send|transfer)\s+(?:us\s+)?\$?\s?(\d[\d,]*(?:\.\d+)?)\s*(?:USDC|USD|ETH)?\b/i.exec(email.body)?.[1] ??
+    /(?:\$\s?(\d[\d,]*(?:\.\d+)?))|(?:(\d[\d,]*(?:\.\d+)?)\s*(?:USDC|USD|ETH)\b)/i.exec(email.body)?.slice(1).find(Boolean) ??
+    "";
+  const amount = (reading.amount.match(/\d[\d,]*(?:\.\d+)?/)?.[0] ?? asked).replace(/,/g, "");
   if (!/^\d+(\.\d+)?$/.test(amount) || Number(amount) <= 0) throw new Unpayable("The agent couldn't find an amount to pay.");
   const memo = reading.reference.trim().slice(0, 64) || null;
 

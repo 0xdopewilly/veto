@@ -17,6 +17,8 @@ const text = (v: unknown, max: number) => typeof v === "string" && v.trim().leng
 /** What the testnet demo owner may do, and the arguments each action accepts. */
 const ACTIONS: Record<string, (a: Args) => Args | null> = {
   override_veto: (a) => (id(a) ? { id: a.id } : null),
+  // Let a held first payment through and save its payee, so the next one isn't held: two calls, one transaction.
+  override_and_save: (a) => (id(a) && text(a.name, 64) ? { id: a.id, name: (a.name as string).trim() } : null),
   cancel_override: (a) => (id(a) ? { id: a.id } : null),
   execute_override: (a) => (id(a) ? { id: a.id, quote: null } : null),
   keep_blocked: (a) => (id(a) ? { id: a.id } : null),
@@ -52,12 +54,22 @@ export async function POST(req: Request) {
         }
       }
     }
+    // The payee saved is the one the payment goes to, read from the vault, not from the request.
+    if (action === "override_and_save") {
+      const p = await reader.proposal(parsed.id as string);
+      if (!p || p.request.chain !== "near") return Response.json({ error: "the sandbox saves NEAR payees only" }, { status: 422 });
+      parsed.address = p.request.payee;
+    }
     noteOwnerAction();
-    const outcome = await owner.signAndSendTransaction({
-      receiverId: demo.vaultId,
-      actions: [(await import("near-api-js")).actions.functionCall(action, parsed, teraToGas(action === "execute_override" ? "300" : "100"), 0n)],
-      waitUntil: "FINAL",
-    });
+    const { actions } = await import("near-api-js");
+    const send = (method: string, args: Args, tgas: "100" | "300") =>
+      owner.signAndSendTransaction({ receiverId: demo.vaultId, actions: [actions.functionCall(method, args, teraToGas(tgas), 0n)], waitUntil: "FINAL" });
+    // The sandbox owner holds a function-call key, which signs one call per transaction: schedule the
+    // payment first, then save the payee. (An owner's own wallet sends both in one transaction.)
+    const outcome =
+      action === "override_and_save"
+        ? await send("override_veto", { id: parsed.id }, "100").then(() => send("add_payee", { name: parsed.name, chain: "near", address: parsed.address }, "100"))
+        : await send(action, parsed, action === "execute_override" ? "300" : "100");
     // An override on an OutLayer payment releases it there too: the guardian votes yes.
     if (action === "execute_override") {
       after(async () => {

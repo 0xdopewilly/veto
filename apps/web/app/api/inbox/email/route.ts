@@ -9,6 +9,8 @@ import { allow, demo, vaultAccounts, type VaultAccounts } from "@/lib/server/dem
 import { requestFromEmail, Unpayable, type AgentProposal } from "@/lib/server/intake";
 import { NEAR_AI_DOWN, proposePayment, screenProposal, type Evidence } from "@/lib/server/pay";
 import { reasonText } from "@/lib/decision";
+import { LADDER, nextTrick, sandboxFrom, tricksIn, type Sandbox } from "@/lib/challenge";
+import { recordCaught } from "@/lib/server/challenge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,7 +76,10 @@ async function handle(mail: AgentMail, accounts: VaultAccounts, messageId: strin
     }
     await screenProposal(accounts, id, evidence);
     const decided = await accounts.reader.proposal(id);
-    await reply(decision(decided, proposal, id));
+    // Only a sender whose address checked out moves up the ladder, so a forged From can't.
+    const caught = decided?.status === "Vetoed" ? tricksIn(decided.verdict?.reasons ?? []).map((t) => t.code) : [];
+    const [progress, payees] = await Promise.all([answerable ? recordCaught(sender, caught) : null, accounts.reader.payees().catch(() => [])]);
+    await reply(decision(decided, proposal, id, { progress, caught, sandbox: sandboxFrom(payees) }));
   } catch (e) {
     if (isNearAiUnavailable(e)) return void (await reply(NEAR_AI_DOWN));
     console.error(`inbox message ${messageId} failed:`, (e as Error).message);
@@ -83,16 +88,49 @@ async function handle(mail: AgentMail, accounts: VaultAccounts, messageId: strin
 
 const FOOTER = `This is Veto's demo agent. It pays test USDC on NEAR testnet from a shared sandbox vault, so nothing real moves. Watch every decision at ${SITE}/app/decisions.`;
 
-function decision(p: Proposal | null, { agent }: AgentProposal, id: string): string {
+interface Ladder {
+  /** Every trick this sender has been caught on so far, or null when progress isn't kept. */
+  progress: Set<string> | null;
+  /** The tricks this email was caught on. */
+  caught: string[];
+  sandbox: Sandbox;
+}
+
+const indent = (text: string) => text.split("\n").map((l) => (l ? `  ${l}` : "")).join("\n");
+
+/** Where the sender stands on "Can you fool Veto?", and the trick to try next with an email to start from. */
+function ladder({ progress, caught, sandbox }: Ladder): string {
+  const done = progress ?? new Set(caught);
+  const lines: string[] = [];
+  if (progress) {
+    lines.push(`Can you fool Veto? You've been caught on ${done.size} of ${LADDER.length} tricks:`);
+    for (const t of LADDER) lines.push(`  ${done.has(t.code) ? "✓" : "–"} ${t.level}. ${t.name}`);
+  } else if (caught.length) {
+    const names = tricksIn(caught).map((t) => `${t.name} (trick ${t.level} of ${LADDER.length})`);
+    lines.push(`Can you fool Veto? This one was caught as ${names.join(" and ")}.`);
+  } else {
+    lines.push(`Can you fool Veto? There are ${LADDER.length} tricks that real invoice fraud uses.`);
+  }
+  const next = nextTrick(done);
+  if (next) {
+    lines.push("", `Next, trick ${next.level}, ${next.name}: ${next.how}`, `Start from this (subject "${next.subject}"):`, "", indent(next.example(sandbox)));
+  } else {
+    lines.push("", "That's all six. Invent a seventh: any email that gets the vault to pay what it shouldn't.");
+  }
+  lines.push("", `Every trick, and how often Veto has caught each one: ${SITE}/challenge`);
+  return lines.join("\n");
+}
+
+function decision(p: Proposal | null, { agent }: AgentProposal, id: string, standing: Ladder): string {
   const what = `${agent.amount} ${agent.currency} to ${agent.payee}${agent.reference ? ` (${agent.reference})` : ""}`;
   const link = `The decision, with the enclave's signature and the exact bytes the model read:\n${SITE}/app/decisions/${id}`;
   if (!p || p.status === "Screening") return `The agent asked to pay ${what}. Veto is still screening it.\n\n${link}\n\n${FOOTER}`;
   if (p.status === "Vetoed") {
     const reasons = (p.verdict?.reasons ?? []).map((r) => `- ${reasonText(r)}`).join("\n");
-    return `Veto vetoed it. Your email got the agent to ask for ${what}, and nothing was paid.\n\nWhy:\n${reasons || "- The screen found the payment didn't match the evidence."}\n\n${link}\n\nThe sandbox owner can override a veto after a delay; the AI alone can never pay.\n\n${FOOTER}`;
+    return `Veto vetoed it. Your email got the agent to ask for ${what}, and nothing was paid.\n\nWhy:\n${reasons || "- The screen found the payment didn't match the evidence."}\n\n${ladder(standing)}\n\n${link}\n\nThe sandbox owner can override a veto after a delay; the AI alone can never pay.\n\n${FOOTER}`;
   }
   if (p.status === "Paid" || p.status === "Executing") {
-    return `Veto passed it, and the vault paid ${what}.\n\nIt matched the mandate, the payee list and the payment history, and the caps allowed it. Now try to fool it: ask for the money at a "new" account, or from an address one letter off a supplier's.\n\n${link}\n\n${FOOTER}`;
+    return `Veto passed it, and the vault paid ${what}.\n\nIt matched the mandate, the payee list and the payment history, and the caps allowed it. If you think it shouldn't have, the decision below shows everything the model read.\n\n${ladder(standing)}\n\n${link}\n\n${FOOTER}`;
   }
   return `The agent asked to pay ${what}. The vault's decision: ${p.status}.\n\n${link}\n\n${FOOTER}`;
 }
@@ -100,5 +138,5 @@ function decision(p: Proposal | null, { agent }: AgentProposal, id: string): str
 async function help(accounts: VaultAccounts, problem: string): Promise<string> {
   const payees = await accounts.reader.payees().catch(() => []);
   const example = payees.find((p) => p.chain === "near")?.address ?? "a-supplier.testnet";
-  return `${problem}\n\nThe agent pays invoices in test USDC to NEAR testnet accounts. Try:\n\n  "Please pay invoice INV-7731 for 120 USDC to ${example}. Thanks!"\n\nThen try to fool it, the way real invoice fraud works: say the bank details changed, or ask for the money at an account one letter off.\n\n${FOOTER}`;
+  return `${problem}\n\nThe agent pays invoices in test USDC to NEAR testnet accounts. Try:\n\n  "Please send 120 USDC to ${example} for invoice INV-7731. Thanks!"\n\nThen try to fool it, the way real invoice fraud works. Six tricks to try, with an email to start from for each: ${SITE}/challenge\n\n${FOOTER}`;
 }

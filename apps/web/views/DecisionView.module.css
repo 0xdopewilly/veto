@@ -316,6 +316,45 @@
   margin-top: 22px;
 }
 
+/* Pay a held first payment and save its payee (on the coral band, in its ink). */
+.save {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 14px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--coral-ink) 12%, transparent);
+}
+
+.saveLabel {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--coral-ink);
+}
+
+.saveInput {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 16px;
+  border: 1.5px solid color-mix(in srgb, var(--coral-ink) 40%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, #fff 30%, transparent);
+  color: #1c0d0a;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 550;
+}
+
+.saveInput::placeholder {
+  color: color-mix(in srgb, var(--coral-ink) 60%, transparent);
+}
+
+.saveInput:focus-visible {
+  outline: 2px solid var(--coral-ink);
+  outline-offset: 1px;
+}
+
 @media (min-width: 900px) {
   .time {
     color: var(--muted);

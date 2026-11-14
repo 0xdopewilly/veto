@@ -511,3 +511,17 @@
 .signer :global(.mono) {
   color: var(--muted);
 }
+
+/* The way into "Can you fool Veto?" from the inbox it plays against. */
+.challenge {
+  color: var(--sand);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--outline);
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+.challenge:hover {
+  text-decoration-color: var(--sand);
+}

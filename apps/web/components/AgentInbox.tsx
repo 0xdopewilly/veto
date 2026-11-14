@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import type { Proposal } from "@veto/core/proposal";
 import { useEffect, useRef, useState } from "react";
@@ -39,7 +40,10 @@ function InboxSub() {
   }
   return (
     <>
-      Emails your agent will pay. Veto screens each payment first.
+      Emails your agent will pay. Veto screens each payment first.{" "}
+      <Link href="/challenge" className={styles.challenge}>
+        Can you fool it?
+      </Link>
     </>
   );
 }

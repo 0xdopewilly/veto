@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useWallet, txHashOf } from "@/lib/wallet";
+import { useWallet, txHashOf, type VaultCall } from "@/lib/wallet";
 import { useVault } from "@/lib/vault";
 import { useDemo } from "@/lib/demoClient";
 import { Pill, type PillVariant } from "./Pill";
@@ -26,8 +26,16 @@ export function OwnerButton({
   anyone = false,
   onDone,
   confirmTone = "dark",
+  batch,
+  disabled = false,
+  quiet = false,
 }: {
   method: string;
+  /** From the owner's wallet, these calls in one transaction instead of `method`; the sandbox owner runs `method`. */
+  batch?: VaultCall[];
+  disabled?: boolean;
+  /** Leave out the "Sandbox owner" line, for a second button right under one that shows it. */
+  quiet?: boolean;
   args?: Record<string, unknown>;
   children: string;
   variant?: PillVariant;
@@ -40,7 +48,7 @@ export function OwnerButton({
   onDone?: () => void;
   confirmTone?: "dark" | "ink";
 }) {
-  const { accountId, isOwner, connect, callVault } = useWallet();
+  const { accountId, isOwner, connect, callVault, callVaultActions } = useWallet();
   const { refresh } = useVault();
   const demo = useDemo();
   const toast = useToast();
@@ -55,7 +63,7 @@ export function OwnerButton({
       pending: `${children}…`,
       success,
       run: async () => {
-        const tx = viaDemo ? (await demo.owner(method, args)).tx : txHashOf(await callVault(method, args));
+        const tx = viaDemo ? (await demo.owner(method, args)).tx : txHashOf(batch ? await callVaultActions(batch) : await callVault(method, args));
         return { tx };
       },
     });
@@ -85,12 +93,12 @@ export function OwnerButton({
         full={full}
         icon={status === "done" ? "check" : icon}
         loading={status === "pending"}
-        disabled={!allowed}
+        disabled={!allowed || disabled}
         onClick={send}
       >
         {status === "done" ? success : children}
       </Pill>
-      {viaDemo ? (
+      {viaDemo && quiet ? null : viaDemo ? (
         <span className={`${styles.demo} ${confirmTone === "ink" ? styles.ink : ""}`}>
           <span className={styles.chip}>Sandbox owner</span>
           <button type="button" className={styles.useWallet} onClick={connect}>

@@ -1,0 +1,21 @@
+/* Sits under the owner's buttons on the coral verdict band, so it uses the band's ink. */
+.share {
+  margin-top: 14px;
+  padding-top: 16px;
+  border-top: 1px solid color-mix(in srgb, var(--coral-ink) 30%, transparent);
+  color: var(--coral-ink);
+}
+
+.label {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.buttons {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}

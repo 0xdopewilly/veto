@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import type { Proposal } from "@veto/core/proposal";
 import { metaOf, useVault, type VaultState } from "@/lib/vault";
 import { useProposal } from "@/lib/useProposal";
@@ -23,6 +24,7 @@ import { Pill } from "@/components/Pill";
 import { OwnerButton } from "@/components/OwnerButton";
 import { VLoader } from "@/components/VLoader";
 import { Deferred } from "@/components/Deferred";
+import { ShareCatch } from "@/components/ShareCatch";
 import styles from "./DecisionView.module.css";
 
 const periodName = (secs: string) => (secs === "604800" ? "weekly" : secs === "86400" ? "daily" : "period");
@@ -101,6 +103,64 @@ function capCaption(state: VaultState, p: Proposal, paid = false): string {
 
 /* ---------------------------------------------------------------- Vetoed */
 
+/** Reasons that say someone is posing as a payee. With any of them, Veto never offers to save the address. */
+const SCAM_SIGNS = new Set(["LOOKALIKE_ADDRESS", "CHANGED_PAYOUT_DETAILS", "DUPLICATE_INVOICE", "URGENCY_PRESSURE", "AMOUNT_ANOMALY", "UNLIMITED_APPROVAL"]);
+
+/** "acme-supplies.testnet" → "Acme Supplies"; a 0x address gets no guess. */
+const nameFrom = (address: string) =>
+  /^0x/i.test(address)
+    ? ""
+    : address
+        .split(".")[0]
+        .split(/[-_]+/)
+        .filter(Boolean)
+        .map((w) => w[0].toUpperCase() + w.slice(1))
+        .join(" ")
+        .slice(0, 64);
+
+/**
+ * A first payment to someone new, held only for being new: pay it and save them, in one
+ * transaction, so their next invoice isn't held for the same reason. The more you use Veto, the
+ * fewer payments wait for you.
+ */
+function PayAndSave({ p, delaySecs }: { p: Proposal; delaySecs: number }) {
+  const [name, setName] = useState(() => nameFrom(p.request.payee));
+  const trimmed = name.trim();
+  return (
+    <div className={styles.save}>
+      <label className={styles.saveLabel} htmlFor={`save-${p.id}`}>
+        Know them? Save them as
+      </label>
+      <input
+        id={`save-${p.id}`}
+        className={styles.saveInput}
+        value={name}
+        maxLength={64}
+        placeholder="Their name"
+        autoComplete="off"
+        onChange={(e) => setName(e.target.value)}
+      />
+      <OwnerButton
+        method="override_and_save"
+        args={{ id: p.id, name: trimmed }}
+        batch={[
+          { method: "add_payee", args: { name: trimmed, chain: p.request.chain, address: p.request.payee } },
+          { method: "override_veto", args: { id: p.id } },
+        ]}
+        disabled={!trimmed}
+        variant="inkOutline"
+        size="md"
+        icon="check"
+        full
+        success="Saved, paying soon"
+        confirmTone="ink"
+      >
+        Pay and save them
+      </OwnerButton>
+    </div>
+  );
+}
+
 function Vetoed({ state, p }: { state: VaultState; p: Proposal }) {
   const router = useRouter();
   const back = useBackTo();
@@ -112,6 +172,16 @@ function Vetoed({ state, p }: { state: VaultState; p: Proposal }) {
   const delaySecs = Number(state.config.override_delay_secs);
   const who = look ? ` from ${look.payee.name}` : "";
   const what = p.request.memo ? `invoice ${p.request.memo}${who}` : `a payment${who}`;
+  const { vaultId, isSandbox } = useVault();
+  // Held for being new and little else (an honest first invoice reads as "new payee" plus one more
+  // reason at most), with no sign of anyone posing as someone else.
+  const savable =
+    reasons.includes("NEW_PAYEE") &&
+    reasons.length <= 2 &&
+    !look &&
+    !listedPayee(state.payees, p) &&
+    !reasons.some((r) => SCAM_SIGNS.has(r)) &&
+    (!isSandbox || p.request.chain === "near");
 
   const actions = (
     <div className={styles.actions}>
@@ -143,10 +213,26 @@ function Vetoed({ state, p }: { state: VaultState; p: Proposal }) {
           Keep it blocked
         </Pill>
       )}
-      <OwnerButton method="override_veto" args={{ id: p.id }} variant="inkOutline" size="md" icon="clock" full success="Override scheduled" confirmTone="ink">
-        {`Override (pays in ${formatDuration(delaySecs)})`}
+      {savable && <PayAndSave p={p} delaySecs={delaySecs} />}
+      <OwnerButton
+        method="override_veto"
+        args={{ id: p.id }}
+        variant="inkOutline"
+        size={savable ? "sm" : "md"}
+        icon="clock"
+        full
+        success="Override scheduled"
+        confirmTone="ink"
+        quiet={savable}
+      >
+        {savable ? "Pay once, without saving them" : `Override (pays in ${formatDuration(delaySecs)})`}
       </OwnerButton>
-      <p className={styles.actionNote}>You can cancel an override any time before it pays.</p>
+      <p className={styles.actionNote}>
+        {savable
+          ? `Either way it pays in ${formatDuration(delaySecs)}, and you can cancel until then. A saved payee isn't held for being new, so their next invoice can go straight through.`
+          : "You can cancel an override any time before it pays."}
+      </p>
+      {!savable && <ShareCatch p={p} vaultId={vaultId} amount={formatShort(p.request.amount, metaOf(state, p.request.asset))} to={listedPayee(state.payees, p)?.name ?? shortAddress(p.request.payee)} />}
     </div>
   );
 
